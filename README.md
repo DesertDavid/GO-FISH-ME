@@ -53,6 +53,7 @@ Open the address it prints (http://localhost:5173 by default) in Chrome or Edge.
 | Settings (volume, graphics, look speed) | `O` |
 | Underwater camera (lure / hooked fish) | `U` |
 | Photo mode (hides the HUD) | `P` |
+| Show / hide the fish finder (remembered) | `F` |
 | Tournaments | `E` |
 | Tackle, Shop, Marina, Travel, Journal, Help | `T` `B` `Y` `M` `J` `H` |
 | Skip ahead an hour | `K` |

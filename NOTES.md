@@ -68,6 +68,9 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   image generator, one prompt per place, same photo style/seed; shown in `.loc-pic`, dimmed when
   locked). To redo one, regenerate at 1344x768 and resize/compress to webp.
 
+- Fish finder (sonar) panel toggle: `F` key + Settings checkbox, saved as `sonar` in settings;
+  hidden = no per-frame sonar drawing (also hidden on foot).
+
 ## Known gaps / ideas
 - No angler body when walking in third person.
 - Net hauls still sell instantly (not through the livewell).
@@ -75,4 +78,4 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - `public/models/hands.glb` is ~2.9 MB (could be Draco/meshopt compressed).
 
 ## Next (proposed)
-- Sonar on/off toggle.
+- (nothing queued)

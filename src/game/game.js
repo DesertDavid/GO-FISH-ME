@@ -167,6 +167,7 @@ export class Game {
       if (k === 'r') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else this.troll.toggle(); }
       if (k === 'u') this.toggleUnderwater();
       if (k === 'p') this.togglePhoto();
+      if (k === 'f') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
       if (k === 'k') { this.commit({ hour: this.save.hour + 1 }); this.applySun(true); this.tourTick(60); this.ui.toast('An hour passes…', 'info'); }
       if (k === '[' || k === ']') this.dragNudge(k === ']' ? 1 : -1);
       if (/^[1-9]$/.test(k) && !this.fishing.busy()) {
@@ -354,8 +355,9 @@ export class Game {
       this.ui.hud();
       if (Math.floor(this.time) % 10 === 0) writeSave(this.save);
     }
-    this.sonar.c.style.display = this.foot ? 'none' : '';
-    if (!this.foot) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, 14), this.hotspots.near(bp.x, bp.z, 60));
+    const showSonar = !this.foot && this.settings.sonar;
+    this.sonar.c.style.display = showSonar ? '' : 'none';
+    if (showSonar) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, 14), this.hotspots.near(bp.x, bp.z, 60));
   }
 
   updateCamera(dt) {

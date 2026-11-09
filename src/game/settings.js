@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   lookSpeed: 1,
   invertY: false,
   mouseLock: true,
+  sonar: true,
 });
 
 export function loadSettings() {
