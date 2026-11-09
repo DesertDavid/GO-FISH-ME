@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 // First-person hands, modelled in Blender (tools/blender/build_hands.py). The model is built in
 // the rod handle's frame (+z along the rod toward the tip, +y up, +x to the angler's left):
@@ -7,7 +8,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // round the crank knob (its origin is the knob centre) and circles with it. The left forearm
 // (ArmL) is a separate piece hinged at a fixed elbow, so it swings to follow the wrist instead
 // of orbiting rigidly with the hand.
-const loader = new GLTFLoader();
+const draco = new DRACOLoader().setDecoderPath(`${import.meta.env.BASE_URL}draco/`);   // decoder files live in public/draco
+const loader = new GLTFLoader().setDRACOLoader(draco);
 const Z = new THREE.Vector3(0, 0, 1);
 // the crank knob's average spot in the handle frame (crank hub + knob offset along the axle)
 const KNOB_HOME = new THREE.Vector3(0.042 + 0.015, -0.085, 0.07);

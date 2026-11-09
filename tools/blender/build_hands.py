@@ -436,7 +436,11 @@ arm_l.select_set(True)
 bpy.data.objects['WristL'].select_set(True)
 bpy.data.objects['ElbowL'].select_set(True)
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
-kw = dict(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_yup=True)
+kw = dict(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_yup=True,
+          # Draco keeps the smooth subsurf'd skin at ~1/15 the size; fine quantisation so it is visually lossless
+          export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=7,
+          export_draco_position_quantization=16, export_draco_normal_quantization=12,
+          export_draco_color_quantization=10, export_draco_generic_quantization=12)
 try:
     bpy.ops.export_scene.gltf(**kw, export_vertex_color='ACTIVE')
 except TypeError:

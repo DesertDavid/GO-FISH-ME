@@ -37,7 +37,9 @@ The user wants it to look great and never generic/"AI-made" (minimal marine-elec
 - Blender 5.2: `H:\Blender\blender-5.2.3-windows-x64\blender.exe`.
   - `blender -b --factory-startup --python tools/blender/build_boats.py` -> `public/models/boats/`
   - `blender -b --factory-startup --python tools/blender/build_hands.py [-- --preview DIR]`
-    -> `public/models/hands.glb`
+    -> `public/models/hands.glb` (Draco-compressed on export, 2.9 MB -> 0.48 MB; max vertex error ~4 um,
+       normals 0.06 deg. `hands.js` loads it through DRACOLoader, decoder files live in `public/draco/`,
+       copied from three/examples/jsm/libs/draco - refresh them if three is upgraded)
 - Saves: localStorage `reelworld-save-v1` (the live autosave), `reelworld-slots-v1` (named slots), settings `reelworld-settings-v1`. `?loc=<id>` pages never write the autosave (`save.js` frozen flag).
 
 ## Git
@@ -100,7 +102,6 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - No angler body when walking in third person.
 - Net hauls still sell instantly (not through the livewell).
 - Saves from Firefox don't carry into the Edge app window automatically: use Esc > Save / Load > Export, then Import in the other browser.
-- `public/models/hands.glb` is ~2.9 MB (could be Draco/meshopt compressed).
 
 ## Next (proposed)
 - (nothing queued)
