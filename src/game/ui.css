@@ -45,6 +45,8 @@ kbd { font: 600 12px var(--font); color: var(--dim); }
 #topLeft .row.dim { color: var(--dim); font-size: 13px; }
 #hCash { color: var(--amber); font-weight: 600; }
 #hBite { color: var(--dim); }
+#hAlert { margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--amber); letter-spacing: 0.02em; }
+#hAlert.fog { color: var(--dim); }
 #menuHint { position: absolute; right: 22px; top: 18px; font-size: 13px; color: var(--faint); }
 #gearLine { position: absolute; left: 22px; bottom: 18px; font-size: 14px; color: var(--dim); }
 #gearLine b { color: var(--text); font-weight: 600; }

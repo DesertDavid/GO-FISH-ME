@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   sonar: true,
   compass: true,
   biteQuality: false,
+  severeWeather: true,
 });
 
 export function loadSettings() {

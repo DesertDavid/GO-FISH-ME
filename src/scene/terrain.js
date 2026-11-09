@@ -24,6 +24,7 @@ uniform vec3 uAbsorption;
 uniform vec3 uSunDirT;
 uniform float uCausticStrength;
 uniform float uFogDensity;
+uniform float uFogBank;   // 0..1 fog bank: the haze turns a flat pearl grey instead of the horizon sky
 uniform float uSnowLine;
 uniform float uRockLine;
 uniform vec3 uRockTint;
@@ -207,7 +208,10 @@ const CAUSTICS = /* glsl */`
 const FOG = /* glsl */`
   vec3 fdir = normalize(vWPos - cameraPosition);
   float fogAmt = 1.0 - exp(-length(vWPos - cameraPosition) * uFogDensity);
-  outgoingLight = mix(outgoingLight, textureLod(uSkyCube, vec3(fdir.x, max(fdir.y, 0.0), fdir.z), 3.0).rgb, fogAmt);
+  vec3 fogC = textureLod(uSkyCube, vec3(fdir.x, max(fdir.y, 0.0), fdir.z), 3.0).rgb;
+  vec3 bankC = textureLod(uSkyCube, vec3(0.0, 0.5, 0.0), 6.0).rgb;
+  fogC = mix(fogC, vec3(dot(bankC, vec3(0.333))) * vec3(0.98, 1.0, 1.03), uFogBank);
+  outgoingLight = mix(outgoingLight, fogC, fogAmt);
 `;
 
 // mode: 'terrain' | 'rock' | 'prop' (props keep their own colours, just get the
@@ -351,6 +355,7 @@ export function createTerrain({ sky, caustics, floatShadow, water, absorption, r
     uSunShadowMatrix: { value: new THREE.Matrix4() },   // the sun light's shadow.matrix (main.js)
     uCausticStrength: { value: 1.0 },
     uFogDensity: { value: LOC.fog },
+    uFogBank: { value: 0 },
     uSnowLine: { value: LOC.snowLine ?? 5000 },
     uRockLine: { value: LOC.rockLine ?? 38 },
     uRockTint: { value: new THREE.Color().fromArray(LOC.rockTint ?? [1, 1, 1]) },

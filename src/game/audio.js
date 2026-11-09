@@ -33,6 +33,7 @@ export class GameAudio {
     amb.buffer = this.noise; amb.loop = true;
     const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600;
     this.ambGain = c.createGain(); this.ambGain.gain.value = 0.25;
+    this.ambLp = lp;
     amb.connect(lp).connect(this.ambGain).connect(this.master);
     amb.start();
     this.lfo = c.createOscillator(); this.lfo.frequency.value = 0.18;
@@ -55,6 +56,41 @@ export class GameAudio {
   }
 
   setAmbient(wind) { if (this.ctx) this.ambGain.gain.value = 0.15 + Math.min(0.5, wind / 30); }
+
+  // fog and storms muffle / swell the world: wind howls up, everything else drops a little
+  setMuffle(fog, storm = 0) {
+    this.pendingFog = fog;
+    if (!this.ctx) return;
+    this.master.gain.setTargetAtTime((this.volume ?? 0.7) * (1 - 0.3 * fog), this.ctx.currentTime, 1.5);
+    this.ambGain.gain.setTargetAtTime(0.25 * (1 - 0.35 * fog) + storm * 0.3, this.ctx.currentTime, 1.5);
+  }
+
+  // thunder arriving after the flash: dist in metres. Near = a hard crack then a long roll; far = a low muffled rumble.
+  thunder(dist = 2000) {
+    if (!this.ctx || this.muted) return;
+    const near = Math.max(0, 1 - dist / 3500), far = 1 - near;
+    if (near > 0.25) this.burst(0.25, 2600, 0.8, 0.9 * near, 'highpass');   // the crack
+    this.burst(2.5 + far * 4, 90 + near * 220, 0.7, 0.35 + 0.7 * near);
+    this.burst(1.6 + far * 2.5, 60 + near * 120, 0.6, 0.45, 'lowpass', 0.25 + Math.random() * 0.5);
+    this.burst(1.2, 140, 0.8, 0.25 * far + 0.1, 'lowpass', 1.2 + Math.random());
+  }
+
+  // one blast of a low two-tone foghorn
+  foghorn(gain = 0.5) {
+    if (!this.ctx || this.muted) return;
+    const c = this.ctx, t = c.currentTime;
+    for (const [f, g] of [[92, 1], [138, 0.6], [185, 0.25]]) {
+      const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f;
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
+      const v = c.createGain();
+      v.gain.setValueAtTime(0, t);
+      v.gain.linearRampToValueAtTime(gain * 0.12 * g, t + 0.35);
+      v.gain.setValueAtTime(gain * 0.12 * g, t + 1.9);
+      v.gain.linearRampToValueAtTime(0, t + 2.6);
+      o.connect(lp).connect(v).connect(this.master);
+      o.start(t); o.stop(t + 2.7);
+    }
+  }
 
   setVolume(v) {
     this.volume = v;
@@ -115,7 +151,7 @@ export class GameAudio {
       case 'cash': [1318, 1760].forEach((f, i) => this.tone(f, 0.18, 0.12, 'square', 0, i * 0.07)); break;
       case 'winch': this.tone(90, 1.5, 0.12, 'sawtooth', 40); break;
       case 'ui': this.tone(900, 0.05, 0.06, 'sine'); break;
-      case 'thunder': this.burst(3.5, 120, 0.7, 0.9); this.burst(1.2, 400, 0.5, 0.4, 'lowpass', 0.1); break;
+      case 'thunder': this.thunder(p > 1 ? p : 1800); break;
       case 'thrash': this.burst(0.25, 1800, 0.8, 0.3); break;
       case 'bump': this.tone(70 + 30 * Math.random(), 0.35, 0.2 * p + 0.1, 'sine', -30); this.burst(0.18, 450, 1.2, 0.25 * p + 0.1); break;
       case 'scream': for (let i = 0; i < 70; i++) this.tone(3300 + (i % 3) * 120, 0.01, 0.09, 'square', 0, i * 0.028); break;

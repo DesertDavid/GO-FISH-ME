@@ -41,6 +41,9 @@ export class PlayerBoat {
     this.body = null;
     this.speed = 0;
     this.wakeTimer = 0;
+    this.rough = 0;                       // 0..1 squall roughness (set by the game)
+    this.gust = { x: 0, z: 0 };           // squall wind direction
+    this.gustT = Math.random() * 100;
   }
 
   async create(floaters, patchProp, pos, yaw) {
@@ -96,6 +99,13 @@ export class PlayerBoat {
       const want = -c.steer * s.turn * authority;
       const Iy = 1 / b.invInertia.y;
       torque.y += (want - b.angVel.y) * Iy * 2.5;
+      // squall: gusts shove the hull downwind and slew it about, so it fights the helm
+      if (this.rough > 0) {
+        const r = this.rough, g = 0.55 + 0.45 * Math.sin(this.gustT * 1.3) * Math.sin(this.gustT * 0.47 + 1);
+        force.x += this.gust.x * m * 1.1 * r * g;
+        force.z += this.gust.z * m * 1.1 * r * g;
+        torque.y += Math.sin(this.gustT * 0.9 + 2) * Iy * 0.9 * r;
+      }
       // a little bow lift when on the throttle
       const bowUp = new THREE.Vector3(0, 0, 1).applyQuaternion(b.quat);
       torque.addScaledVector(bowUp, Math.min(1, Math.abs(vF) / s.speed) * 0.04 * m * this.hull.length * (vF > 0 ? 1 : 0));
@@ -106,6 +116,7 @@ export class PlayerBoat {
   update(dt, floaters, current) {
     if (!this.body) return;
     const b = this.body;
+    this.gustT += dt;
     if (current && (current[0] || current[1])) {
       b.vel.x += (current[0] - b.vel.x) * 0.02 * dt * 10 * (this.control.throttle ? 0 : 1);
       b.vel.z += (current[1] - b.vel.z) * 0.02 * dt * 10 * (this.control.throttle ? 0 : 1);

@@ -28,6 +28,7 @@ const BG_FRAG = /* glsl */`
 uniform samplerCube uCube;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
+uniform float uFogBank;   // 0..1: a fog bank swallows the low sky (and the sun) into a flat grey
 in vec3 vDir;
 out vec4 fragColor;
 void main() {
@@ -37,6 +38,8 @@ void main() {
   // 0.27 deg disc with limb darkening, plus a tight glow; hidden by clouds (cube alpha)
   float disc = smoothstep(0.999985, 0.999992, c) * (0.6 + 0.4 * smoothstep(0.999985, 1.0, c));
   vec3 col = sky.rgb + uSunColor * (disc * 900.0 + pow(max(c, 0.0), 2200.0) * 1.5) * step(0.0, d.y) * sky.a;
+  float fb = uFogBank * (1.0 - 0.4 * smoothstep(0.1, 1.0, d.y));
+  col = mix(col, vec3(dot(textureLod(uCube, vec3(0.0, 0.5, 0.0), 6.0).rgb, vec3(0.333))) * vec3(0.98, 1.0, 1.03), fb);
   fragColor = vec4(col, 1.0);
 }`;
 
@@ -149,7 +152,7 @@ export class SkySystem {
       new THREE.BoxGeometry(1, 1, 1),
       new THREE.ShaderMaterial({
         glslVersion: THREE.GLSL3, vertexShader: BG_VERT, fragmentShader: BG_FRAG,
-        uniforms: { uCube: { value: this.cube }, uSunDir: { value: this.sunDir }, uSunColor: { value: this.sunColor } },
+        uniforms: { uCube: { value: this.cube }, uSunDir: { value: this.sunDir }, uSunColor: { value: this.sunColor }, uFogBank: { value: 0 } },
         side: THREE.BackSide, depthWrite: false,
       }),
     );

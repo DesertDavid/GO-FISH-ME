@@ -73,11 +73,13 @@ export class Game {
     progress(0.75, 'Planting trees…');
     const scenery = buildScenery(this.loc, this.heightAt, this.patchProp);
     this.scene.add(scenery);
+    e.addTideGroup?.(scenery);
     this.start = findStart(this.loc);
     this.hotspots = new Hotspots(this.loc, this.heightAt, this.start, this.patchProp);
     this.scene.add(this.hotspots.group);
     this.docks = new Docks(this.loc, this.heightAt, this.patchProp, this.start);
     this.scene.add(this.docks.group);
+    e.addTideGroup?.(this.docks.group);
     this.obstacles = new Obstacles();
     this.obstacles.add(scenery.userData.colliders);
     this.obstacles.add(this.docks.colliders());
@@ -112,6 +114,7 @@ export class Game {
     this.applySettings();
     this.applySun(true);
     this.weather = new Weather(this.e, this.loc, this.save.weather, this.ui, this.audio);
+    this.weather.severe = this.settings.severeWeather !== false;
     writeSave(this.save);
     progress(1, 'Ready');
     this.ui.ready();
@@ -136,8 +139,9 @@ export class Game {
       canFish: () => this.canFish(),
       hour: () => this.save.hour,
       weatherBite: () => this.weather?.bite ?? 1,
-      weatherId: () => this.weather?.id ?? 'partly',
+      weatherId: () => (this.weather?.L > 0.3 ? 'storm' : this.weather?.id ?? 'partly'),
       biteQuality: () => this.settings.biteQuality,
+      tideMul: (id) => this.weather?.tideMul(id) ?? 1,
       cloudCover: () => this.e.sky.params.cloudCoverage,
       fishingBusy: () => this.fishing.busy(),
       startTrollFight: (p, lure) => this.startTrollFight(p, lure),
@@ -292,6 +296,7 @@ export class Game {
     this.settings = { ...this.settings, ...patch };
     saveSettings(this.settings);
     this.audio.setVolume(this.settings.volume);
+    if (this.weather) this.weather.severe = this.settings.severeWeather !== false;
     this.e.setQuality({ resolution: this.settings.resolution, reflections: this.settings.reflections });
     if ('mouseLock' in patch) {
       if (!this.settings.mouseLock) this.freePointer?.();
@@ -397,7 +402,10 @@ export class Game {
     this.audio.update(dt, REELS[this.save.equip.reel].ratio);
 
     // clock: one real second = one game minute; nights are skipped
-    this.weather.update(dt, dt / 60, this.camera);
+    this.weather.update(dt, dt / 60, this.camera, { hour: this.save.hour, day: this.save.day || 1 });
+    this.docks.yOff = -this.e.getTide();   // docks ride the tide with the land
+    this.boat.rough = this.weather.rough;
+    this.boat.gust = this.weather.gust;
     this.tourTick(dt);
     this.save.weather = this.weather.id;
     let hour = this.save.hour + dt / 60;

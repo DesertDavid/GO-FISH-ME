@@ -50,6 +50,7 @@ export class UI {
       ${toggle('reflections', 'Water reflections')}
       ${slider('lookSpeed', 'Look speed', 0.3, 2.5, 0.05)}
       ${toggle('invertY', 'Invert look up/down')}
+      ${toggle('severeWeather', 'Severe weather (squalls and lightning)')}
       ${toggle('sonar', 'Fish finder panel (F)')}
       ${toggle('biteQuality', 'Bite quality ticks on the lure marker (how well lure, depth and time suit the fish)')}
       ${toggle('compass', 'Compass bar and waypoints (Z drops a waypoint)')}
@@ -148,6 +149,21 @@ export class UI {
     $('hWeather').textContent = w.name;
     const label = biteFactor > 1.3 ? 'fish are biting hard' : biteFactor > 1.05 ? 'good bite' : biteFactor < 0.85 ? 'slow bite' : '';
     $('hBite').textContent = label;
+  }
+
+  // tide line (coastal only) and the one-line warning for fog / squalls; text null hides it
+  tide(text) {
+    $('hTide').textContent = text || '';
+    $('hTideRow').hidden = !text;
+  }
+
+  alert(text, kind = '') {
+    if (text === this._alert && kind === this._alertKind) return;
+    this._alert = text; this._alertKind = kind;
+    const el = $('hAlert');
+    el.hidden = !text;
+    if (text) el.textContent = text;
+    el.className = kind;
   }
 
   // ring + label over the lure/bobber; pos null hides it

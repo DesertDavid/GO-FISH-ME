@@ -80,6 +80,7 @@ const plankZ = (lx, ly, lz, hex, rand) => part(new THREE.BoxGeometry(lz, ly, lx)
 export class Docks {
   constructor(loc, heightAt, patchProp, start) {
     this.heightAt = heightAt;
+    this.yOff = 0;   // -tide: the group sinks with the land, so deck heights follow
     this.group = new THREE.Group();
     this.group.name = 'docks';
     this.list = this.findSites(loc, heightAt, start);
@@ -252,11 +253,11 @@ export class Docks {
   deckAt(x, z) {
     for (const d of this.list) {
       const [u, v] = d.toLocal(x, z);
-      if (u >= -0.1 && u <= d.len + 0.05 && Math.abs(v) <= WALK_W / 2) return d.deck;
-      if (u > d.len && u <= d.len + HEAD_D && Math.abs(v) <= HEAD_W / 2) return d.deck;
+      if (u >= -0.1 && u <= d.len + 0.05 && Math.abs(v) <= WALK_W / 2) return d.deck + this.yOff;
+      if (u > d.len && u <= d.len + HEAD_D && Math.abs(v) <= HEAD_W / 2) return d.deck + this.yOff;
       if (u >= -RAMP && u < -0.1 && Math.abs(v) <= WALK_W / 2) {
         const p = d.toWorld(-RAMP, 0), g0 = this.heightAt(p.x, p.z) + 0.05;
-        return g0 + (d.deck - g0) * ((u + RAMP) / RAMP);
+        return g0 + (d.deck + this.yOff - g0) * ((u + RAMP) / RAMP);
       }
     }
     return null;

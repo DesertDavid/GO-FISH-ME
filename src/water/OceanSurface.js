@@ -379,6 +379,7 @@ uniform vec3 uFoamTint;     // thin foam: the water colour showing through the b
 uniform vec4 uSSS;          // peak strength, view strength, shadow strength, -
 uniform vec4 uFoam;         // bias, scale, shore band (m), brightness
 uniform vec4 uRock;         // surf rock: centre xz, waterline radius (m; 0 = none), unused
+uniform float uFogBank;     // 0..1 fog bank (flat grey haze)
 uniform vec4 uOptics;       // base roughness, refraction strength, reflection distortion, fog density
 uniform vec3 uCamForward;
 uniform int uDebug;
@@ -712,7 +713,9 @@ void main() {
 
   // --- aerial perspective into the horizon sky ---------------------------------------
   float fog = 1.0 - exp(-dist * uOptics.w);
-  col = mix(col, skyLod(-V, 3.0), fog);
+  vec3 fogC = skyLod(-V, 3.0);
+  fogC = mix(fogC, vec3(dot(skyLod(vec3(0.0, 0.5, 0.0), 6.0), vec3(0.333))) * vec3(0.98, 1.0, 1.03), uFogBank);
+  col = mix(col, fogC, fog);
 
   if (uDebug == 1) col = Nrm * 0.5 + 0.5;
   else if (uDebug == 2) col = spec;
@@ -763,6 +766,7 @@ export class OceanSurface {
       uFoam: { value: new THREE.Vector4(0.05, 1.3, 0.2, 0.72) },
       uRock: { value: new THREE.Vector4() },
       uOptics: { value: new THREE.Vector4(0.02, 0.06, 0.04, 1 / 18000) },
+      uFogBank: { value: 0 },
       uCamForward: { value: new THREE.Vector3() },
       uDebug: { value: 0 },
       uGlint: { value: 0.6 },

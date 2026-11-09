@@ -210,7 +210,13 @@ export class Fishing {
     const info = this.matchInfo();
     const rate = 0.07 * activity * (1 + hot * 3.5) * tod * (c.weatherBite ? c.weatherBite() : 1) * info.rate;
     if (Math.random() > rate * dt) return null;
-    const sp = pickFrom(info);
+    // tide: flats species like a rising tide, flatfish and cod a falling one (weather.js tideMul)
+    let pick = info;
+    if (c.tideMul) {
+      const entries = info.entries.map(([s, w]) => [s, w * c.tideMul(s.id)]);
+      pick = { entries, sum: entries.reduce((t, [, w]) => t + w, 0) };
+    }
+    const sp = pickFrom(pick);
     if (!sp) return null;
     const big = (lure.size || 1) * ((['tuna', 'billfish', 'swordfish', 'shark'].includes(sp.body) ? c.boatSpec().bigGame || 1 : 1));
     const luck = this.luck * (performance.now() < this.luckUntil ? 1.6 : 1);
