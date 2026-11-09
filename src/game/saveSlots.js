@@ -3,6 +3,7 @@
 import { LOCATIONS, LOCATION_ORDER } from './locations.js';
 import { DEFAULT_SAVE, readRaw, writeRaw } from './save.js';
 import { CATALOG_SIZE } from './species.js';
+import { BOATS, RODS, REELS, LINES, LURES } from './gear.js';
 
 const SLOTS_KEY = 'reelworld-slots-v1';
 export const SLOT_COUNT = 4;
@@ -91,7 +92,25 @@ export function sanitizeSave(raw) {
   if (!LOCATIONS[raw.location]) throw new Error(`The save is set at a place this version does not have (${String(raw.location).slice(0, 30)}).`);
   if (raw.journal !== undefined && (typeof raw.journal !== 'object' || raw.journal === null)) throw new Error('The save journal is damaged.');
   const def = structuredClone(DEFAULT_SAVE);
-  return { ...def, ...raw, equip: { ...def.equip, ...raw.equip }, stats: { ...def.stats, ...(raw.stats || {}) }, unlocked: raw.unlocked.filter((id) => LOCATIONS[id]) };
+  const out = { ...def, ...raw, equip: { ...def.equip, ...raw.equip }, stats: { ...def.stats, ...(raw.stats || {}) }, unlocked: raw.unlocked.filter((id) => LOCATIONS[id]) };
+  // anything the game indexes by id must exist, or loading would crash on a hand-edited / newer file
+  if (!BOATS[out.boat]) out.boat = 'jon';
+  out.boats = out.boats.filter((id) => BOATS[id]);
+  if (!out.boats.includes(out.boat)) out.boats.unshift(out.boat);
+  for (const [k, table] of [['rod', RODS], ['reel', REELS], ['line', LINES], ['lure', LURES]]) if (!table[out.equip[k]]) out.equip[k] = def.equip[k];
+  if (typeof out.hour !== 'number' || !isFinite(out.hour)) out.hour = def.hour;
+  // journal entries need their morph table; waypoints must be { place: [{x,z,...}] }
+  if (!out.journal || typeof out.journal !== 'object') out.journal = {};
+  for (const [id, e] of Object.entries(out.journal)) if (!e || typeof e !== 'object' || !e.morphs || typeof e.morphs !== 'object') delete out.journal[id];
+  const wp = {};
+  if (out.waypoints && typeof out.waypoints === 'object') {
+    for (const [loc, list] of Object.entries(out.waypoints)) {
+      if (!LOCATIONS[loc] || !Array.isArray(list)) continue;
+      wp[loc] = list.filter((w) => w && isFinite(w.x) && isFinite(w.z)).slice(0, 12).map((w, i) => ({ id: String(w.id ?? `i${i}`), x: +w.x, z: +w.z, name: String(w.name ?? `WPT ${i + 1}`).slice(0, 24) }));
+    }
+  }
+  out.waypoints = wp;
+  return out;
 }
 
 // ---- files ----

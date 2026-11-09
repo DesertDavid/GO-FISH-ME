@@ -217,6 +217,7 @@ export class UI {
     if (this.g.fishing.state === 'caught' && panel !== 'catch') return;
     // the shop and the marina are at the docks (the chart shows where)
     if ((panel === 'shop' && !this.g.serviceHere('tackle')) || (panel === 'marina' && !this.g.serviceHere('boats'))) { if (this.panel) this.close(); return; }
+    if (panel === 'saves' && this.sv) { this.sv.armed = null; this.sv.msg = ''; }   // never come back to a half-armed Overwrite/Delete
     this.panel = panel;
     this.g.freePointer?.();   // menus need the cursor
     $('modal').hidden = false;
