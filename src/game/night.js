@@ -54,7 +54,7 @@ export class NightFX {
       this.bulb.quaternion.copy(boat.body.quat);
       this.light.position.copy(this.bulb.position);
     }
-    this.light.intensity = n * 9;
+    this.light.intensity = n * 120;
     this.bulb.visible = n > 0.05;
     // the bobber's red top glows (a night float)
     const top = c.rod?.bobber?.children[0];
