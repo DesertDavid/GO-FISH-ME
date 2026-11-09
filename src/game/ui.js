@@ -2,9 +2,11 @@ import { RODS, REELS, LINES, LURES, BOATS, BOAT_ORDER } from './gear.js';
 import { LOCATIONS, LOCATION_ORDER } from './locations.js';
 import { SPECIES, SPECIES_BY_ID, MORPHS, CATALOG_SIZE } from './species.js';
 import { catalogCount } from './save.js';
+import { wellSlots } from './livewell.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => '$' + Math.round(n).toLocaleString();
+const money2 = (n) => '$' + n.toFixed(2);
 const lbs = (lb) => (lb < 1 ? `${Math.round(lb * 16)} oz` : lb < 100 ? `${lb.toFixed(2)} lb` : `${Math.round(lb).toLocaleString()} lb`);
 const inches = (i) => (i < 48 ? `${i.toFixed(1)}"` : `${Math.floor(i / 12)}' ${Math.round(i % 12)}"`);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -82,17 +84,19 @@ export class UI {
     el.hidden = !show;
   }
 
-  shoreHint(text) {
+  // key prompts at the bottom of the screen: [[key, text], ...]
+  shoreHint(hints) {
     let el = $('shoreHint');
     if (!el) {
       el = document.createElement('div');
       el.id = 'shoreHint';
       $('hud').appendChild(el);
     }
-    if (el.dataset.t === text) return;
-    el.dataset.t = text;
-    el.hidden = !text;
-    el.innerHTML = text ? `<kbd>G</kbd>${esc(text)}` : '';
+    const t = JSON.stringify(hints);
+    if (el.dataset.t === t) return;
+    el.dataset.t = t;
+    el.hidden = !hints.length;
+    el.innerHTML = hints.map(([k, text]) => `<span><kbd>${k}</kbd>${esc(text)}</span>`).join('');
   }
 
   leaderboard(t) {
@@ -197,7 +201,9 @@ export class UI {
     $('hCash').textContent = money(s.cash);
     // just the bait you're fishing; speed only while under way
     const e = s.equip;
-    $('gearLine').innerHTML = `<b>${esc(LURES[e.lure].name)}</b>${g.troll?.active ? ' · trolling spread out' : ''}`;
+    const well = s.livewell || [], slots = wellSlots(s.boat), weak = well.some((k) => !k.iced && k.health > 0 && k.health < 0.35);
+    const wellTxt = well.length ? ` · <span class="${weak ? 'warn' : ''}">livewell ${well.length}/${slots}</span>` : '';
+    $('gearLine').innerHTML = `<b>${esc(LURES[e.lure].name)}</b>${g.troll?.active ? ' · trolling spread out' : ''}${wellTxt}`;
     const knots = Math.abs(g.boatSpeed()) * 1.944;
     $('boatInfo').hidden = knots < 1;
     $('boatInfo').innerHTML = `<b>${knots.toFixed(0)}</b>knots`;
@@ -217,7 +223,7 @@ export class UI {
 
   // Esc menu: everything that used to sit on screen as buttons, plus today's goals
   renderPause() {
-    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ['events', 'Tournaments', 'E'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
+    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ['events', 'Tournaments', 'E'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
     const list = items.map(([id, label, key]) => `<button data-act="${id === 'resume' ? 'close' : 'go'}" data-id="${id}">${label}<kbd>${key}</kbd></button>`).join('');
     const ch = this.g.save.challenges;
     const goals = ch ? ch.list.map((c) => `<div class="ch ${c.done ? 'done' : ''}"><span>${esc(c.text)}<div class="prog">${c.done ? 'Done' : `${Math.min(c.have, c.need)} of ${c.need}`}</div></span><b>${money(c.reward)}</b></div>`).join('') : '';
@@ -235,7 +241,7 @@ export class UI {
 
   render() {
     const card = $('modalCard');
-    const fn = { shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause }[this.panel];
+    const fn = { shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, livewell: this.renderLivewell }[this.panel];
     if (fn) card.innerHTML = fn.call(this);
   }
 
@@ -317,7 +323,7 @@ export class UI {
   }
 
   renderHelp() {
-    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', 'Mouse wheel / [ ]'], ['Steer rod against the fish', 'A / D'], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Throttle / steer boat', 'W S / A D'], ['Step onto a dock or the bank / back aboard', 'G'], ['Walk (on foot)', 'W A S D, Shift to hurry'], ['First / third person', 'V'], ['Deploy / haul net (net boats)', 'N'], ['Trolling spread (salt water)', 'R'], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina', 'T / B / Y'], ['Travel / Journal', 'M / J'], ['Skip ahead 1 hour', 'K'], ['Underwater camera (lure / fish)', 'U'], ['Photo mode', 'P'], ['Tournaments', 'E'], ['Settings', 'O'], ['Close menus', 'Esc']];
+    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', 'Mouse wheel / [ ]'], ['Steer rod against the fish', 'A / D'], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Throttle / steer boat', 'W S / A D'], ['Step onto a dock or the bank / back aboard', 'G'], ['Livewell & market (sell at any dock)', 'L'], ['Walk (on foot)', 'W A S D, Shift to hurry'], ['First / third person', 'V'], ['Deploy / haul net (net boats)', 'N'], ['Trolling spread (salt water)', 'R'], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina', 'T / B / Y'], ['Travel / Journal', 'M / J'], ['Skip ahead 1 hour', 'K'], ['Underwater camera (lure / fish)', 'U'], ['Photo mode', 'P'], ['Tournaments', 'E'], ['Settings', 'O'], ['Close menus', 'Esc']];
     return this.head('How to fish') + `<div class="help-grid">${k.map(([a, b]) => `<div><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div>
       <p class="tips"><b>Fighting:</b> reel while the fish rests or turns, and STOP reeling when it runs - cranking against a running fish twists the line until it snaps. When it runs, line peels off at your drag setting. If tension goes past the line's breaking strength it snaps, so keep drag below it. Reel when the fish rests, pull the rod the opposite way to the fish (A/D) to tire it faster, and don't give it slack or it can throw the hook. When it jumps, ease off the drag. Get a tired fish next to the boat to land it.</p>
       <p class="tips"><b>Finding fish:</b> diving gulls and bait balls mark hotspots; dawn and dusk bite best. Match the lure to what the fish eats and to its depth. Active lures need to be moving (reel or troll).</p>
@@ -334,8 +340,50 @@ export class UI {
     const badges = [c.isNewSpecies && '<span class="badge gold">New species</span>', c.isNewMorph && !c.isNewSpecies && c.morph.id !== 'normal' && '<span class="badge gold">New variant</span>', c.isRecord && '<span class="badge">Personal best</span>', c.lb > c.sp.lb[2] * 0.7 && '<span class="badge gold">Trophy</span>'].filter(Boolean).join('');
     return `<div class="morph">${c.morph.id === 'normal' ? 'Caught' : c.morph.name + ' variant'}</div><h2>${esc(c.sp.name)}</h2><div class="badges">${badges}</div>
       <div class="big"><div><b>${lbs(c.lb)}</b><span>weight</span></div><div><b>${inches(c.inches)}</b><span>length</span></div><div><b style="color:var(--accent-2)">${money(c.value)}</b><span>market value</span></div></div>
-      <div class="stats small">World record about ${lbs(c.sp.lb[2])}. ${c.morph.id !== 'normal' ? `Rare variant: worth ${c.morph.value}x.` : ''}</div>
-      <div class="actions"><button class="btn gold" data-act="sell">Keep & sell ${money(c.value)}</button><button class="btn" data-act="release">Release (luck boost)</button></div>`;
+      <div class="stats small">World record about ${lbs(c.sp.lb[2])}. ${c.morph.id !== 'normal' ? `Rare variant: worth ${c.morph.value}x. ` : ''}${c.fishOfDay ? 'Fish of the day at the market. ' : ''}${c.buyer ? 'Buyer boat price (15% cut).' : ''}</div>
+      <div class="actions">${this.catchButtons(c)}</div>`;
+  }
+
+  catchButtons(c) {
+    const keep = c.iced ? 'Put it on ice' : 'Keep it';
+    let first;
+    if (c.well < c.slots) first = `<button class="btn gold" data-act="keep">${keep} <small>${c.well + 1}/${c.slots}</small></button>`;
+    else if (c.cull) first = `<button class="btn gold" data-act="cull">${keep}, release the ${esc(c.cull.name.toLowerCase())}</button>`;
+    else first = '<button class="btn gold" disabled>Livewell full</button>';
+    const sell = c.canSell ? `<button class="btn primary" data-act="sellnow">Sell now ${money(c.value)}</button>` : '';
+    return `${first}${sell}<button class="btn" data-act="release">Release (luck boost)</button>`;
+  }
+
+  renderLivewell() {
+    const g = this.g, s = g.save, m = g.market, day = s.day || 1;
+    const access = g.marketAccess(), buyer = access === 'buyer';
+    const well = s.livewell || [], slots = wellSlots(s.boat);
+    const where = access === 'dock' ? 'At the dock market' : buyer ? 'Buyer boat on the radio (15% cut)' : `No buyer here. ${esc(g.nearestDockText())}`;
+    const fotd = m.fishOfDay(day);
+    const rows = well.map((k) => {
+      const sp = SPECIES_BY_ID[k.sp], morph = MORPHS.find((x) => x.id === k.morph) || MORPHS[0];
+      const cond = g.wellCondition(k), pct = Math.round(k.health * 100);
+      const tone = k.iced ? 'ice' : k.health <= 0 ? 'dead' : k.health < 0.35 ? 'low' : k.health < 0.7 ? 'mid' : 'ok';
+      const v = m.value(s, k, buyer);
+      const btns = (access ? `<button class="btn primary" data-act="sellone" data-id="${k.id}">Sell</button>` : '') + (!k.iced && k.health > 0 ? `<button class="btn" data-act="releaseone" data-id="${k.id}">Release</button>` : '');
+      return `<tr><td><b>${esc(sp.name)}</b>${morph.id !== 'normal' ? ` <span class="badge gold">${esc(morph.name)}</span>` : ''}${k.sp === fotd ? ' <span class="badge">Fish of the day</span>' : ''}</td><td>${lbs(k.lb)}</td><td><div class="cond ${tone}"><i style="width:${pct}%"></i></div><span class="small">${cond}</span></td><td class="v">${money(v)}</td><td class="b">${btns}</td></tr>`;
+    }).join('');
+    // what "sell everything" pays: each fish sold drops that species' price for the next
+    let total = 0, tmp = s;
+    for (const k of well) { total += m.value(tmp, k, buyer); tmp = { ...tmp, market: m.recordSale(tmp, k.sp) }; }
+    // price board: this location's fish, today's $/lb vs the usual
+    const ids = Object.entries(g.loc.pool || {}).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id]) => id).filter((id) => SPECIES_BY_ID[id]);
+    const board = ids.map((id) => {
+      const sp = SPECIES_BY_ID[id], now = m.perLb(s, id), d = now / sp.price;
+      const arrow = d > 1.08 ? '<span class="up">▲</span>' : d < 0.92 ? '<span class="down">▼</span>' : '<span class="flat">–</span>';
+      return `<div class="pb"><span>${esc(sp.name)}${id === fotd ? ' <span class="badge">today</span>' : ''}</span><b>${money2(now)}/lb</b>${arrow}</div>`;
+    }).join('');
+    return this.head('Livewell', `${well.length}/${slots} · ${money(s.cash)}`) + `
+      <div class="well-where ${access ? 'on' : ''}">${where}</div>
+      ${well.length ? `<table class="well"><tr><th>Fish</th><th>Weight</th><th>Condition</th><th>Value</th><th></th></tr>${rows}</table>` : '<p class="tips">Nothing in the livewell. Keep a catch instead of selling it on the spot, then bring it to any dock.</p>'}
+      <h5 class="board-h">Today's prices at ${esc(g.loc.name)}</h5><div class="board">${board}</div>
+      <p class="tips">Fish tire in the livewell: hardy fish (bass, catfish, gar) last far longer than trout, salmon or herring. Big pelagics go on ice. Prices change at midnight, and each fish of one species you sell today lowers its price.</p>
+      <div class="actions">${access && well.length ? `<button class="btn gold" data-act="sellall">Sell everything ${money(total)}</button>` : ''}<button class="btn primary" data-act="close">Back to fishing</button></div>`;
   }
 
   showHaul(rows, morphs, total) {
@@ -361,8 +409,13 @@ export class UI {
       case 'boat': g.switchBoat(d.id); this.forceClose(); break;
       case 'unlock': g.unlock(d.id); this.render(); break;
       case 'travel': g.travel(d.id); break;
-      case 'sell': this.forceClose(); g.finishCatch(true); break;
-      case 'release': this.forceClose(); g.finishCatch(false); break;
+      case 'keep': this.forceClose(); g.finishCatch('keep'); break;
+      case 'cull': this.forceClose(); g.finishCatch('cull'); break;
+      case 'sellnow': this.forceClose(); g.finishCatch('sell'); break;
+      case 'release': this.forceClose(); g.finishCatch('release'); break;
+      case 'sellone': g.sellFish([d.id]); this.render(); break;
+      case 'sellall': g.sellFish('all'); this.render(); break;
+      case 'releaseone': g.releaseFish(d.id); this.render(); break;
       case 'sellhaul': this.forceClose(); g.sellHaul(this.haul); break;
       case 'go': this.open(d.id); break;
       case 'enter': g.enterTournament(d.id); this.forceClose(); break;

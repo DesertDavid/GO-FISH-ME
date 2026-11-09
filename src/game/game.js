@@ -22,6 +22,8 @@ import { makeChallenges, recordCatch } from './challenges.js';
 import { Weather } from './weather.js';
 import { NightFX } from './night.js';
 import { Docks } from './docks.js';
+import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
+import { SPECIES_BY_ID } from './species.js';
 
 const TABLES = { rods: RODS, reels: REELS, lines: LINES, lures: LURES };
 const KIND_OF = { rods: 'rod', reels: 'reel', lines: 'line', lures: 'lure' };
@@ -65,6 +67,7 @@ export class Game {
     this.scene.add(this.hotspots.group);
     this.docks = new Docks(this.loc, this.heightAt, this.patchProp, this.start);
     this.scene.add(this.docks.group);
+    this.market = new Market(this.loc);
     progress(0.85, 'Launching the boat…');
     let boatId = this.save.boat;
     if (!BOATS[boatId].waters.includes(this.loc.water)) boatId = this.save.boats.find((b) => BOATS[b].waters.includes(this.loc.water)) || 'jon';
@@ -152,6 +155,7 @@ export class Game {
       if (open) { this.ui.open(open); this.keys.clear(); return; }
       if (k === 'v') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
       if (k === 'g') this.toggleShore();
+      if (k === 'l') { this.ui.open('livewell'); this.keys.clear(); return; }
       if (k === 'n') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else this.net.toggle(); }
       if (k === 'r') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else this.troll.toggle(); }
       if (k === 'u') this.toggleUnderwater();
@@ -317,6 +321,9 @@ export class Game {
       this.ui.toast('Midnight - new challenges are posted.', 'good');
     }
     this.save.hour = hour;
+    for (const k of ageWell(this.save.livewell, dt / 60)) {
+      this.ui.toast(`The ${SPECIES_BY_ID[k.sp].name.toLowerCase()} in your livewell died. Sell soon - it's worth less now.`, 'bad');
+    }
     this.sunTimer += dt;
     // re-bake the sky every 15 s, but every 2 s around dusk and dawn so the change is smooth
     const nearHorizon = Math.abs(this.sunElevation(hour)) < 5;
@@ -518,7 +525,9 @@ export class Game {
         }
       }
     }
-    this.ui.shoreHint(text);
+    const hints = text ? [['G', text]] : [];
+    if (this.view === 'first' && !this.fishing.busy() && !this.ui.isOpen() && this.save.livewell.length && this.marketAccess() === 'dock') hints.push(['L', 'sell your catch at the dock']);
+    this.ui.shoreHint(hints);
   }
 
   // photo mode: hide every overlay (HUD and rod); the views and camera controls still work
@@ -592,27 +601,56 @@ export class Game {
 
   // ---------------------------------------------------------------- catches & economy
   onCatch(f, done) {
-    const value = Math.max(1, f.lb * f.sp.price * f.morph.value);
     const res = logCatch(this.save, f.sp.id, f.morph.id, f.lb);
-    this.pendingCatch = { f, done, value, res };
+    const kept = keepFish(f);
+    const access = this.marketAccess();
+    const value = this.market.value(this.save, kept, access === 'buyer');
+    this.pendingCatch = { f, done, value, res, kept };
     const { inches } = fishLengthM(f.sp, f.lb);
-    this.ui.showCatch({ sp: f.sp, morph: f.morph, lb: f.lb, inches, value, isNewSpecies: res.isNewSpecies, isNewMorph: res.isNewMorph, isRecord: res.isRecord });
+    // a full livewell: offer to swap out the least valuable fish if this one beats it
+    const well = this.save.livewell, slots = wellSlots(this.save.boat);
+    let cull = null;
+    if (well.length >= slots) {
+      const worst = well.reduce((a, k) => (!a || this.market.value(this.save, k) < this.market.value(this.save, a) ? k : a), null);
+      if (worst && this.market.value(this.save, worst) < this.market.value(this.save, kept)) cull = { name: SPECIES_BY_ID[worst.sp].name, lb: worst.lb };
+    }
+    this.ui.showCatch({
+      sp: f.sp, morph: f.morph, lb: f.lb, inches, value, iced: kept.iced,
+      isNewSpecies: res.isNewSpecies, isNewMorph: res.isNewMorph, isRecord: res.isRecord,
+      well: well.length, slots, cull, canSell: !!access, buyer: access === 'buyer', fishOfDay: this.market.fishOfDay(this.save.day || 1) === f.sp.id,
+    });
   }
 
-  finishCatch(sell) {
+  // mode: 'keep' (livewell), 'cull' (swap out the least valuable kept fish), 'sell' (at the market), 'release'
+  finishCatch(mode) {
     const p = this.pendingCatch;
     if (!p) return;
     const stats = { ...p.res.save.stats, caught: p.res.save.stats.caught + 1 };
     if (!stats.heaviest || p.f.lb > stats.heaviest.lb) stats.heaviest = { sp: p.f.sp.id, lb: p.f.lb };
-    let cash = p.res.save.cash;
-    if (sell) { cash += p.value; stats.earned += p.value; this.audio.play('cash'); }
-    else {
+    let cash = p.res.save.cash, livewell = p.res.save.livewell, market = p.res.save.market;
+    if (mode === 'sell') {
+      const v = this.market.value(p.res.save, p.kept, this.marketAccess() === 'buyer');
+      cash += v; stats.earned += v;
+      market = this.market.recordSale(p.res.save, p.kept.sp);
+      this.audio.play('cash');
+      this.ui.toast(`Sold for $${Math.round(v).toLocaleString()}`, 'good');
+    } else if (mode === 'keep' || mode === 'cull') {
+      if (mode === 'cull') {
+        const worst = livewell.reduce((a, k) => (!a || this.market.value(p.res.save, k) < this.market.value(p.res.save, a) ? k : a), null);
+        livewell = livewell.filter((k) => k !== worst);
+        stats.released += 1;
+        this.ui.toast(`Culled: released the ${SPECIES_BY_ID[worst.sp].name.toLowerCase()} to make room.`, 'info');
+      }
+      livewell = [...livewell, p.kept];
+      this.ui.toast(p.kept.iced ? 'On ice in the fish box.' : `In the livewell (${livewell.length}/${wellSlots(this.save.boat)}).`, 'info');
+    } else {
       stats.released += 1;
       this.fishing.luckUntil = performance.now() + 180000;
       this.ui.toast('Released! Rare-variant luck boosted for 3 minutes.', 'good');
-      this.splash(this.boat.position.x, this.boat.position.z, 0.05, 0.5);
+      const at = this.foot ? this.fishing.lure : this.boat.position;
+      this.splash(at.x, at.z, 0.05, 0.5);
     }
-    this.save = { ...p.res.save, cash, stats };
+    this.save = { ...p.res.save, cash, stats, livewell, market };
     // daily challenges
     const ch = recordCatch(this.save.challenges, p.f.sp, p.f.morph, p.f.lb);
     let bonus = 0;
@@ -633,6 +671,57 @@ export class Game {
     this.pendingCatch = null;
     this.ui.hud();
   }
+
+  // ---------------------------------------------------------------- livewell & market
+  // 'dock' at a dock (on it, or tied up alongside), 'buyer' where there are no docks (open
+  // ocean: a buyer boat takes the catch for a cut), else null
+  marketAccess() {
+    if (!this.docks.list.length) return 'buyer';
+    if (this.foot) return this.docks.deckAt(this.foot.x, this.foot.z) !== null ? 'dock' : null;
+    const bp = this.boat.position, n = this.docks.nearest(bp.x, bp.z);
+    return n && n.dist < this.boat.hull.length / 2 + 6 && Math.abs(this.boatSpeed()) < 1.5 ? 'dock' : null;
+  }
+
+  nearestDockText() {
+    const from = this.foot || this.boat.position;
+    const n = this.docks.nearest(from.x, from.z);
+    if (!n) return '';
+    const facing = this.foot ? this.look.yaw + Math.PI / 2 : this.boat.heading();
+    return `Nearest dock: ${Math.round(n.centre)} m, ${this.bearing(n.dock.end.x, n.dock.end.z, from, facing)}.`;
+  }
+
+  // sell kept fish by id (or every one); returns the total
+  sellFish(ids) {
+    const access = this.marketAccess();
+    if (!access) { this.ui.toast(`No buyer here. Bring your catch to a dock. ${this.nearestDockText()}`, 'info'); return 0; }
+    let save = this.save, total = 0;
+    const sold = [];
+    for (const k of save.livewell) {
+      if (ids !== 'all' && !ids.includes(k.id)) continue;
+      const v = this.market.value(save, k, access === 'buyer');
+      total += v;
+      sold.push(k.id);
+      save = { ...save, market: this.market.recordSale(save, k.sp) };
+    }
+    if (!sold.length) return 0;
+    save = { ...save, livewell: save.livewell.filter((k) => !sold.includes(k.id)), cash: save.cash + total, stats: { ...save.stats, earned: save.stats.earned + total } };
+    this.save = save;
+    writeSave(save);
+    this.audio.play('cash');
+    this.ui.toast(`Sold ${sold.length} fish for $${Math.round(total).toLocaleString()}`, 'good');
+    this.ui.hud();
+    return total;
+  }
+
+  releaseFish(id) {
+    const k = this.save.livewell.find((x) => x.id === id);
+    if (!k || k.iced || k.health <= 0) return;
+    this.commit({ livewell: this.save.livewell.filter((x) => x !== k), stats: { ...this.save.stats, released: this.save.stats.released + 1 } });
+    this.ui.toast(`Released the ${SPECIES_BY_ID[k.sp].name.toLowerCase()}.`, 'info');
+    this.ui.hud();
+  }
+
+  wellCondition(k) { return condition(k); }
 
   // ---------------------------------------------------------------- tournaments
   tournaments() { return tournamentsFor(this.loc, this.save.day || 1); }

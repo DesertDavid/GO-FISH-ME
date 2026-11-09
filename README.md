@@ -11,6 +11,9 @@ anchor light, the bobber glows, and night feeders (catfish, walleye, snook, tarp
 others) bite harder.
 Every lake, river and coast has wooden docks on its real shoreline: pull alongside, press `G` to
 step off, and fish from the dock or walk the bank and wade the shallows.
+Kept fish ride in your livewell (bigger boats hold more; tuna, billfish and sharks go on ice) and
+tire over time, so sell them at a dock before they lose value. The market posts new prices each
+day, pays a premium for the fish of the day, and pays less the more of one species you sell.
 
 ## Run it
 
@@ -37,6 +40,7 @@ Open the address it prints (http://localhost:5173 by default) in Chrome or Edge.
 | Pull the rod against the fish | `A` / `D` during a fight |
 | Drive the boat | `W` `S` `A` `D` |
 | Step onto a dock or the bank / back aboard | `G` |
+| Livewell & market (sell at any dock) | `L` |
 | Walk (on foot) | `W` `A` `S` `D`, `Shift` to hurry |
 | Look around | right-drag or arrow keys |
 | First / third person | `V` |
