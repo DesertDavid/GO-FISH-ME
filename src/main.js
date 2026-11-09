@@ -165,11 +165,20 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
   }
   window.addEventListener('resize', resize);
 
-  let sunDirty = true;
+  // Night is "day for night": after dusk the sky is driven by the moon at a small fraction of
+  // the sun's strength, the light is tinted moon-blue, and exposure / saturation drop so auto
+  // exposure can't turn it back into day. `night` is 0 (day) .. 1 (full night).
+  let sunDirty = true, weatherSun = sky.params.sunIntensity, night = 0;
+  const MOON_TINT = new THREE.Color(0.55, 0.68, 1.0);
+  const applyIntensity = () => {
+    sky.params.sunIntensity = weatherSun * THREE.MathUtils.lerp(1, 0.07, night);
+    sunDirty = true;
+  };
   function applySun() {
     sky.update();
     sunLight.position.copy(sky.sunDir).multiplyScalar(2000);
     sunLight.color.setRGB(sky.sunColor.x, sky.sunColor.y, sky.sunColor.z).multiplyScalar(1 / Math.max(sky.sunColor.x, 1e-4));
+    sunLight.color.lerp(MOON_TINT, night);
     sunLight.intensity = Math.PI * Math.max(sky.sunColor.x, 1e-4);
     ovSun.position.copy(sky.sunDir);
     ovSun.color.copy(sunLight.color);
@@ -184,9 +193,16 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     patchProp: terrain.patchProp, heightAt: islandHeight,
     setSun: (elevation, azimuth) => { Object.assign(sky.params, { elevation, azimuth }); sunDirty = true; },
     // weather: cloud cover + sun strength (sky re-bake), wind (wave spectrum), haze
+    setNight: (n) => {
+      if (Math.abs(n - night) < 1e-3) return;
+      night = n;
+      applyIntensity();
+    },
+    getNight: () => night,
     setWeatherLook: ({ clouds, sun, windMul, fogMul }) => {
-      Object.assign(sky.params, { cloudCoverage: clouds, sunIntensity: sun });
-      sunDirty = true;
+      sky.params.cloudCoverage = clouds;
+      weatherSun = sun;
+      applyIntensity();
       const wind = Math.min(17, LOC.wind * windMul);   // past ~17 m/s the seas outgrow the boats
       if (Math.abs(ocean.params.windSpeed - wind) > 0.05) { ocean.params.windSpeed = wind; ocean.dirty = true; }
       terrain.uniforms.uFogDensity.value = LOC.fog * fogMul;
@@ -236,7 +252,9 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     su.uCamSide.value = camY > camWater + 0.5 ? -1 : camY < camWater - 0.5 ? 1 : 0;
     snow.update(camera, hdrRT.height, nearSurface);
     uwComp += ((submerged ? 0.55 : 1) - uwComp) * Math.min(1, dt * 3);
-    post.params.exposure = uwComp;
+    // at night: hold exposure down (auto exposure would brighten it back to day) and drain colour
+    post.params.exposure = uwComp * THREE.MathUtils.lerp(1, 0.2, night);
+    post.params.saturation = THREE.MathUtils.lerp(1.3, 0.55, night);
     post.params.droplets = wasSubmerged && !submerged ? 1 : submerged ? 0 : Math.max(0, post.params.droplets - dt / 5);
     wasSubmerged = submerged;
 

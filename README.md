@@ -6,8 +6,17 @@ reels, line and lures with real stats, and seven boats modelled in Blender, from
 to a purse seiner with working nets. Weather (clear to storms, with rain and lightning) changes
 the waves and the bite, and each location posts three daily challenges paid in cash and three
 tournaments against AI rivals. An underwater camera follows your lure or the fish you're fighting.
+The clock runs the full 24 hours: after dark the moon and stars come out, your boat shows an
+anchor light, the bobber glows, and night feeders (catfish, walleye, snook, tarpon, sharks and
+others) bite harder.
 
 ## Run it
+
+On Windows, double-click `Play Reel World.bat`. It installs packages on the first run, starts
+the game on http://localhost:5200 and opens your browser. Keep its window open while you play.
+You need [Node.js](https://nodejs.org) (LTS).
+
+Or by hand:
 
 ```
 npm install

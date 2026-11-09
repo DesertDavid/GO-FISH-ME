@@ -8,6 +8,8 @@ import { buildFish, fishLengthM } from './fishMesh.js';
 // runs, jumps, head shakes and slack.
 const G = 9.81;
 const DEPTH_INDEX = { s: 0, m: 1, b: 2 };
+// species that feed mostly after dark: much more likely at night, a bit less by day
+const NIGHT_FEEDERS = new Set(['channelcat', 'bluecat', 'flathead', 'walleye', 'sauger', 'burbot', 'redtail', 'piraiba', 'snook', 'tarpon', 'mangrovesnapper', 'swordfish', 'lemonshark', 'blacktip', 'nurseshark', 'tigershark', 'ling', 'wolffish', 'sablefish', 'pacifichalibut', 'barramundi', 'mangrovejack', 'trairao']);
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _fwd = new THREE.Vector3();
 
 export class Fishing {
@@ -165,7 +167,9 @@ export class Fishing {
     if (lure.fly && rod.fly) activity *= 1.35;
     const hot = c.hotspots ? c.hotspots.near(this.lure.x, this.lure.z, 55) : 0;
     const hour = c.hour();
-    const tod = hour < 8.5 || hour > 17.5 ? 1.4 : hour > 11 && hour < 15 ? 0.85 : 1;
+    // dawn and dusk are best; the dark hours are steady, with night feeders taking over
+    const isNight = hour < 5.2 || hour > 20.6;
+    const tod = isNight ? 0.95 : hour < 8.5 || hour > 17.5 ? 1.4 : hour > 11 && hour < 15 ? 0.85 : 1;
     const rate = 0.07 * activity * (1 + hot * 3.5) * tod * (c.weatherBite ? c.weatherBite() : 1);
     if (Math.random() > rate * dt) return null;
     const pool = c.loc.pool;
@@ -177,7 +181,8 @@ export class Fishing {
       if (!sp) continue;
       const dietOk = [...lure.diet].some((ch) => sp.diet.includes(ch)) ? 1 : 0.05;
       const dz = Math.abs(DEPTH_INDEX[sp.depth] - z);
-      const wt = w * dietOk * [1, 0.4, 0.12][dz];
+      const nightW = isNight ? (NIGHT_FEEDERS.has(id) ? 3 : 0.45) : (NIGHT_FEEDERS.has(id) ? 0.7 : 1);
+      const wt = w * dietOk * [1, 0.4, 0.12][dz] * nightW;
       entries.push([sp, wt]);
       sum += wt;
     }

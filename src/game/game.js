@@ -20,6 +20,7 @@ import { UI } from './ui.js';
 import { fishLengthM } from './fishMesh.js';
 import { makeChallenges, recordCatch } from './challenges.js';
 import { Weather } from './weather.js';
+import { NightFX } from './night.js';
 
 const TABLES = { rods: RODS, reels: REELS, lines: LINES, lures: LURES };
 const KIND_OF = { rods: 'rod', reels: 'reel', lines: 'line', lures: 'lure' };
@@ -71,6 +72,7 @@ export class Game {
     this.ambient = new AmbientFish(this.ctx());
     this.wildlife = new Wildlife(this.ctx());
     this.troll = new Trolling(this.ctx());
+    this.nightFX = new NightFX(this.ctx());
     this.aiBoats = new AIBoats(this.ctx(), e.floaters, this.patchProp, this.start);
     progress(0.92, 'Other anglers heading out…');
     await this.aiBoats.spawn(this.loc.water === 'offshore' ? 2 : 3);
@@ -102,6 +104,7 @@ export class Game {
       canFish: () => this.canFish(),
       hour: () => this.save.hour,
       weatherBite: () => this.weather?.bite ?? 1,
+      cloudCover: () => this.e.sky.params.cloudCoverage,
       fishingBusy: () => this.fishing.busy(),
       startTrollFight: (p, lure) => this.startTrollFight(p, lure),
       boatSpeed: () => this.boatSpeed(),
@@ -288,6 +291,7 @@ export class Game {
     this.hotspots.update(dt, this.time, this.e.floaters, bp);
     this.ambient.update(dt, bp);
     this.wildlife.update(dt, bp);
+    this.nightFX.update(this.nightLevel(), this.camera);
     this.aiBoats.update(dt, bp);
     this.audio.update(dt, REELS[this.save.equip.reel].ratio);
 
@@ -296,16 +300,18 @@ export class Game {
     this.tourTick(dt);
     this.save.weather = this.weather.id;
     let hour = this.save.hour + dt / 60;
-    if (hour >= 21) {
-      hour = 5.5;
+    // full 24-hour clock; a new day (and new challenges) at midnight
+    if (hour >= 24) {
+      hour -= 24;
       this.save.day = (this.save.day || 1) + 1;
       this.ensureChallenges();
-      this.ui.toast('A new day dawns - new challenges posted.', 'good');
-      this.sunTimer = 99;
+      this.ui.toast('Midnight - new challenges are posted.', 'good');
     }
     this.save.hour = hour;
     this.sunTimer += dt;
-    if (this.sunTimer > 15) this.applySun(false);
+    // re-bake the sky every 15 s, but every 2 s around dusk and dawn so the change is smooth
+    const nearHorizon = Math.abs(this.sunElevation(hour)) < 5;
+    if (this.sunTimer > (nearHorizon ? 2 : 15)) this.applySun();
     if (Math.floor(this.time) !== Math.floor(this.time - dt)) {
       this.ui.hud();
       if (Math.floor(this.time) % 10 === 0) writeSave(this.save);
@@ -393,12 +399,30 @@ export class Game {
     this.look.pitch = 0;
   }
 
-  applySun(force) {
+  // Sun by day; after dusk the moon drives the sky (see main.js setNight). Sun is up from
+  // ~5:40 to ~20:10; the moon rises in the east at dusk and sets in the west at dawn.
+  sunElevation(h = this.save.hour) {
+    return 64 * Math.sin((Math.PI * (h - 5.6)) / 14.6);
+  }
+
+  nightLevel(h = this.save.hour) {
+    return THREE.MathUtils.smoothstep(-this.sunElevation(h), -4, 2.5);
+  }
+
+  applySun() {
     this.sunTimer = 0;
-    const h = this.save.hour;
-    const el = Math.max(0.6, 64 * Math.sin((Math.PI * (h - 5.6)) / 14.6));
-    const az = 95 + ((h - 6) / 14) * 170;
+    const h = this.save.hour, sunEl = this.sunElevation(h);
+    let el, az;
+    if (sunEl > 0.5) {
+      el = sunEl;
+      az = 95 + ((h - 6) / 14) * 170;
+    } else {
+      const hm = (h - 19.5 + 24) % 24;                     // hours since the moon rose
+      el = Math.max(6, 50 * Math.sin(Math.PI * Math.min(1, hm / 11)));
+      az = 105 + (Math.min(hm, 11) / 11) * 150;
+    }
     this.e.setSun(el, az);
+    this.e.setNight(this.nightLevel(h));
   }
 
   queryPoints() { return this.fishing.queryPoints(); }
