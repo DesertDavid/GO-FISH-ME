@@ -64,6 +64,9 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - Boat collisions with drowned trees, sea stacks, docks, rig legs.
 - Blender-built first-person hands; left hand follows the crank.
 - Standalone Edge app-window launcher; mouse lock on any click; no right-click menu.
+- Travel menu postcards: `public/images/locations/<id>.webp` (800x450, 40-100 KB, made with the local
+  image generator, one prompt per place, same photo style/seed; shown in `.loc-pic`, dimmed when
+  locked). To redo one, regenerate at 1344x768 and resize/compress to webp.
 
 ## Known gaps / ideas
 - No angler body when walking in third person.
@@ -72,5 +75,4 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - `public/models/hands.glb` is ~2.9 MB (could be Draco/meshopt compressed).
 
 ## Next (proposed)
-- Location postcards on the travel menu (local image generator).
 - Sonar on/off toggle.

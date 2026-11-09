@@ -137,6 +137,8 @@ kbd { font: 600 12px var(--font); color: var(--dim); }
 .btn.primary:hover, .btn.gold:hover { background: #f3c47a; }
 .btn:disabled { opacity: 0.3; cursor: default; }
 .loc-card .water { font-size: 12px; color: var(--dim); text-transform: capitalize; }
+.loc-card .loc-pic { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 2px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.04); }
+.loc-card.locked .loc-pic { opacity: 0.4; filter: saturate(0.5); }
 .loc-card.here h4 { color: var(--amber); }
 .journal-sum { display: flex; gap: 40px; margin-bottom: 18px; color: var(--dim); font-size: 13px; }
 .journal-sum b { display: block; color: var(--text); font: 700 24px var(--font); }

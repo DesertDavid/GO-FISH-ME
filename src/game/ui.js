@@ -304,7 +304,7 @@ export class UI {
       if (here) btn = '<span class="small" style="color:var(--accent-2)">You are here</span>';
       else if (!open) btn = `<button class="btn gold" data-act="unlock" data-id="${id}" ${s.cash < l.price ? 'disabled' : ''}>License ${money(l.price)}</button>`;
       else btn = `<button class="btn primary" data-act="travel" data-id="${id}" ${boatOk ? '' : 'disabled title="You need a boat that can run here"'}>Travel</button>`;
-      return `<div class="item loc-card ${here ? 'here' : ''}"><span class="water">${l.water}</span><h4>${esc(l.name)}</h4><div class="stats">${esc(l.region)}</div><div class="stats">${esc(l.blurb)}</div><div class="stats">Species found: <b>${caught} / ${Object.keys(l.pool).length}</b>${boatOk ? '' : ' · <b style="color:var(--bad)">needs a bigger boat</b>'}</div><div class="foot"><span></span>${btn}</div></div>`;
+      return `<div class="item loc-card ${here ? 'here' : ''} ${open ? '' : 'locked'}"><img class="loc-pic" src="/images/locations/${id}.webp" alt="" loading="lazy" draggable="false" onerror="this.remove()"><span class="water">${l.water}</span><h4>${esc(l.name)}</h4><div class="stats">${esc(l.region)}</div><div class="stats">${esc(l.blurb)}</div><div class="stats">Species found: <b>${caught} / ${Object.keys(l.pool).length}</b>${boatOk ? '' : ' · <b style="color:var(--bad)">needs a bigger boat</b>'}</div><div class="foot"><span></span>${btn}</div></div>`;
     }).join('');
     return this.head('Travel', money(s.cash)) + `<div class="grid">${items}</div>`;
   }
