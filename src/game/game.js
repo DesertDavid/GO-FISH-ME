@@ -6,6 +6,7 @@ import { autoBackup, diskBackup, migrateSaves } from './saveSlots.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 import { PlayerBoat } from './boats.js';
+import { customOf, mods as boatModsOf, upgradePrice, upgradeLevel, UPGRADES, paintCost, finalName } from './boatCustom.js';
 import { Rod } from './rod.js';
 import { Fishing } from './fishing.js';
 import { NetFishing } from './net.js';
@@ -97,7 +98,7 @@ export class Game {
     let boatId = this.save.boat;
     if (!BOATS[boatId].waters.includes(this.loc.water)) boatId = this.save.boats.find((b) => BOATS[b].waters.includes(this.loc.water)) || 'jon';
     this.save = { ...this.save, boat: boatId };
-    this.boat = await new PlayerBoat(boatId).create(e.floaters, this.patchProp, this.start, this.start.yaw || 0);
+    this.boat = await new PlayerBoat(boatId).create(e.floaters, this.patchProp, this.start, this.start.yaw || 0, this.boatCust(boatId));
     this.look.yaw = BOATS[boatId].face || 0;
     this.rod = new Rod(this.overlay, this.scene);
     this.fishing = new Fishing(this.ctx());
@@ -157,6 +158,7 @@ export class Game {
       startTrollFight: (p, lure) => this.startTrollFight(p, lure),
       boatSpeed: () => this.boatSpeed(),
       boatSpec: () => BOATS[this.save.boat],
+      boatMods: () => this.boatMods(),
       boatLength: () => (this.foot ? 0 : this.boat.hull.length),
       get boat() { return game.boat; },
       onCatch: (f, done) => this.onCatch(f, done),
@@ -205,6 +207,7 @@ export class Game {
       if (k === 'n') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else if (this.net.state !== 'stowed' || this.permitOk()) this.net.toggle(); }
       if (k === 'r') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else if (this.troll.active || this.permitOk()) this.troll.toggle(); }
       if (k === 'x') this.toggleHolster();
+      if (k === 'i') this.toggleAnchor();
       if (k === 'u') this.toggleUnderwater();
       if (k === 'p') this.togglePhoto();
       if (k === 'f') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
@@ -435,7 +438,7 @@ export class Game {
     this.save.hour = hour;
     this.permitWatch();
     this.save.played = (this.save.played || 0) + dt;
-    for (const k of ageWell(this.save.livewell, dt / 60)) {
+    for (const k of ageWell(this.save.livewell, dt / 60, this.boatMods().wellSlow * (this.boatMods().shade ? 0.75 : 1))) {
       this.ui.toast(`The ${SPECIES_BY_ID[k.sp].name.toLowerCase()} in your livewell died. Sell soon - it's worth less now.`, 'bad');
     }
     this.sunTimer += dt;
@@ -449,7 +452,7 @@ export class Game {
     const showSonar = !this.foot && this.settings.sonar;
     this.sonar.c.style.display = showSonar ? '' : 'none';
     this.compass.update();
-    if (showSonar) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, 14), this.hotspots.near(bp.x, bp.z, 60));
+    if (showSonar) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, this.boatMods().sonarRange), this.hotspots.near(bp.x, bp.z, 60), ['SONAR', 'CHIRP', 'CHIRP SI'][(this.save.custom?.[this.save.boat]?.up?.sonar) || 0]);
   }
 
   updateCamera(dt) {
@@ -720,6 +723,52 @@ export class Game {
 
   boatSpeed() { return this.foot ? 0 : this.boat?.speed || 0; }
   boatSpec() { return BOATS[this.save.boat]; }
+
+  // ---------------------------------------------------------------- boat yard (paint, name, upgrades)
+  boatMods() { return boatModsOf(this.save, this.save.boat); }
+  boatCust(id) { return { cfg: customOf(this.save, id), mods: boatModsOf(this.save, id) }; }
+  // store one boat's settings; the live boat repaints at once if it is the one in use
+  saveCustom(id, cfg) {
+    this.commit({ custom: { ...(this.save.custom || {}), [id]: cfg } });
+    if (id === this.save.boat && this.boat) this.boat.refresh(this.boatCust(id));
+  }
+  // paint + name from the draft: paint changes cost a paint job, lettering is free
+  applyYard(id, draft) {
+    const cur = customOf(this.save, id), paint = ['hull', 'stripe', 'trim', 'bottom', 'house', 'canopy', 'wear'].some((k) => draft[k] !== cur[k]);
+    const cost = paint ? paintCost(id) : 0;
+    if (this.save.cash < cost) { this.ui.toast(`A paint job is ${'$' + cost}: not enough cash.`, 'info'); return false; }
+    this.commit({ cash: this.save.cash - cost });
+    this.saveCustom(id, { ...cur, ...draft, name: finalName(draft.name, id), up: cur.up });
+    if (cost) this.audio.play('cash');
+    this.ui.toast(cost ? `Fresh paint on ${finalName(draft.name, id)} (${'$' + cost})` : `${finalName(draft.name, id)} relettered`, 'good');
+    return true;
+  }
+  buyUpgrade(id, upId) {
+    const cur = customOf(this.save, id), tier = cur.up[upId] || 0, def = UPGRADES[upId];
+    if (!def || tier >= def.tiers.length || !def.boats.includes(id) || !this.save.boats.includes(id)) return false;
+    const price = upgradePrice(id, upId, tier), lvl = upgradeLevel(upId, tier);
+    if (levelOf(this.save.xp || 0) < lvl) { this.ui.toast(`Needs angler level ${lvl}.`, 'info'); return false; }
+    if (this.save.cash < price) { this.ui.toast('Not enough cash.', 'info'); return false; }
+    this.commit({ cash: this.save.cash - price });
+    this.saveCustom(id, { ...cur, up: { ...cur.up, [upId]: tier + 1 } });
+    this.audio.play('cash');
+    this.ui.toast(`Fitted: ${def.tiers[tier].name}`, 'good');
+    return true;
+  }
+  // I: drop / raise the anchor (needs a winch)
+  toggleAnchor() {
+    if (this.foot) { this.ui.toast('The anchor is on the boat.', 'info'); return; }
+    const b = this.boat;
+    if (b.anchored) { b.raiseAnchor(); this.ui.toast('Anchor up', 'info'); return; }
+    const m = this.boatMods();
+    if (!m.anchorDepth) { this.ui.toast('No anchor winch on this boat - fit one at the marina (Y).', 'info'); return; }
+    const depth = this.depthUnderBoat();
+    if (depth < 0.8) { this.ui.toast('Too shallow here to set the anchor properly.', 'info'); return; }
+    if (depth > m.anchorDepth) { this.ui.toast(`Too deep for your anchor line (${m.anchorDepth} m, this is ${Math.round(depth)} m).`, 'info'); return; }
+    if (Math.abs(this.boatSpeed()) > 2.5) { this.ui.toast('Slow down to set the anchor.', 'info'); return; }
+    b.dropAnchor(depth);
+    this.ui.toast(`Anchor down in ${Math.round(depth)} m`, 'good');
+  }
   hour() { return this.save.hour; }
   depthUnderBoat() { const p = this.boat.position; return Math.max(0, -this.heightAt(p.x, p.z)); }
 
@@ -732,7 +781,7 @@ export class Game {
     this.pendingCatch = { f, done, value, res, kept };
     const { inches } = fishLengthM(f.sp, f.lb);
     // a full livewell: offer to swap out the least valuable fish if this one beats it
-    const well = this.save.livewell, slots = wellSlots(this.save.boat);
+    const well = this.save.livewell, slots = wellSlots(this.save.boat, this.save);
     let cull = null;
     if (well.length >= slots) {
       const worst = well.reduce((a, k) => (!a || this.market.value(this.save, k) < this.market.value(this.save, a) ? k : a), null);
@@ -766,7 +815,7 @@ export class Game {
         this.ui.toast(`Culled: released the ${SPECIES_BY_ID[worst.sp].name.toLowerCase()} to make room.`, 'info');
       }
       livewell = [...livewell, p.kept];
-      this.ui.toast(p.kept.iced ? 'On ice in the fish box.' : `In the livewell (${livewell.length}/${wellSlots(this.save.boat)}).`, 'info');
+      this.ui.toast(p.kept.iced ? 'On ice in the fish box.' : `In the livewell (${livewell.length}/${wellSlots(this.save.boat, this.save)}).`, 'info');
     } else {
       stats.released += 1;
       this.fishing.luckUntil = performance.now() + 180000;
@@ -1068,7 +1117,7 @@ export class Game {
     const p = this.boat.position.clone(), yaw = this.boat.heading();
     this.boat.dispose(this.e.floaters);
     this.commit({ boat: id });
-    this.boat = await new PlayerBoat(id).create(this.e.floaters, this.patchProp, p, yaw);
+    this.boat = await new PlayerBoat(id).create(this.e.floaters, this.patchProp, p, yaw, this.boatCust(id));
     this.look.yaw = BOATS[id].face || 0;
     this.foot = null; this.moor = null;
     this.ui.toast(`Now running the ${BOATS[id].name}`, 'good');

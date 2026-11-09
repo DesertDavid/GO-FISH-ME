@@ -8,7 +8,9 @@ import { fit } from './bait.js';
 // the rod and fight the fish on the boat's 80-class trolling tackle.
 const PELAGIC = new Set(['tuna', 'billfish', 'swordfish', 'mahi', 'mackerel', 'jack', 'shark', 'cobia', 'barracuda', 'snook']);
 export const TROLL_GEAR = { rod: 'standup', reel: 'twospeed50', line: 'mono80', lure: 'trollskirt' };
-const BACK = [42, 58, 32];
+const BACK = [42, 58, 32, 50, 38];            // line out behind the boat (m); rods 4 and 5 come from rod-holder upgrades
+const SIDE = [-9, 9, 0, -4.5, 4.5];
+const ROD_NAME = ['Left', 'Right', 'Center', 'Port inner', 'Starboard inner'];
 
 export class Trolling {
   constructor(ctx) {
@@ -28,6 +30,8 @@ export class Trolling {
     this.skipT = 0;
   }
 
+  get n() { return Math.min(BACK.length, this.ctx.boatMods?.().trollRods || 3); }
+
   available() {
     const w = this.ctx.loc.water;
     return w === 'offshore' || w === 'inshore';
@@ -41,14 +45,15 @@ export class Trolling {
     this.active = !this.active;
     this.pending = null;
     c.ui.toast(this.active ? 'Lines out! Cruise at 2-5 m/s (4-10 kn) and watch the rods.' : 'Spread cleared.', 'info');
-    this.lines.forEach((l) => { l.visible = this.active; });
+    this.lines.forEach((l, i) => { l.visible = this.active && i < this.n; });
   }
 
   // rod tips in boat-local coordinates: outriggers on the sportfisher, transom corners otherwise
   tips() {
     const b = this.ctx.boat, h = b.hull;
-    if (b.id === 'sport') return [new THREE.Vector3(-2.4, 9.8, -7), new THREE.Vector3(-2.4, 9.8, 7), new THREE.Vector3(-h.length / 2, 1.6, 0)];
-    return [new THREE.Vector3(-h.length / 2, h.depth * 0.6, -h.beam * 0.4), new THREE.Vector3(-h.length / 2, h.depth * 0.6, h.beam * 0.4), new THREE.Vector3(-h.length / 2 + 0.5, h.depth * 0.8, 0)];
+    const inner = [new THREE.Vector3(-h.length * 0.3, h.depth * 0.5 + 1.5, -h.beam * 0.4), new THREE.Vector3(-h.length * 0.3, h.depth * 0.5 + 1.5, h.beam * 0.4)];   // gunwale rod holders
+    if (b.id === 'sport') return [new THREE.Vector3(-2.4, 9.8, -7), new THREE.Vector3(-2.4, 9.8, 7), new THREE.Vector3(-h.length / 2, 1.6, 0), ...inner];
+    return [new THREE.Vector3(-h.length / 2, h.depth * 0.6, -h.beam * 0.4), new THREE.Vector3(-h.length / 2, h.depth * 0.6, h.beam * 0.4), new THREE.Vector3(-h.length / 2 + 0.5, h.depth * 0.8, 0), ...inner];
   }
 
   update(dt) {
@@ -58,8 +63,10 @@ export class Trolling {
     const side = new THREE.Vector3(-back.z, 0, back.x);
     const tips = this.tips().map((t) => boat.toWorld(t, new THREE.Vector3()));
     const surf = c.waterHeightApprox();
-    BACK.forEach((d, i) => {
-      const off = [-9, 9, 0][i];
+    const n = this.n;
+    this.lines.forEach((l, i) => { l.visible = i < n; });
+    BACK.slice(0, n).forEach((d, i) => {
+      const off = SIDE[i];
       const target = boat.position.clone().addScaledVector(back, d).addScaledVector(side, off);
       // baits lag behind on turns and sink a little when the boat stops
       this.lures[i].lerp(target, Math.min(1, dt * 1.5));
@@ -79,7 +86,7 @@ export class Trolling {
     this.skipT -= dt;
     if (speed > 1.5 && this.skipT <= 0) {
       this.skipT = 0.9;
-      const l = this.lures[Math.floor(Math.random() * 3)];
+      const l = this.lures[Math.floor(Math.random() * this.n)];
       c.splash(l.x, l.z, 0.02, 0.2);
     }
     if (this.pending) {
@@ -91,7 +98,7 @@ export class Trolling {
     const trolling = speed > 1.8 && speed < 6;
     if (!trolling) return;
     const hot = c.hotspots.near(boat.position.x, boat.position.z, 120);
-    const rate = 0.02 * (1 + hot * 3) * c.weatherBite();
+    const rate = 0.02 * (this.n / 3) * (1 + hot * 3) * c.weatherBite();
     if (Math.random() < rate * dt) this.strike();
   }
 
@@ -104,10 +111,10 @@ export class Trolling {
     let r = Math.random() * pool.reduce((a, [, w]) => a + w, 0), sp = pool[0][0];
     for (const [s, w] of pool) { r -= w; if (r <= 0) { sp = s; break; } }
     const big = 1.2 * (c.boatSpec().bigGame || 1);
-    this.pending = { index: Math.floor(Math.random() * 3), sp, morph: rollMorph(), lb: rollWeight(sp, Math.random, big), t: 8 };
+    this.pending = { index: Math.floor(Math.random() * this.n), sp, morph: rollMorph(), lb: rollWeight(sp, Math.random, big), t: 8 };
     c.splash(this.lures[this.pending.index].x, this.lures[this.pending.index].z, 0.12, 1.2);
     c.audio.play('scream');
-    c.ui.toast(`FISH ON! ${['Left', 'Right', 'Center'][this.pending.index]} rod is screaming - click to grab it!`, 'good');
+    c.ui.toast(`FISH ON! ${ROD_NAME[this.pending.index]} rod is screaming - click to grab it!`, 'good');
   }
 
   // the player grabs the bent rod: clear the other lines and hand over to the fight

@@ -39,6 +39,9 @@ export class NightFX {
     pole.position.y = -0.78;
     this.bulb.add(pole);
     ctx.scene.add(this.light, this.bulb);
+    this.spotLight = new THREE.SpotLight(0xfff2dc, 0, 70, 0.34, 0.6, 1.4);
+    this.spotDir = new THREE.Vector3();
+    ctx.scene.add(this.spotLight, this.spotLight.target);
   }
 
   update(n, camera) {
@@ -55,6 +58,17 @@ export class NightFX {
       this.light.position.copy(this.bulb.position);
     }
     this.light.intensity = n * 120;
+    // boat-yard lights: nav lights glow after dark; the bow spotlight throws a real cone ahead
+    const fx = boat?.fx;
+    if (fx) {
+      for (const g of fx.glow) g.m.emissiveIntensity = n > 0.15 ? g.k * Math.min(1, (n - 0.15) * 3) : 0;
+      if (fx.spot && n > 0.15) {
+        fx.spot.getWorldPosition(this.spotLight.position);
+        this.spotDir.set(1, -0.18, 0).applyQuaternion(boat.body.quat);
+        this.spotLight.target.position.copy(this.spotLight.position).addScaledVector(this.spotDir, 30);
+        this.spotLight.intensity = n * 900;
+      } else this.spotLight.intensity = 0;
+    } else this.spotLight.intensity = 0;
     this.bulb.visible = n > 0.05;
     // the bobber's red top glows (a night float)
     const top = c.rod?.bobber?.children[0];

@@ -5,7 +5,7 @@
 // and clamp to the ends with an arrow when they are outside the view.
 const W = 640, H = 58;
 const PX_PER_DEG = 4.4;                 // tape scale: ~145 degrees in view
-const MAX_WAYPOINTS = 12;
+
 const CARD = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
 const AMBER = '#e9b25b', TEXT = '#f2efe8';
 
@@ -32,7 +32,8 @@ export class Compass {
 
   add(x, z, name) {
     const l = this.list();
-    if (l.length >= MAX_WAYPOINTS) { this.g.ui.toast(`Waypoint limit (${MAX_WAYPOINTS}) reached - clear one first.`, 'info'); return null; }
+    const cap = this.g.boatMods().waypoints;
+    if (l.length >= cap) { this.g.ui.toast(`Waypoint limit (${cap}) reached - clear one first${cap < 40 ? ', or fit a better GPS at the marina' : ''}.`, 'info'); return null; }
     if (l.some((w) => Math.hypot(w.x - x, w.z - z) < 8)) { this.g.ui.toast('There is already a waypoint here.', 'info'); return null; }
     let n = 1; while (l.some((w) => w.name === `WPT ${n}`)) n++;
     const w = { id: Date.now().toString(36) + Math.floor(Math.random() * 99), x: Math.round(x), z: Math.round(z), name: name || `WPT ${n}` };

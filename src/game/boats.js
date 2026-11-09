@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { BOATS } from './gear.js';
+import { mods as boatMods } from './boatCustom.js';
+import { applyCustom } from './boatVisual.js';
 
 // Player boats: the Blender-built GLB on a buoyant rigid body (scene/floaters.js), with
 // throttle + rudder forces. Hull dims mirror tools/blender/build_boats.py.
@@ -44,9 +46,13 @@ export class PlayerBoat {
     this.rough = 0;                       // 0..1 squall roughness (set by the game)
     this.gust = { x: 0, z: 0 };           // squall wind direction
     this.gustT = Math.random() * 100;
+    this.cust = null;                     // { cfg, up } from the boat yard (boatCustom.js); null = stock paint
+    this.mods = boatMods({}, id);         // upgrade effects (speed, accel, anchor...)
+    this.anchored = null;                 // { depth } while the anchor is down
+    this.fx = null;                       // visual handle from applyCustom (night lights, anchor chain)
   }
 
-  async create(floaters, patchProp, pos, yaw) {
+  async create(floaters, patchProp, pos, yaw, cust) {
     const gltf = await loadModel(this.id);
     const h = this.hull;
     const model = gltf.scene.clone(true);
@@ -59,6 +65,13 @@ export class PlayerBoat {
       o.castShadow = false;
       o.layers.enable(1);
     });
+    this.model = model;
+    this.patch = (m) => patchProp(m, this.id === 'jon' ? 'boat' : 'prop');
+    if (cust) {
+      this.cust = cust;
+      this.mods = cust.mods || this.mods;
+      this.fx = applyCustom(model, this.id, cust.cfg, cust.cfg.up, { patch: this.patch });
+    }
     const object = new THREE.Group();
     object.add(model);
     object.name = 'player-boat';
@@ -81,8 +94,19 @@ export class PlayerBoat {
     return this;
   }
 
+  // new paint / name / parts from the boat yard, applied to the live model
+  refresh(cust) {
+    this.cust = cust;
+    this.mods = cust.mods || this.mods;
+    this.fx = applyCustom(this.model, this.id, cust.cfg, cust.cfg.up, { patch: this.patch });
+    if (this.anchored) this.fx.setAnchor(this.anchored.depth); 
+  }
+
+  dropAnchor(depth) { this.anchored = { depth }; this.fx?.setAnchor(depth); }
+  raiseAnchor() { this.anchored = null; this.fx?.setAnchor(null); }
+
   forces(b, force, torque) {
-    const c = this.control, s = this.spec, m = b.mass;
+    const c = this.control, m = b.mass, s = { ...this.spec, speed: this.spec.speed * this.mods.speed, accel: this.spec.accel * this.mods.accel };
     const fwd = _f.set(1, 0, 0).applyQuaternion(b.quat).setY(0).normalize();
     const right = _r.set(-fwd.z, 0, fwd.x);
     const vF = b.vel.dot(fwd), vL = b.vel.dot(right);
@@ -106,6 +130,12 @@ export class PlayerBoat {
         force.z += this.gust.z * m * 1.1 * r * g;
         torque.y += Math.sin(this.gustT * 0.9 + 2) * Iy * 0.9 * r;
       }
+      // anchor down: the hull holds its place (a power windlass and heavier ground tackle also hold in current)
+      if (this.anchored) {
+        const hold = this.mods.holdsInCurrent ? 5 : 3.2;
+        force.x -= m * b.vel.x * hold; force.z -= m * b.vel.z * hold;
+        torque.y -= b.angVel.y * Iy * 0.8;
+      }
       // a little bow lift when on the throttle
       const bowUp = new THREE.Vector3(0, 0, 1).applyQuaternion(b.quat);
       torque.addScaledVector(bowUp, Math.min(1, Math.abs(vF) / s.speed) * 0.04 * m * this.hull.length * (vF > 0 ? 1 : 0));
@@ -117,7 +147,8 @@ export class PlayerBoat {
     if (!this.body) return;
     const b = this.body;
     this.gustT += dt;
-    if (current && (current[0] || current[1])) {
+    if (this.anchored && Math.abs(this.control.throttle) > 0.2) this.raiseAnchor();
+    if (current && (current[0] || current[1]) && !(this.anchored && this.mods.holdsInCurrent)) {
       b.vel.x += (current[0] - b.vel.x) * 0.02 * dt * 10 * (this.control.throttle ? 0 : 1);
       b.vel.z += (current[1] - b.vel.z) * 0.02 * dt * 10 * (this.control.throttle ? 0 : 1);
     }

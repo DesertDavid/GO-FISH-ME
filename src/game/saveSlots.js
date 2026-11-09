@@ -5,6 +5,7 @@ import { DEFAULT_SAVE, readRaw, writeRaw } from './save.js';
 import { CATALOG_SIZE } from './species.js';
 import { BOATS, RODS, REELS, LINES, LURES } from './gear.js';
 import { upgradeSave, levelOf } from './progress.js';
+import { sanitizeCustom } from './boatCustom.js';
 const clamp01 = (n) => (typeof n === 'number' && isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
 
 const SLOTS_KEY = 'reelworld-slots-v1';
@@ -115,10 +116,11 @@ export function sanitizeSave(raw) {
   if (out.waypoints && typeof out.waypoints === 'object') {
     for (const [loc, list] of Object.entries(out.waypoints)) {
       if (!LOCATIONS[loc] || !Array.isArray(list)) continue;
-      wp[loc] = list.filter((w) => w && isFinite(w.x) && isFinite(w.z)).slice(0, 12).map((w, i) => ({ id: String(w.id ?? `i${i}`), x: +w.x, z: +w.z, name: String(w.name ?? `WPT ${i + 1}`).slice(0, 24) }));
+      wp[loc] = list.filter((w) => w && isFinite(w.x) && isFinite(w.z)).slice(0, 40).map((w, i) => ({ id: String(w.id ?? `i${i}`), x: +w.x, z: +w.z, name: String(w.name ?? `WPT ${i + 1}`).slice(0, 24) }));
     }
   }
   out.waypoints = wp;
+  out.custom = sanitizeCustom(raw.custom);
   return out;
 }
 

@@ -1,5 +1,6 @@
 // Player progress in localStorage. Every change goes through update() so callers get a new object.
 import { SAVE_VERSION, upgradeSave } from './progress.js';
+import { sanitizeCustom } from './boatCustom.js';
 const KEY = 'reelworld-save-v1';   // key name kept for compatibility; the data carries its own version (v)
 
 export const DEFAULT_SAVE = Object.freeze({
@@ -26,6 +27,7 @@ export const DEFAULT_SAVE = Object.freeze({
   v: SAVE_VERSION,  // save format version (progress.js upgradeSave brings older saves up)
   xp: 0,            // angler experience; level is derived (progress.js)
   wear: { line: 0, hook: 0, lost: [] },   // line/hook wear 0..1, lures lost to snags (restock at the shop)
+  custom: {},         // boat customization per boat id { paint, name, registration, upgrades } (boatCustom.js); optional, filled when you use the boat yard
   permits: { okeechobee: { until: 78.5 } },   // { locationId: { until: absolute game hours } }; new anglers start with 3 days at the home lake
   rapport: {},      // shopkeeper standing: { 'locId.role': { visits, deals, day } } (optional; dialogue.js TIERS)
 });
@@ -38,6 +40,7 @@ export function loadSave() {
     const merged = { ...structuredClone(DEFAULT_SAVE), ...data, equip: { ...DEFAULT_SAVE.equip, ...(data.equip || {}) }, stats: { ...DEFAULT_SAVE.stats, ...(data.stats || {}) } };
     // old saves have no version: strip the defaults the merge just filled in so the upgrade sees what was really saved
     if ((data.v || 1) < SAVE_VERSION) { delete merged.xp; delete merged.wear; delete merged.permits; merged.v = 1; }
+    merged.custom = sanitizeCustom(data.custom);
     return upgradeSave(merged);
   } catch (err) {
     console.warn('save load failed, starting fresh', err);

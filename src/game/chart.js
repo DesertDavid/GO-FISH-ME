@@ -204,6 +204,16 @@ export class Chart {
       ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 8); ctx.lineTo(x - 6, y); ctx.closePath(); ctx.stroke(); ctx.fill();
       ctx.fillStyle = '#f2efe8'; ctx.textAlign = 'left'; ctx.fillText(w.name, x + 9, y - 6);
     }
+    // chart plotter upgrade: bait schools the gulls are working
+    if (g.boatMods().plotsBait) {
+      ctx.lineWidth = 2;
+      for (const sp of g.hotspots.spots) {
+        const x = px(sp.x), y = pz(sp.z);
+        if (x < 0 || y < 0 || x > ctx.canvas.width || y > ctx.canvas.height) continue;
+        ctx.strokeStyle = 'rgba(110,210,235,0.9)'; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.quadraticCurveTo(x, y - 4, x + 4, y); ctx.quadraticCurveTo(x, y + 4, x - 4, y); ctx.stroke();
+      }
+    }
     // your boat (always) and you on foot
     const bp = g.boat.position, bh = g.boat.heading();
     this.boatArrow(ctx, px(bp.x), pz(bp.z), -bh + Math.PI / 2, !!g.foot);

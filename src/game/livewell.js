@@ -1,4 +1,5 @@
 import { SPECIES_BY_ID, MORPHS } from './species.js';
+import { mods } from './boatCustom.js';
 
 // Livewell and fish market. Kept fish ride in the boat's livewell (big pelagics go on ice) and
 // lose condition over time; a tired or dead fish sells for less. The market at the docks posts
@@ -6,7 +7,7 @@ import { SPECIES_BY_ID, MORPHS } from './species.js';
 // more of it you sell the same day.
 
 const WELL_SLOTS = { jon: 4, skiff: 6, bass: 8, center: 10, sport: 16, trawler: 20, seiner: 20 };
-export const wellSlots = (boatId) => WELL_SLOTS[boatId] || 6;
+export const wellSlots = (boatId, save) => Math.round((WELL_SLOTS[boatId] || 6) * (save ? mods(save, boatId).wellMul : 1));
 
 // condition lost per game hour (one game hour = one real minute)
 const HARDY = new Set(['catfish', 'carp', 'gar', 'bowfin', 'eel', 'sturgeon', 'arapaima', 'arowana', 'drum', 'piranha', 'bass', 'panfish', 'crappie', 'perch', 'pike', 'grouper', 'flat']);
@@ -81,13 +82,13 @@ export class Market {
 }
 
 // lose condition over dtHours; returns the fish that just died (for a toast)
-export function ageWell(well, dtHours) {
+export function ageWell(well, dtHours, slow = 1) {
   const died = [];
   for (const k of well) {
     if (k.health <= 0) continue;
     const sp = SPECIES_BY_ID[k.sp];
     if (!sp) continue;
-    k.health = Math.max(0, k.health - decay(sp, k.iced) * dtHours);
+    k.health = Math.max(0, k.health - decay(sp, k.iced) * dtHours * slow);
     if (k.health === 0 && !k.iced) died.push(k);
   }
   return died;

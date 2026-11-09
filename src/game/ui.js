@@ -5,6 +5,8 @@ import { hintFor } from './bait.js';
 import { TUNING as BAIT } from './baitData.js';
 import { catalogCount } from './save.js';
 import { wellSlots } from './livewell.js';
+import { PALETTES, SLOTS, SLOT_LABEL, SLOT_LABEL_BOAT, WEAR_NAMES, UPGRADES, upgradesFor, upgradePrice, upgradeLevel, paintCost, customOf, cleanName, makeReg, NAME_MAX } from './boatCustom.js';
+import { BoatPreview } from './boatPreview.js';
 import { levelInfo, gateLevel, meets, unlocksAt, MAX_LEVEL, xpAt, GATES, reelSmooth, lineCastMul, permitLeft, permitText, permitPrice, PERMIT_OPTIONS, respoolCost, SHARPEN_COST, restockCost, wearWord, effectiveTest, WEAR_DEFAULT } from './progress.js';
 import { freezeSaves, writeSave } from './save.js';
 import { TIERS } from './dialogue.js';
@@ -33,6 +35,15 @@ export class UI {
     });
     // settings sliders/toggles apply live
     $('modal').addEventListener('input', (e) => {
+      const cu = e.target.closest('[data-cu]');
+      if (cu && this.yard?.draft) {
+        const v = cleanName(cu.value);
+        if (v !== cu.value) cu.value = v;
+        this.yard.draft.name = v;
+        clearTimeout(this.yardT); this.yardT = setTimeout(() => this.yardView(), 140);
+        this.yardButtons();
+        return;
+      }
       const t = e.target.closest('[data-set]');
       if (!t) return;
       const v = t.type === 'checkbox' ? t.checked : +t.value;
@@ -249,7 +260,7 @@ export class UI {
     $('hLevel').innerHTML = `<span>Lv <b>${li.level}</b></span><i class="xpbar"><i style="width:${Math.round(li.frac * 100)}%"></i></i>`;
     // just the bait you're fishing; speed only while under way
     const e = s.equip;
-    const well = s.livewell || [], slots = wellSlots(s.boat), weak = well.some((k) => !k.iced && k.health > 0 && k.health < 0.35);
+    const well = s.livewell || [], slots = wellSlots(s.boat, s), weak = well.some((k) => !k.iced && k.health > 0 && k.health < 0.35);
     const wellTxt = well.length ? ` · <span class="${weak ? 'warn' : ''}">livewell ${well.length}/${slots}</span>` : '';
 const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     const permitTxt = pl > 0 ? ` · <span class="${pl < 3 ? 'warn' : ''}">permit ${permitText(pl)}</span>` : ' · <span class="warn">no permit</span>';
@@ -263,7 +274,8 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   open(panel) {
     if (this.g.fishing.state === 'caught' && panel !== 'catch') return;
     // the shop and the marina are at the docks (the chart shows where)
-    if ((panel === 'shop' && !this.g.serviceHere('tackle')) || (panel === 'marina' && !this.g.serviceHere('boats'))) { if (this.panel) this.close(); return; }
+    if ((panel === 'shop' && !this.g.serviceHere('tackle')) || ((panel === 'marina' || panel === 'yard') && !this.g.serviceHere('boats'))) { if (this.panel) this.close(); return; }
+    if (panel === 'yard') this.yardInit();
     if (panel === 'talk') {
       const k = this.g.keepers?.who();
       if (!k) { this.toast('Nobody to talk to here. Shopkeepers stand at the shop doors on the docks (see the Chart, C).', 'info'); return; }
@@ -326,7 +338,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   // Esc menu: everything that used to sit on screen as buttons, plus today's goals
   renderPause() {
-    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ['events', 'Tournaments', 'E'], ['chart', 'Chart', 'C'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['angler', 'Angler log', ''], ['saves', 'Save / Load', ''], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
+    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ...(this.g.serviceHere('boats') ? [['yard', 'Boat yard', '']] : []), ['events', 'Tournaments', 'E'], ['chart', 'Chart', 'C'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['angler', 'Angler log', ''], ['saves', 'Save / Load', ''], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
     const list = items.map(([id, label, key]) => `<button data-act="${id === 'resume' ? 'close' : 'go'}" data-id="${id}">${label}${key ? `<kbd>${key}</kbd>` : ''}</button>`).join('');
     const ch = this.g.save.challenges;
     const goals = ch ? ch.list.map((c) => `<div class="ch ${c.done ? 'done' : ''}"><span>${esc(c.text)}<div class="prog">${c.done ? 'Done' : `${Math.min(c.have, c.need)} of ${c.need}`}</div></span><b>${money(c.reward)}</b></div>`).join('') : '';
@@ -407,17 +419,19 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   close() {
     if (this.panel === 'catch' || this.panel === 'haul') return;
     if (this.panel === 'talk') this.leaveTalk();
+    this.yardStop();
     this.panel = null;
     $('modal').hidden = true;
     this.g.grabPointer?.();   // back to mouse-look without an extra click
   }
 
-  forceClose() { this.panel = null; $('modal').hidden = true; this.g.grabPointer?.(); }
+  forceClose() { this.yardStop(); this.panel = null; $('modal').hidden = true; this.g.grabPointer?.(); }
 
   render() {
     const card = $('modalCard');
-    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell, talk: this.renderTalk }[this.panel];
+    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell, talk: this.renderTalk, yard: this.renderYard }[this.panel];
     if (fn) card.innerHTML = fn.call(this);
+    if (this.panel === 'yard') this.yardMount();
     if (this.panel === 'chart') this.g.chart.mount();
   }
 
@@ -507,17 +521,91 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     return this.head('Tackle Box') + this.tabs('tackle', [['rod', 'Rod'], ['reel', 'Reel'], ['line', 'Line'], ['lure', 'Lure']]) + `<div class="grid">${items}</div><p class="tips">Number keys 1-9 swap between your lures quickly while fishing.</p>`;
   }
 
+  // ---- boat yard: paint, lettering and fit-out, with a turntable preview ----
+  yardInit() {
+    const s = this.g.save;
+    if (!this.yard || !s.boats.includes(this.yard.id)) this.yard = { id: s.boat };
+    const c = customOf(s, this.yard.id);
+    this.yard.draft = { hull: c.hull, stripe: c.stripe, trim: c.trim, bottom: c.bottom, house: c.house, canopy: c.canopy, wear: c.wear, name: c.name, reg: c.reg };
+  }
+
+  // the Apply / Undo buttons follow typing without re-rendering (which would drop the text cursor)
+  yardButtons() {
+    const s = this.g.save, d = this.yard.draft, cur = customOf(s, this.yard.id);
+    const dirty = ['hull', 'stripe', 'trim', 'bottom', 'house', 'canopy', 'wear'].some((k) => d[k] !== cur[k]), lettering = d.name !== cur.name || d.reg !== cur.reg;
+    const apply = document.querySelector('[data-act="yard-apply"]'), undo = document.querySelector('[data-act="yard-revert"]');
+    if (apply) apply.disabled = (!dirty && !lettering) || s.cash < (dirty ? paintCost(this.yard.id) : 0);
+    if (undo) undo.disabled = !dirty && !lettering;
+  }
+
+  yardCfg() { const y = this.yard; return { ...customOf(this.g.save, y.id), ...y.draft }; }
+
+  yardView() {
+    if (!this.yv || this.panel !== 'yard') return;
+    const cfg = this.yardCfg();
+    if (this.yv.id !== this.yard.id) this.yv.show(this.yard.id, cfg, cfg.up); else this.yv.update(cfg, cfg.up);
+  }
+
+  yardMount() {
+    if (!this.yv) this.yv = new BoatPreview();
+    const m = $('yardMount');
+    if (m) m.appendChild(this.yv.canvas);
+    this.yv.start();
+    if (this.yardShown !== this.yard.id + ':' + this.yardOpenCount) { this.yardShown = this.yard.id + ':' + this.yardOpenCount; this.yardView(); }
+  }
+
+  yardStop() { if (this.yv && this.panel === 'yard') { this.yv.stop(); this.yardOpenCount = (this.yardOpenCount || 0) + 1; } }
+
+  renderYard() {
+    const g = this.g, s = g.save, y = this.yard, id = y.id, d = y.draft, b = BOATS[id], cur = customOf(s, id);
+    const lvl = levelInfo(s.xp || 0).level;
+    const tabs = `<div class="tabs">${BOAT_ORDER.filter((k) => s.boats.includes(k)).map((k) => `<button class="${k === id ? 'on' : ''}" data-act="yard-boat" data-id="${k}">${esc(BOATS[k].name)}</button>`).join('')}</div>`;
+    const slots = Object.keys(SLOTS[id]).concat(cur.up.shade ? ['canopy'] : []);
+    const swatches = slots.map((slot) => {
+      const label = SLOT_LABEL_BOAT[id]?.[slot] || SLOT_LABEL[slot];
+      const sw = [slot === 'canopy' ? '' : `<button class="sw stock ${!d[slot] ? 'on' : ''}" data-act="yard-paint" data-slot="${slot}" data-pid="" title="As built">built</button>`]
+        .concat(PALETTES[slot].map((p) => `<button class="sw ${d[slot] === p.id ? 'on' : ''}" data-act="yard-paint" data-slot="${slot}" data-pid="${p.id}" style="background:#${p.hex.toString(16).padStart(6, '0')}" title="${esc(p.name)}"></button>`));
+      const nm = d[slot] ? PALETTES[slot].find((p) => p.id === d[slot])?.name : 'as built';
+      return `<div class="sw-row"><span class="sw-l">${label}<em>${esc(nm || '')}</em></span><div class="sw-s">${sw.join('')}</div></div>`;
+    }).join('');
+    const dirty = ['hull', 'stripe', 'trim', 'bottom', 'house', 'canopy', 'wear'].some((k) => d[k] !== cur[k]);
+    const lettering = d.name !== cur.name || d.reg !== cur.reg;
+    const cost = dirty ? paintCost(id) : 0;
+    const wear = WEAR_NAMES.map((n, i) => `<button class="pill ${d.wear === i ? 'on' : ''}" data-act="yard-wear" data-n="${i}">${n}</button>`).join('');
+    const ups = upgradesFor(id).map((u) => {
+      const def = UPGRADES[u], t = cur.up[u] || 0, done = t >= def.tiers.length;
+      const next = done ? null : def.tiers[t];
+      const price = done ? 0 : upgradePrice(id, u, t), need = done ? 0 : upgradeLevel(u, t);
+      const btn = done ? '<span class="small" style="color:var(--accent)">Fully fitted</span>' : lvl < need ? `<span class="small">Reach level ${need}</span>` : `<button class="btn gold" data-act="yard-up" data-up="${u}" ${s.cash < price ? 'disabled' : ''}>Fit ${money(price)}</button>`;
+      const have = t ? def.tiers[t - 1].name : 'Stock';
+      return `<div class="item"><h4>${def.name}${def.tiers.length > 1 ? ` <span class="lv">${t}/${def.tiers.length}</span>` : ''}</h4><div class="stats">${esc(have)}${next ? ` &rarr; <b>${esc(next.name)}</b>` : ''}</div><div class="stats">${esc((next || def.tiers[t - 1]).text)}</div><div class="foot"><span class="price">${done ? '' : money(price)}${next && need > 1 ? ` <span class="lv">Lv ${need}</span>` : ''}</span>${btn}</div></div>`;
+    }).join('');
+    const none = !dirty && !lettering;
+    return this.head('Boat yard', money(s.cash)) + tabs + `<div class="yard">
+      <div class="yard-view"><div id="yardMount"></div><span class="yard-hint">Drag to turn · ${esc(b.name)}</span></div>
+      <div class="yard-side">
+        <div class="yard-name"><label>Name on the transom<input data-cu="name" type="text" maxlength="${NAME_MAX}" spellcheck="false" autocomplete="off" value="${esc(d.name)}"></label>
+          <label>Bow registration<span class="reg">${esc(d.reg)} <button class="btn" data-act="yard-reg">New numbers</button></span></label></div>
+        ${swatches}
+        <div class="sw-row"><span class="sw-l">Weathering<em>${WEAR_NAMES[d.wear]}</em></span><div class="pills">${wear}</div></div>
+        <div class="actions"><button class="btn primary" data-act="yard-apply" ${none || s.cash < cost ? 'disabled' : ''}>${dirty ? `Paint job ${money(cost)}` : 'Save lettering'}</button><button class="btn" data-act="yard-revert" ${none ? 'disabled' : ''}>Undo</button></div>
+      </div></div>
+      <h5 class="board-h">Fit-out</h5><div class="grid">${ups}</div>
+      <p class="tips">Paint and lettering are kept per boat. A paint job costs ${money(paintCost(id))} whatever the colours; the name and numbers are free. Upgrades go straight onto the boat and are saved with it.</p>`;
+  }
+
   renderMarina() {
     const s = this.g.save;
     const items = BOAT_ORDER.map((id) => {
       const b = BOATS[id], have = s.boats.includes(id), on = s.boat === id;
       const canHere = b.waters.includes(this.g.loc.water);
+      const cust = have ? `<button class="btn" data-act="yard-open" data-id="${id}">Paint and fit out</button>` : '';
       let btn;
       if (on) btn = '<span class="small" style="color:var(--accent)">Your boat</span>';
       else if (have) btn = `<button class="btn primary" data-act="boat" data-id="${id}" ${canHere ? '' : 'disabled title="Can\'t run this boat here"'}>Take it out</button>`;
       else if (!meets(s, 'boats', id)) btn = `<span class="small">Reach level ${gateLevel('boats', id)}</span>`;
       else btn = `<button class="btn gold" data-act="buyboat" data-id="${id}" ${s.cash < b.price ? 'disabled' : ''}>Buy ${money(b.price)}</button>`;
-      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(b.name)}</h4><div class="stats">${esc(b.blurb)}</div><div class="stats">Top speed <b>${Math.round(b.speed * 1.944)} kn</b> · waters <b>${b.waters.join(', ')}</b>${b.net ? ` · <b>${b.net === 'trawl' ? 'trawl net' : 'purse seine'}</b> ${b.netCap.toLocaleString()} lb` : ''}</div><div class="foot"><span class="price">${b.price ? money(b.price) : 'Free'}${gateLevel('boats', id) > 1 ? ` <span class="lv">Lv ${gateLevel('boats', id)}</span>` : ''}</span>${btn}</div></div>`;
+      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(b.name)}</h4><div class="stats">${esc(b.blurb)}</div><div class="stats">Top speed <b>${Math.round(b.speed * 1.944)} kn</b> · waters <b>${b.waters.join(', ')}</b>${b.net ? ` · <b>${b.net === 'trawl' ? 'trawl net' : 'purse seine'}</b> ${b.netCap.toLocaleString()} lb` : ''}</div><div class="foot"><span class="price">${b.price ? money(b.price) : 'Free'}${gateLevel('boats', id) > 1 ? ` <span class="lv">Lv ${gateLevel('boats', id)}</span>` : ''}</span><span>${cust} ${btn}</span></div></div>`;
     }).join('');
     return this.head('Marina', money(s.cash)) + `<div class="grid">${items}</div><p class="tips">Lakes and rivers need a small boat. Offshore locations need a seaworthy one (center console or bigger). Net boats fish commercially: look for diving gulls over bait schools.</p>`;
   }
@@ -621,7 +709,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   renderLivewell() {
     const g = this.g, s = g.save, m = g.market, day = s.day || 1;
     const access = g.marketAccess(), buyer = access === 'buyer';
-    const well = s.livewell || [], slots = wellSlots(s.boat);
+    const well = s.livewell || [], slots = wellSlots(s.boat, s);
     const where = access === 'dock' ? 'At the dock market' : buyer ? 'Buyer boat on the radio (15% cut)' : `No buyer here. ${esc(g.nearestDockText())}`;
     const fotd = m.fishOfDay(day);
     const rows = well.map((k) => {
@@ -686,6 +774,14 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       case 'releaseone': g.releaseFish(d.id); this.render(); break;
       case 'sellhaul': this.forceClose(); g.sellHaul(this.haul); break;
       case 'go': this.open(d.id); break;
+      case 'yard-open': this.yard = { id: d.id }; this.open('yard'); break;
+      case 'yard-boat': this.yard = { id: d.id }; this.yardInit(); this.render(); break;
+      case 'yard-paint': this.yard.draft[d.slot] = d.pid || null; this.yardView(); this.render(); break;
+      case 'yard-wear': this.yard.draft.wear = +d.n; this.yardView(); this.render(); break;
+      case 'yard-reg': this.yard.draft.reg = makeReg(Math.random() + this.yard.id); this.yardView(); this.render(); break;
+      case 'yard-revert': this.yardInit(); this.yardView(); this.render(); break;
+      case 'yard-apply': g.applyYard(this.yard.id, this.yard.draft); this.yardInit(); this.render(); break;
+      case 'yard-up': { const keep = { ...this.yard.draft }; g.buyUpgrade(this.yard.id, d.up); this.yardInit(); Object.assign(this.yard.draft, keep); this.yardView(); this.render(); break; }
       case 'sv-save': case 'sv-load': case 'sv-del': case 'sv-export': case 'sv-import': this.saveAction(act, d.n); break;
       case 'enter': g.enterTournament(d.id); this.forceClose(); break;
       case 'reset': {
