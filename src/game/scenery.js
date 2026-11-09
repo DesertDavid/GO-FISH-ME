@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { fbm } from '../scene/noise.js';
 
 // Location dressing: instanced trees/reeds/cabins, the Gulf oil rig, and fish hotspots
 // (a bait ball under the surface with gulls wheeling over it).
@@ -93,6 +94,59 @@ const TREE_BUILDERS = {
     }
     return mergeGeometries(parts);
   },
+  // a drowned tree: bleached trunk standing in the water with a few bare branches. Its base sits
+  // 8.5 m down (buried in the lake bed where it's shallower) so the top always clears the surface.
+  snag(rand) {
+    const parts = [];
+    const lean = (rand() - 0.5) * 0.12;
+    const top = 11.2 + rand() * 2.4;
+    parts.push(paint(new THREE.CylinderGeometry(0.06, 0.3, top, 6).translate(0, top / 2, 0).rotateZ(lean), rand() < 0.5 ? 0xa89c88 : 0x8e8678, 0.25, rand));
+    parts.push(paint(new THREE.CylinderGeometry(0.33, 0.34, 8.9, 6).translate(0, 4.45, 0), 0x3a3a30));   // waterlogged, with a dark stain just above the waterline
+    const n = 2 + Math.floor(rand() * 3);
+    for (let i = 0; i < n; i++) {
+      const len = 1.2 + rand() * 2.2, y = top * (0.8 + rand() * 0.15), a = rand() * Math.PI * 2;
+      const b = new THREE.CylinderGeometry(0.03, 0.1, len, 4).translate(0, len / 2, 0).rotateZ(0.6 + rand() * 0.6).rotateY(a).translate(-lean * y, y, 0);
+      parts.push(paint(b, 0xc8bca8, 0.2, rand));
+    }
+    return mergeGeometries(parts);
+  },
+  acacia(rand) {
+    const parts = [];
+    const trunk = 0x4a3a2e;
+    parts.push(paint(new THREE.CylinderGeometry(0.16, 0.26, 3.2, 6).translate(0, 1.6, 0), trunk));
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + rand();
+      parts.push(paint(new THREE.CylinderGeometry(0.08, 0.14, 2.6, 5).translate(0, 1.3, 0).rotateZ(0.55).rotateY(a).translate(0, 3, 0), trunk));
+    }
+    for (let i = 0; i < 4; i++) parts.push(paint(blob(2.2, 1, rand, 0.22).translate((rand() - 0.5) * 3, 5.1 + rand() * 0.4, (rand() - 0.5) * 3), i % 2 ? 0x5a6a2c : 0x6a7434, 0.3, rand));
+    return mergeGeometries(parts);
+  },
+  // cardon cactus: a fluted column with arms that turn upward
+  cactus(rand) {
+    const parts = [], green = 0x4e6a3c;
+    const h = 4 + rand() * 4;
+    parts.push(paint(new THREE.CylinderGeometry(0.3, 0.38, h, 9).translate(0, h / 2, 0), green, 0.15, rand));
+    parts.push(paint(new THREE.SphereGeometry(0.3, 9, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, h, 0), green));
+    const arms = 1 + Math.floor(rand() * 4);
+    for (let i = 0; i < arms; i++) {
+      const a = rand() * Math.PI * 2, y = h * (0.3 + rand() * 0.35), out = 0.7 + rand() * 0.5, up = h * (0.35 + rand() * 0.4);
+      const dx = Math.cos(a), dz = Math.sin(a);
+      parts.push(paint(new THREE.CylinderGeometry(0.2, 0.22, out, 7).rotateZ(Math.PI / 2).rotateY(-a).translate(dx * out / 2, y, dz * out / 2), green, 0.15, rand));
+      parts.push(paint(new THREE.CylinderGeometry(0.21, 0.23, up, 8).translate(dx * out, y + up / 2 - 0.1, dz * out), green, 0.15, rand));
+      parts.push(paint(new THREE.SphereGeometry(0.21, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).translate(dx * out, y + up - 0.1, dz * out), green));
+    }
+    return mergeGeometries(parts);
+  },
+  // a Lao riverside house on stilts with a rusty tin roof
+  stilt(rand) {
+    const wood = 0x7a5a3a;
+    const parts = [paint(new THREE.BoxGeometry(5.5, 2.4, 4).translate(0, 4, 0), wood, 0.2, rand)];
+    parts.push(paint(new THREE.BoxGeometry(6.2, 0.18, 5.2).translate(0, 2.75, 0.4), 0x5a4028));      // floor and porch
+    const roof = new THREE.CylinderGeometry(0.01, 3.9, 1.8, 4, 1).rotateY(Math.PI / 4).scale(1.2, 1, 1).translate(0, 6.1, 0.2);
+    parts.push(paint(roof, rand() < 0.5 ? 0x8a5a3a : 0x8a8a84, 0.15, rand));
+    for (const x of [-2.6, 0, 2.6]) for (const z of [-1.8, 0.4, 2.7]) parts.push(paint(new THREE.CylinderGeometry(0.1, 0.12, 5, 5).translate(x, 0.3, z), 0x4a3424));
+    return mergeGeometries(parts);
+  },
   cabin() {
     const walls = paint(new THREE.BoxGeometry(6, 3.2, 4.5).translate(0, 1.6, 0), 0x9a2a1e);
     const roof = new THREE.CylinderGeometry(0.01, 3.6, 2, 4, 1).rotateY(Math.PI / 4).scale(1.25, 1, 0.9).translate(0, 4.2, 0);
@@ -107,6 +161,8 @@ export function buildScenery(loc, heightAt, patchProp) {
   const group = new THREE.Group();
   const rand = rng(loc.id.length * 7919 + 13);
   const half = loc.size / 2 - 20;
+  const colliders = [];
+  group.userData.colliders = colliders;
   for (const [type, count, minH, maxH] of loc.trees || []) {
     const variants = [0, 1, 2].map(() => TREE_BUILDERS[type](rand));
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: type === 'palm' || type === 'reed' ? THREE.DoubleSide : THREE.FrontSide });
@@ -117,17 +173,20 @@ export function buildScenery(loc, heightAt, patchProp) {
       const h = heightAt(x, z);
       if (h < minH || h > maxH) continue;
       const slope = Math.abs(heightAt(x + 4, z) - h) + Math.abs(heightAt(x, z + 4) - h);
-      if (slope > (type === 'pine' ? 3.5 : 2)) continue;
-      if (Math.hypot(x, z) < 40) continue;
-      spots.push({ x, y: type === 'cabin' ? Math.max(h, 0.6) : h - 0.2, z, s: 0.7 + rand() * 0.7, r: rand() * Math.PI * 2, v: Math.floor(rand() * 3) });
+      if (slope > (type === 'pine' || type === 'cactus' ? 3.5 : type === 'snag' ? 9 : 2)) continue;
+      if (Math.hypot(x, z) < (type === 'snag' ? 90 : 40)) continue;
+      if (type === 'snag' && fbm(x * 0.005, z * 0.005, 3, 33) < 0.08) continue;   // drowned groves, not an even scatter
+      const y = type === 'cabin' ? Math.max(h, 0.6) : type === 'snag' ? -8.5 : h - 0.2;
+      spots.push({ x, y, z, s: type === 'snag' ? 0.88 + rand() * 0.25 : 0.7 + rand() * 0.7, r: rand() * Math.PI * 2, v: Math.floor(rand() * 3) });
     }
-    variants.forEach((geo, v) => {
+    if (type === 'snag') for (const s of spots) colliders.push({ x: s.x, z: s.z, r: 0.34 * s.s });    variants.forEach((geo, v) => {
       const mine = spots.filter((s) => s.v === v);
       if (!mine.length) return;
       const mesh = new THREE.InstancedMesh(geo, mat, mine.length);
       const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
       mine.forEach((s, i) => {
-        m.compose(new THREE.Vector3(s.x, s.y, s.z), q.setFromAxisAngle(up, s.r), new THREE.Vector3(s.s, s.s * (0.85 + rand() * 0.3), s.s));
+        const sy = type === 'snag' ? 1 : s.s * (0.85 + rand() * 0.3);   // snags keep their waterline stain at the surface
+        m.compose(new THREE.Vector3(s.x, s.y, s.z), q.setFromAxisAngle(up, s.r), new THREE.Vector3(s.s, sy, s.s));
         mesh.setMatrixAt(i, m);
       });
       mesh.computeBoundingSphere();
@@ -136,7 +195,10 @@ export function buildScenery(loc, heightAt, patchProp) {
       group.add(mesh);
     });
   }
-  if (loc.rig) group.add(oilRig(patchProp));
+  if (loc.rig) {
+    group.add(oilRig(patchProp));
+    for (const x of [-14, 14]) for (const z of [-14, 14]) colliders.push({ x: 260 + x, z: -420 + z, r: 1.9 });
+  }
   return group;
 }
 
@@ -170,7 +232,6 @@ function oilRig(patchProp) {
   flare.position.set(260 + 20, 40, -420 - 18);
   const g = new THREE.Group();
   g.add(mesh, flare);
-  g.userData.collider = { x: 260, z: -420, r: 22 };
   return g;
 }
 

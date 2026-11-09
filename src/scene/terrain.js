@@ -364,6 +364,12 @@ export function createTerrain({ sky, caustics, floatShadow, water, absorption, r
   const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
   const spots = placeRocks(90, rand);
   if (!heroRock.none) spots.push({ ...heroRock, y: islandHeight(heroRock.x, heroRock.z) - 1.6, s: 0, hero: true });
+  // tall sea stacks (Cabo): the rock mesh stretched upward, base sunk into the sea floor
+  // (the deformed sphere spans about y -0.2 to 1.38, so stretch it from the sea floor to the top)
+  for (const [x, z, r, top] of LOC.stacks || []) {
+    const bed = Math.min(-1, islandHeight(x, z)) - 1, sy = (top - bed) / 1.58;
+    spots.push({ x, z, y: bed + 0.2 * sy, s: 0, stack: [r, sy, r * 0.85] });
+  }
   if (!spots.length) spots.push({ x: 1e5, z: 1e5, y: -500, s: 0.01 });
   const rockMat = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, envMapIntensity: 0.9, vertexColors: true });
   patch(rockMat, uniforms, 'rock');
@@ -371,7 +377,9 @@ export function createTerrain({ sky, caustics, floatShadow, water, absorption, r
   const m = new THREE.Matrix4(), qt = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3();
   spots.forEach((s, i) => {
     e.set(rand() * 0.6, rand() * Math.PI * 2, rand() * 0.6);
+    if (s.stack) e.set(rand() * 0.1, rand() * Math.PI * 2, rand() * 0.1);
     if (s.hero) sc.set(9, 6, 7.5);
+    else if (s.stack) sc.set(...s.stack);
     else sc.set(s.s * (0.8 + rand() * 0.6), s.s * (0.5 + rand() * 0.5), s.s * (0.8 + rand() * 0.6));
     m.compose(new THREE.Vector3(s.x, s.y, s.z), qt.setFromEuler(e), sc);
     rocks.setMatrixAt(i, m);

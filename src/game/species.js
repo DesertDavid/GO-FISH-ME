@@ -134,6 +134,35 @@ export const SPECIES = [
   S('sablefish', 'Sablefish', 'cod', [3, 8, 57], [0x2a2a30, 0x4a4a52, 0xa0a0a8, 0x2a2a30], 'none', 0.5, 0, 12, 'b', 'mq', { net: 1 }),
   S('chum', 'Chum Salmon', 'salmon', [6, 12, 35], [0x3a4a3a, 0x8a8a5a, 0xe0e0d0, 0x4a5a4a], 'calicobars', 0.8, 0.5, 4, 'm', 'm', { hook: 1, net: 1 }),
   S('pacificherring', 'Pacific Herring', 'herring', [0.2, 0.4, 1.2], [0x2a4a6a, 0xd0d8e0, 0xffffff, 0x8a9aa8], 'none', 0.2, 0, 1, 'm', 'i', { metal: 0.8, net: 1 }),
+  // ---- Chesapeake Bay
+  S('bluefish', 'Bluefish', 'snook', [1, 5, 31.8], [0x2a5a6a, 0xa8c4cc, 0xf4f8f8, 0x5a7a80], 'none', 0.88, 0.4, 2, 'm', 'mq', { teeth: 1, metal: 0.4, o: { tail: ['fork', 0.28], dorsal: [[0.3, 0.42, 0.1, 'spiny'], [0.46, 0.66, 0.11, 'tri']] } }),
+  S('croaker', 'Atlantic Croaker', 'drum', [0.3, 1, 8], [0x6a6040, 0xc8b890, 0xf0e8d8, 0xb8a070], 'specks', 0.35, 0, 2.5, 'b', 'cwb'),
+  S('spotcroaker', 'Spot', 'drum', [0.1, 0.4, 1.5], [0x4a5a68, 0xc0c8cc, 0xf4f4f0, 0xd0b860], 'spot', 0.25, 0, 3, 'b', 'wc', { o: { H: 0.32 } }),
+  S('summerflounder', 'Summer Flounder', 'flat', [1, 3, 22.5], [0x6a5840, 0x8a7656, 0xf8f8f0, 0x7a6a50], 'darkspots', 0.5, 0, 7, 'b', 'mq'),
+  S('blackdrum', 'Black Drum', 'drum', [5, 25, 113], [0x2e2e2e, 0x6a6a6a, 0xd8d8d0, 0x2a2a2a], 'faintbars', 0.75, 0, 2, 'b', 'c', { barbel: 6, o: { H: 0.32 } }),
+  S('whiteperch', 'White Perch', 'bass', [0.2, 0.6, 4.8], [0x4a5a50, 0xc8d0c8, 0xf4f4f0, 0x8a9488], 'none', 0.35, 0, 3, 'm', 'wim', { metal: 0.4, o: { H: 0.32 } }),
+  // ---- Lake Kariba
+  S('tigerfish', 'Tigerfish', 'salmon', [1, 6, 35.3], [0x3a4a50, 0xd8dcd8, 0xffffff, 0xd02a20], 'hlines', 0.92, 0.9, 4, 'm', 'm', { teeth: 1, metal: 0.6, o: { tail: ['fork', 0.27] } }),
+  S('vundu', 'Vundu', 'catfish', [10, 40, 121], [0x4a4a3a, 0x7a7a60, 0xe0dccc, 0x5a5a48], 'darkspots', 0.82, 0, 2, 'b', 'bm', { o: { W: 0.22 } }),
+  S('sharptooth', 'Sharptooth Catfish', 'catfish', [2, 10, 79], [0x3a3a30, 0x6a6a58, 0xd8d4c4, 0x4a4a3a], 'mottled', 0.6, 0, 1.5, 'b', 'bmw', { o: { H: 0.14, dorsal: [[0.3, 0.88, 0.06, 'long']], adipose: 0 } }),
+  S('threespot', 'Three-spot Tilapia', 'panfish', [0.5, 2, 10], [0x3a5a40, 0x8aa070, 0xe8e0b8, 0x4a6a4a], 'darkspots', 0.45, 0, 3, 'm', 'wpi', { o: { H: 0.42 } }),
+  S('karibatilapia', 'Kariba Tilapia', 'panfish', [0.5, 1.5, 7], [0x3a4a3a, 0x7a8a6a, 0xe0d8b8, 0xc04030], 'faintbars', 0.38, 0, 3, 'm', 'p', { o: { H: 0.4 } }),
+  S('nembwe', 'Nembwe', 'bass', [0.5, 2, 8.5], [0x3a4a2a, 0x9aa060, 0xf0e0a0, 0x7a7a40], 'specks', 0.62, 0.3, 4, 'm', 'mi'),
+  // ---- Mekong
+  S('mekongcat', 'Mekong Giant Catfish', 'catfish', [60, 250, 646], [0x5a6068, 0x9aa0a8, 0xf0f0f0, 0x6a7078], 'none', 0.92, 0, 3, 'b', 'p', { barbel: 0, o: { H: 0.2 } }),
+  S('siamesecarp', 'Siamese Giant Carp', 'carp', [10, 60, 300], [0x4a5048, 0xb8bcb0, 0xf0f0e8, 0x7a8078], 'bigscales', 0.85, 0.05, 2, 'm', 'p', { barbel: 0, metal: 0.3 }),
+  S('giantsnakehead', 'Giant Snakehead', 'bowfin', [2, 10, 44], [0x2a3020, 0x4a5a38, 0xd8d8c0, 0x3a4a2a], 'darkblots', 0.85, 0.2, 3, 's', 'm', { teeth: 1, o: { W: 0.14 } }),
+  S('stripedcatfish', 'Iridescent Shark', 'catfish', [2, 10, 97], [0x3a4450, 0x9aa4b0, 0xf0f0f4, 0x4a5460], 'none', 0.72, 0, 2, 'm', 'pb', { metal: 0.5, barbel: 2, o: { H: 0.2 } }),
+  S('julliensbarb', 'Jullien\'s Golden Carp', 'carp', [3, 15, 110], [0x5a5030, 0xd0b060, 0xf4ecd0, 0x9a7a40], 'hlines', 0.8, 0, 3, 'b', 'pw', { barbel: 0 }),
+  S('giantgourami', 'Giant Gourami', 'panfish', [1, 5, 20], [0x5a5a48, 0xb0a888, 0xe8e0c8, 0x8a8068], 'faintbars', 0.5, 0, 3, 's', 'pi', { o: { H: 0.45 } }),
+  S('soldierbarb', 'Soldier River Barb', 'carp', [0.5, 2, 13], [0x4a5a6a, 0xd8dce0, 0xffffff, 0xd04030], 'none', 0.55, 0.1, 2, 'm', 'pi', { metal: 0.5 }),
+  // ---- Baja / Cabo San Lucas
+  S('stripedmarlin', 'Striped Marlin', 'billfish', [60, 130, 494], [0x10204a, 0x5a7aa8, 0xf0f0f4, 0x1a2a6a], 'sailstripes', 1, 1, 20, 's', 'mq'),
+  S('roosterfish', 'Roosterfish', 'jack', [5, 30, 114], [0x3a4a5a, 0xd0d4d8, 0xf8f8f8, 0x2a2a2a], 'bars', 0.95, 0.2, 2, 'm', 'm', { metal: 0.4, o: { H: 0.32, dorsal: [[0.2, 0.4, 0.3, 'spiny'], [0.45, 0.8, 0.11, 'sickle']] } }),
+  S('sierra', 'Pacific Sierra', 'mackerel', [1, 4, 18], [0x2a4a6a, 0xc0ccd8, 0xf8f8fa, 0x3a5a7a], 'specks', 0.7, 0.4, 4, 'm', 'm', { metal: 0.5, teeth: 1 }),
+  S('pargo', 'Pacific Dog Snapper', 'snapper', [3, 12, 60], [0x7a3a2a, 0xb06a50, 0xe8c0a8, 0x8a4030], 'faintbars', 0.82, 0, 6, 'b', 'mc', { teeth: 1 }),
+  S('cabrilla', 'Leopard Grouper', 'grouper', [2, 6, 25], [0x5a3a3a, 0x9a6a5a, 0xe0c0b0, 0x6a4040], 'leopard', 0.7, 0, 6, 'b', 'mc'),
+  S('yellowtail', 'California Yellowtail', 'jack', [5, 20, 109], [0x2a3a5a, 0xc8d0d8, 0xf4f4f4, 0xf0c020], 'yellowstripe', 0.95, 0, 6, 'm', 'mq', { metal: 0.4, o: { H: 0.25 } }),
 ];
 
 export const SPECIES_BY_ID = Object.fromEntries(SPECIES.map((s) => [s.id, s]));

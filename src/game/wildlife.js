@@ -94,6 +94,7 @@ const KINDS = {
   gulf: ['dolphin'], reef: ['dolphin'], keys: ['dolphin'],
   bering: ['whale'], fjord: ['whale'],
   okeechobee: ['gator'], amazon: ['gator'],
+  chesapeake: ['dolphin'], cabo: ['whale', 'dolphin'], kariba: ['gator'],   // Kariba's are Nile crocodiles
 };
 
 export class Wildlife {

@@ -262,6 +262,18 @@ export class Docks {
     return null;
   }
 
+  // the walkway and T-head as overlapping circles, so boats bump into the dock
+  colliders() {
+    const out = [];
+    for (const d of this.list) {
+      for (let u = 0.8; u < d.len; u += 1.5) { const p = d.toWorld(u, 0); out.push({ x: p.x, z: p.z, r: 1.0 }); }
+      for (const u of [d.len + 0.9, d.len + HEAD_D - 0.9]) for (const v of [-2.1, -0.7, 0.7, 2.1]) {
+        const p = d.toWorld(u, v); out.push({ x: p.x, z: p.z, r: 1.0 });
+      }
+    }
+    return out;
+  }
+
   // nearest dock and the closest standing spot on it
   nearest(x, z) {
     let best = null;

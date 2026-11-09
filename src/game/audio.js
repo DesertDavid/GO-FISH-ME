@@ -117,6 +117,7 @@ export class GameAudio {
       case 'ui': this.tone(900, 0.05, 0.06, 'sine'); break;
       case 'thunder': this.burst(3.5, 120, 0.7, 0.9); this.burst(1.2, 400, 0.5, 0.4, 'lowpass', 0.1); break;
       case 'thrash': this.burst(0.25, 1800, 0.8, 0.3); break;
+      case 'bump': this.tone(70 + 30 * Math.random(), 0.35, 0.2 * p + 0.1, 'sine', -30); this.burst(0.18, 450, 1.2, 0.25 * p + 0.1); break;
       case 'scream': for (let i = 0; i < 70; i++) this.tone(3300 + (i % 3) * 120, 0.01, 0.09, 'square', 0, i * 0.028); break;
       default: break;
     }

@@ -1,7 +1,9 @@
 # Reel World
 
-A fishing game built on the Ultra-Water ocean renderer (below). Real-world lakes, rivers and
-oceans, 120 real fish species in 16 colour variants each (1,920 catalog entries), rods,
+A fishing game built on the Ultra-Water ocean renderer (below). Fourteen real-world lakes,
+rivers and oceans, from Lake Okeechobee and the Chesapeake to Lake Kariba's drowned forest, the
+Mekong's four thousand islands and the desert cliffs of Cabo San Lucas, with 145 real fish
+species in 16 colour variants each (2,320 catalog entries), rods,
 reels, line and lures with real stats, and seven boats modelled in Blender, from a jon boat
 to a purse seiner with working nets. Weather (clear to storms, with rain and lightning) changes
 the waves and the bite, and each location posts three daily challenges paid in cash and three

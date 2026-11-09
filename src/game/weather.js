@@ -18,6 +18,10 @@ const CLIMATE = {
   gulf: { clear: 4, partly: 3, overcast: 1, rain: 1, storm: 0.5 },
   reef: { clear: 4, partly: 3, overcast: 1, rain: 1, storm: 0.4 },
   keys: { clear: 4, partly: 3, overcast: 1, rain: 1, storm: 0.3 },
+  cabo: { clear: 6, partly: 3, overcast: 0.5, rain: 0.2, storm: 0.2 },
+  kariba: { clear: 5, partly: 3, overcast: 0.8, rain: 0.6 },
+  mekong: { partly: 3, overcast: 2, rain: 3 },
+  chesapeake: { clear: 3, partly: 4, overcast: 2.5, rain: 1.5 },
 };
 
 const DROPS = 5000, BOX = 70, HEIGHT = 34;

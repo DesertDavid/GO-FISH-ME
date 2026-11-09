@@ -22,6 +22,7 @@ import { makeChallenges, recordCatch } from './challenges.js';
 import { Weather } from './weather.js';
 import { NightFX } from './night.js';
 import { Docks } from './docks.js';
+import { Obstacles } from './obstacles.js';
 import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
 import { SPECIES_BY_ID } from './species.js';
 
@@ -61,12 +62,18 @@ export class Game {
     this.settings = loadSettings();
     this.audio = new GameAudio();
     progress(0.75, 'Planting trees…');
-    this.scene.add(buildScenery(this.loc, this.heightAt, this.patchProp));
+    const scenery = buildScenery(this.loc, this.heightAt, this.patchProp);
+    this.scene.add(scenery);
     this.start = findStart(this.loc);
     this.hotspots = new Hotspots(this.loc, this.heightAt, this.start, this.patchProp);
     this.scene.add(this.hotspots.group);
     this.docks = new Docks(this.loc, this.heightAt, this.patchProp, this.start);
     this.scene.add(this.docks.group);
+    this.obstacles = new Obstacles();
+    this.obstacles.add(scenery.userData.colliders);
+    this.obstacles.add(this.docks.colliders());
+    this.obstacles.add((this.loc.stacks || []).map(([x, z, r]) => ({ x, z, r: r * 1.05 })));
+    this.bumpCool = 0;
     this.market = new Market(this.loc);
     progress(0.85, 'Launching the boat…');
     let boatId = this.save.boat;
@@ -279,6 +286,11 @@ export class Game {
     if (k('arrowup')) this.look.pitch = Math.min(1.1, this.look.pitch + dt * 1.2);
     if (k('arrowdown')) this.look.pitch = Math.max(-1.2, this.look.pitch - dt * 1.2);
     this.boat.update(dt, this.e.floaters, this.loc.current);
+    if (this.boat.body) {
+      const hit = this.obstacles.resolve(this.boat.body, this.boat.hull.length, this.boat.hull.beam);
+      this.bumpCool -= dt;
+      if (hit > 0.6 && this.bumpCool <= 0) { this.audio.play('bump', Math.min(1, hit / 5)); this.bumpCool = 0.5; }
+    }
     this.audio.engine(c.throttle, this.boatSpeed());
     this.updateCamera(dt);
 

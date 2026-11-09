@@ -18,6 +18,10 @@ const WATER = {
   tropical: { absorption: [0.36, 0.045, 0.06], scatter: [0.0, 0.085, 0.085], foam: [0.66, 0.86, 0.84], turbidity: 0.02 },
   deepBlue: { absorption: [0.45, 0.06, 0.028], scatter: [0.0, 0.028, 0.075], foam: [0.66, 0.78, 0.86], turbidity: 0.025 },
   northSea: { absorption: [0.62, 0.15, 0.12], scatter: [0.004, 0.02, 0.028], foam: [0.72, 0.78, 0.8], turbidity: 0.06 },
+  brackish: { absorption: [0.7, 0.3, 0.72], scatter: [0.03, 0.05, 0.032], foam: [0.76, 0.78, 0.68], turbidity: 0.22 },
+  kariba: { absorption: [0.6, 0.25, 0.48], scatter: [0.016, 0.04, 0.034], foam: [0.76, 0.8, 0.72], turbidity: 0.1 },
+  mekong: { absorption: [0.5, 0.62, 0.95], scatter: [0.07, 0.055, 0.03], foam: [0.82, 0.76, 0.62], turbidity: 0.32 },
+  pacific: { absorption: [0.45, 0.055, 0.03], scatter: [0.0, 0.034, 0.07], foam: [0.68, 0.8, 0.86], turbidity: 0.025 },
 };
 
 const base = {
@@ -159,9 +163,93 @@ export const LOCATIONS = {
     pool: { pacificcod: 25, pacifichalibut: 12, sablefish: 10, chum: 10, alaskapollock: 20, chinook: 6, coho: 6, pacificherring: 6 },
     net: { alaskapollock: 40, pacificherring: 25, pacificcod: 15, capelin: 15, sablefish: 5, chum: 5 },
   },
+  chesapeake: {
+    ...base, id: 'chesapeake', name: 'Chesapeake Bay', region: 'Maryland, USA', water: 'inshore', price: 5000,
+    blurb: 'Brackish bay, marsh shores and the shipping channel. Stripers, blues and croaker.',
+    wind: 7, windDir: 200, fetch: 45, waveScale: 0.6, swell: 0.1, waterLook: WATER.brackish, shoreWave: 0.1, sky: { turbidity: 2.8, clouds: 0.45 },
+    trees: [['reed', 3600, -0.3, 1.0], ['birch', 2600, 1.4, 20], ['pine', 1800, 1.5, 20], ['cabin', 30, 1.0, 6]],
+    height(x, z) {
+      // open bay to the east, a low marsh shore to the west cut by tidal creeks
+      const c = x + 520 + 200 * fbm(z * 0.0012, x * 0.0004 + 3, 3, 2);
+      let h;
+      if (c > 0) {
+        h = -0.6 - 2.6 * sm(0, 90, c) - 4.5 * sm(60, 800, c) - 0.8 * fbm(x * 0.01, z * 0.01, 2, 3);
+        h -= 10 * Math.exp(-(((x - 950 - 120 * fbm(z * 0.002, 1, 2, 5)) / 170) ** 2));   // shipping channel
+      } else {
+        h = 0.5 + 0.3 * sm(0, -80, c) + 8 * sm(-60, -700, c) * (0.6 + fbm(x * 0.006, z * 0.006, 3, 4));
+        const creek = Math.abs(fbm(x * 0.0028 + 5, z * 0.0028, 3, 7));
+        h += (-2.4 - h) * sm(0.07, 0.0, creek) * sm(-1100, -100, c);
+      }
+      // a low marsh island out in the bay
+      const r = Math.hypot(x - 380, z + 700) * (1 + 0.4 * fbm(x * 0.008, z * 0.008, 2, 9));
+      return h + (0.6 + 1.5 * sm(130, 40, r) - h) * sm(240, 130, r);
+    },
+    pool: { stripedbass: 24, bluefish: 14, croaker: 16, spotcroaker: 12, whiteperch: 14, seatrout: 8, summerflounder: 8, blackdrum: 5, redfish: 5, cobia: 2, bluecat: 3, channelcat: 3 },
+    net: { menhaden: 55, spotcroaker: 15, croaker: 12, shad: 10, bluefish: 4, stripedbass: 2 },
+  },
+  mekong: {
+    ...base, id: 'mekong', name: 'Mekong River', region: 'Si Phan Don, Laos', water: 'river', price: 8000, size: 3600,
+    blurb: 'The four thousand islands. Giant catfish, Siamese carp and snakeheads in brown water.',
+    wind: 3, fetch: 8, waveScale: 0.45, waterLook: WATER.mekong, current: [0, 0.5], sky: { turbidity: 4, clouds: 0.55 }, fog: 1 / 9500,
+    trees: [['jungle', 9000, 1.0, 22], ['palm', 2600, 0.8, 12], ['stilt', 45, 0.6, 3]],
+    height(x, z) {
+      const cx = 240 * Math.sin(z * 0.0009) + 50 * fbm(z * 0.003, 2, 2, 1);
+      const d = Math.abs(x - cx), W = 640;
+      if (d < W) {
+        const h = -1.6 - 13 * (1 - (d / W) ** 2) + 1.2 * fbm(x * 0.02, z * 0.02, 2, 8);
+        const isl = fbm(x * 0.005 + 4, z * 0.005, 4, 12);
+        const m = sm(0.2, 0.3, isl) * sm(W * 0.98, W * 0.75, d) * sm(180, 320, Math.hypot(x - cx, z));
+        return h + (0.7 + (isl - 0.2) * 10 - h) * m;
+      }
+      return 1.1 + (d - W) * 0.012 + 2.2 * fbm(x * 0.01, z * 0.01, 3, 5);
+    },
+    pool: { stripedcatfish: 18, giantsnakehead: 12, soldierbarb: 16, giantgourami: 10, julliensbarb: 8, siamesecarp: 4, mekongcat: 1.5, tilapia: 8 },
+    net: null,
+  },
+  kariba: {
+    ...base, id: 'kariba', name: 'Lake Kariba', region: 'Zimbabwe / Zambia', water: 'lake', price: 10000, size: 4000,
+    blurb: 'A drowned valley full of dead trees. Tigerfish, vundu and crocodiles.',
+    wind: 5, windDir: 120, fetch: 25, waveScale: 0.65, waterLook: WATER.kariba, sky: { turbidity: 3.4, clouds: 0.28 }, fog: 1 / 12000, rockLine: 45, rockTint: [0.85, 0.66, 0.5],
+    trees: [['snag', 1600, -7, -1.2], ['acacia', 3200, 1, 70]],
+    height(x, z) {
+      const r = Math.hypot(x, z);
+      let n = fbm(x * 0.0014 + 1, z * 0.0014 - 4, 4, 21) + 0.15 * fbm(x * 0.007, z * 0.007, 3, 6);
+      n -= 0.55 * Math.exp(-((r / 700) ** 2));
+      if (n < 0.1) return -0.6 - 30 * sm(0.1, -0.4, n) ** 1.3;
+      return 0.6 + (n - 0.1) * 45 + 110 * sm(0.16, 0.5, n) * (0.45 + 0.7 * ridged(x * 0.004, z * 0.004, 4, 3));
+    },
+    pool: { tigerfish: 22, threespot: 16, karibatilapia: 14, sharptooth: 12, nembwe: 10, vundu: 5 },
+    net: null,
+  },
+  cabo: {
+    ...base, id: 'cabo', name: 'Cabo San Lucas', region: 'Baja California Sur, Mexico', water: 'offshore', price: 18000,
+    blurb: 'Desert cliffs drop straight into deep blue. Striped marlin, roosterfish and dorado.',
+    wind: 7, windDir: 300, fetch: 200, swell: 0.6, swellDir: 200, waterLook: WATER.pacific, shoreWave: 0.55, sky: { turbidity: 2, clouds: 0.2 }, fog: 1 / 26000,
+    rockLine: 6, rockTint: [0.86, 0.74, 0.62],
+    trees: [['cactus', 1400, 2, 140]],
+    // granite sea stacks off Land's End: [x, z, radius, height above water]
+    stacks: [[-300, -55, 13, 30], [-262, -18, 10, 22], [-215, -42, 8, 16], [-332, -10, 6, 11], [-240, -70, 5, 7]],
+    height(x, z) {
+      // the cape runs east-west with land to the north; Land's End juts south at x = -260
+      const point = Math.exp(-(((x + 260) / 150) ** 2));
+      const d = -420 + 120 * fbm(x * 0.0018, 7, 3, 4) + 330 * point - z;   // > 0 on land
+      const bay = sm(80, 300, x) * sm(1000, 700, x);                        // sandy beach east of the point
+      let h;
+      if (d > 0) {
+        h = 0.7 + Math.min(d, 40) * (0.05 + 0.9 * (1 - bay)) + Math.max(0, d - 40) * 0.2;
+        h += 190 * sm(60, 900, d) * (0.45 + 0.75 * ridged(x * 0.003, z * 0.003, 5, 17));
+      } else {
+        const w = -d;
+        h = -(0.5 + 2.5 * (1 - bay)) - 4 * sm(0, 60, w) - 60 * sm(40, 400, w) - 230 * sm(300, 1100, w);
+      }
+      return h;
+    },
+    pool: { stripedmarlin: 6, bluemarlin: 1, blackmarlin: 0.8, sailfish: 3, mahi: 14, yellowfin: 10, wahoo: 6, skipjack: 8, roosterfish: 8, sierra: 12, yellowtail: 10, pargo: 8, cabrilla: 8, mako: 1 },
+    net: { sardine: 50, anchovy: 28, skipjack: 10, sierra: 6, yellowtail: 3 },
+  },
 };
 
-export const LOCATION_ORDER = ['okeechobee', 'woods', 'tahoe', 'columbia', 'keys', 'amazon', 'fjord', 'gulf', 'reef', 'bering'];
+export const LOCATION_ORDER = ['okeechobee', 'woods', 'tahoe', 'columbia', 'chesapeake', 'keys', 'mekong', 'amazon', 'kariba', 'fjord', 'gulf', 'cabo', 'reef', 'bering'];
 
 // A start point in open water near the origin (spiral search).
 export function findStart(loc) {
