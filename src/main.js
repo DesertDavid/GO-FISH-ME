@@ -189,7 +189,7 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
   }
 
   const engine = {
-    renderer, scene, camera, overlay, floaters, sky, surface, ocean, terrain, query,
+    renderer, scene, camera, overlay, overlayFill: ovFill, floaters, sky, surface, ocean, terrain, query,
     patchProp: terrain.patchProp, heightAt: islandHeight,
     setSun: (elevation, azimuth) => { Object.assign(sky.params, { elevation, azimuth }); sunDirty = true; },
     // weather: cloud cover + sun strength (sky re-bake), wind (wave spectrum), haze

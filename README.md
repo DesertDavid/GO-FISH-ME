@@ -60,6 +60,8 @@ Open the address it prints (http://localhost:5173 by default) in Chrome or Edge.
 - `src/game/` - gameplay: locations, species, fish models, gear, boats, fishing, nets, UI.
 - `tools/blender/build_boats.py` - builds the boat models. Re-export with
   `blender -b --factory-startup --python tools/blender/build_boats.py` (writes `public/models/boats/`).
+- `tools/blender/build_hands.py` - builds the first-person hands from a bone skeleton (writes
+  `public/models/hands.glb`; add `-- --preview DIR` to render check images).
 - `fishlab.html` - dev page showing a grid of fish models (`?start=48&morph=albino`).
 
 ---

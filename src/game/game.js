@@ -306,6 +306,9 @@ export class Game {
     // a screaming trolling rod: the click grabs it instead of casting
     if (this.troll.pending && input.pressed) { this.troll.take(); input.pressed = false; }
     this.fishing.update(dt, input);
+    // the over-the-shoulder fill lights a fish held up to the camera; the rest of the time it
+    // would wash out the hands and rod right beside it
+    if (this.e.overlayFill) this.e.overlayFill.intensity += ((this.fishing.state === 'caught' ? 3.5 : 0.5) - this.e.overlayFill.intensity) * Math.min(1, dt * 4);
     this.troll.update(dt);
     this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo);
     this.ui.power(this.fishing.state === 'charging' ? this.fishing.power : null);
