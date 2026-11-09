@@ -52,6 +52,7 @@ export class Game {
     this.water = [0, 0, 0];
     this.time = 0;
     this.sunTimer = 0;
+    this.holstered = false;           // rod put away (X)
     this.foot = null;                 // on foot: { x, z, y, speed } (docks and shore)
     this.footPos = new THREE.Vector3();
   }
@@ -165,6 +166,7 @@ export class Game {
       if (k === 'l') { this.ui.open('livewell'); this.keys.clear(); return; }
       if (k === 'n') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else this.net.toggle(); }
       if (k === 'r') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else this.troll.toggle(); }
+      if (k === 'x') this.toggleHolster();
       if (k === 'u') this.toggleUnderwater();
       if (k === 'p') this.togglePhoto();
       if (k === 'f') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
@@ -270,7 +272,15 @@ export class Game {
     if (this.fishing.state !== 'fight') this.ui.toast(`Drag set to ${this.fishing.dragSetting().toFixed(1)} lb (line breaks at ${LINES[this.save.equip.line].test} lb)`, 'info');
   }
 
+  // X: put the rod away / take it out again (only with nothing in the water)
+  toggleHolster() {
+    if (this.fishing.busy()) { this.ui.toast('Reel in before you put the rod away.', 'info'); return; }
+    this.holstered = !this.holstered;
+    this.ui.toast(this.holstered ? 'Rod put away' : 'Rod out', 'info');
+  }
+
   canFish() {
+    if (this.holstered) return false;
     if (this.ui.isOpen() || this.view !== 'first') return false;
     if (this.net.state !== 'stowed') { this.ui.toast('Haul the net in before casting.', 'info'); return false; }
     if (this.troll.active) { this.ui.toast('Clear the trolling spread first (R).', 'info'); return false; }
@@ -304,7 +314,10 @@ export class Game {
 
     // the underwater camera hands back to the angler when there's nothing left to watch
     if (this.view === 'under' && !['water', 'bite', 'fight'].includes(this.fishing.state)) { this.view = 'first'; this.restoreLook(); }
-    const canAct = this.view === 'first' || this.view === 'under';
+    // holster: ease the rod and hands down out of view (and back up)
+    this.rod.holster += ((this.holstered ? 1 : 0) - this.rod.holster) * Math.min(1, dt * 7);
+    if (this.holstered && this.rod.holster > 0.995) this.rod.holster = 1;
+    const canAct = (this.view === 'first' || this.view === 'under') && !this.holstered;
     const input = {
       down: this.mouse.down && !this.ui.isOpen() && canAct,
       pressed: this.mouse.pressed && !this.ui.isOpen() && canAct,
@@ -318,7 +331,7 @@ export class Game {
     // would wash out the hands and rod right beside it
     if (this.e.overlayFill) this.e.overlayFill.intensity += ((this.fishing.state === 'caught' ? 3.5 : 0.5) - this.e.overlayFill.intensity) * Math.min(1, dt * 4);
     this.troll.update(dt);
-    this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo);
+    this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo && this.rod.holster < 1);
     this.ui.power(this.fishing.state === 'charging' ? this.fishing.power : null);
     this.net.update(dt);
     const bp = this.foot ? this.footPos : this.boat.position;

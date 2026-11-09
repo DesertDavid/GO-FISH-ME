@@ -71,6 +71,8 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 
 - Fish finder (sonar) panel toggle: `F` key + Settings checkbox, saved as `sonar` in settings;
   hidden = no per-frame sonar drawing (also hidden on foot).
+- Holster the rod: `X` toggles held/put away (`Game.toggleHolster`, `rod.holster` 0..1 eases the rod
+  and hands down out of view). Refused while a line is out/fighting; casting is off while holstered.
 
 ## Known gaps / ideas
 - No angler body when walking in third person.

@@ -19,6 +19,7 @@ export class Rod {
     this.reelSpin = 0;
     this.twitch = 0;
     this.castAnim = 0;
+    this.holster = 0;   // 0 held .. 1 lowered out of view (set by the game)
 
     // blank
     const g = new THREE.BufferGeometry();
@@ -120,9 +121,10 @@ export class Rod {
     this.castAnim = Math.max(0, this.castAnim - dt * 3);
     this.twitch *= Math.exp(-dt * 8);
     // butt in the right hand, low; rod raised and swung by pose
-    this.butt.set(0.15 + pose.side * 0.08, -0.22, -0.4).applyMatrix4(camera.matrixWorld);
+    const h = this.holster;
+    this.butt.set(0.15 + pose.side * 0.08 - h * 0.1, -0.22 - h * 0.85, -0.4 + h * 0.15).applyMatrix4(camera.matrixWorld);
     const back = pose.charge || 0;
-    const local = _a.set(0.12 + pose.side * 0.7, 0.42 + pose.lift * 0.75 + back * 1.6 - this.castAnim * 0.4 - this.twitch, -1).normalize();
+    const local = _a.set(0.12 + pose.side * 0.7, 0.42 + pose.lift * 0.75 + back * 1.6 - this.castAnim * 0.4 - this.twitch - h * 1.5, -1).normalize();
     this.dir.copy(local).transformDirection(camera.matrixWorld);
     // bend toward the line
     const bend = Math.min(1.25, (pose.tension || 0) / Math.max(1, this.power) * 0.9 + this.twitch * 0.6);
