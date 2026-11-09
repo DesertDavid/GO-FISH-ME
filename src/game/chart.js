@@ -182,6 +182,7 @@ export class Chart {
     // places
     const me = this.playerPos();
     const rows = [];
+    this.labels = [];
     for (const p of this.places()) {
       const x = px(p.x), y = pz(p.z);
       // pier: walkway line from the shore to the head
@@ -238,7 +239,13 @@ export class Chart {
     ctx.restore();
     ctx.font = '700 12px "IBM Plex Sans", sans-serif';
     const label = p.name;
-    const w = ctx.measureText(label).width + 12, lx = clamp(x - w / 2, 4, ctx.canvas.width - w - 4), ly = y + 20;
+    const w = ctx.measureText(label).width + 12, lx = clamp(x - w / 2, 4, ctx.canvas.width - w - 4);
+    // keep labels of neighbouring docks from printing over each other: try below, above, then further below
+    const taken = this.labels || [];
+    const clash = (ly) => taken.some((r) => lx < r.x + r.w && lx + w > r.x && ly < r.y + 18 && ly + 18 > r.y);
+    let ly = y + 20;
+    for (const cand of [y + 20, y - 38, y + 40, y - 58]) { ly = cand; if (!clash(cand)) break; }
+    taken.push({ x: lx, y: ly, w });
     ctx.fillStyle = 'rgba(10,18,26,0.85)'; ctx.fillRect(lx, ly, w, 18);
     ctx.fillStyle = '#f2efe8'; ctx.fillText(label, lx + 6, ly + 13);
   }
