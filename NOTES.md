@@ -65,6 +65,7 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - Boat collisions with drowned trees, sea stacks, docks, rig legs.
 - Blender-built first-person hands; left hand follows the crank.
 - Standalone Edge app-window launcher; mouse lock on any click; no right-click menu.
+- Closing any menu (button, Back, click outside, Esc/Tab) re-grabs the mouse inside that same gesture (`ui.close/forceClose` -> `game.grabPointer`). If the browser refuses (cooldown after its own Esc unlock) it is silent and retried on the next key or click on the view; travel reloads the page, so that one still needs a click.
 - Travel menu postcards: `public/images/locations/<id>.webp` (800x450, 40-100 KB, made with the local
   image generator, one prompt per place, same photo style/seed; shown in `.loc-pic`, dimmed when
   locked). To redo one, regenerate at 1344x768 and resize/compress to webp.
