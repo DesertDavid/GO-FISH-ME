@@ -1,0 +1,33 @@
+{
+  "_doc": "Source models for tools/blender/import_assets.py. Run: blender -b --factory-startup --python tools/blender/import_assets.py -- --src <dir with each zip extracted into its own folder> [--only id,id] [--preview DIR]. 'input' is relative to --src. mode 'fish' bakes the pose at 'frame' into one static mesh, nose +x, back +y, length 'length' (1 = same convention as the procedural fish). 'head'/'up' name the Blender (Z-up) axes the source model's nose and back point along after glTF import. 'species' lists the species ids that use the model (see src/game/heroFish.js).",
+  "assets": [
+    {
+      "id": "tuna", "category": "fish", "mode": "fish",
+      "input": "tuna_fish/scene.gltf", "out": "fish/tuna.glb",
+      "title": "Tuna Fish", "author": "GoldenZtuff", "url": "https://sketchfab.com/3d-models/tuna-fish-642c6515d893474a8fc8f129491efcac",
+      "license": "CC-BY-4.0", "head": "-y", "up": "z", "frame": 0, "tris": 8100, "tex": 1024,
+      "species": ["yellowfin", "blackfin", "bluefin", "skipjack", "dogtooth"]
+    },
+    {
+      "id": "swordfish", "category": "fish", "mode": "fish",
+      "input": "sword_fish/scene.gltf", "out": "fish/swordfish.glb",
+      "title": "Sword Fish", "author": "Carlos.Maciel", "url": "https://sketchfab.com/3d-models/sword-fish-9f076eb541a44a96b65e53a4062db506",
+      "license": "CC-BY-4.0", "head": "-x", "up": "z", "tris": 7700, "tex": 1024,
+      "species": ["swordfish"]
+    },
+    {
+      "id": "shark", "category": "fish", "mode": "fish",
+      "input": "shark/scene.gltf", "out": "fish/shark.glb",
+      "title": "Shark", "author": "AndrejKrebs", "url": "https://sketchfab.com/3d-models/shark-5d5fc65b6b514e2cb8c3fbc04791a89a",
+      "license": "CC-BY-4.0", "head": "-y", "up": "z", "frame": 0, "tris": 14000, "diffuse": "textures/SharkBody_diffuse.png", "tex": 1024,
+      "species": ["mako", "porbeagle", "blacktip", "lemonshark", "tigershark"]
+    },
+    {
+      "id": "bass", "category": "fish", "mode": "fish",
+      "input": "bass_-_fish/scene.gltf", "out": "fish/bass.glb",
+      "title": "Bass - Fish", "author": "Simon Ustal", "url": "https://sketchfab.com/3d-models/bass-fish-2d664e9899ad46a787d5549ed8c42241",
+      "license": "CC-BY-4.0", "head": "-x", "up": "z", "frame": 0, "tris": 10000, "tex": 1024,
+      "species": ["yellowperch", "sauger"]
+    }
+  ]
+}

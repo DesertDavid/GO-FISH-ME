@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BODIES } from './fishBodies.js';
 import { paintSkin, morphLook } from './fishSkin.js';
+import { heroFor, buildHero } from './heroFish.js';
 
 // Procedural fish: a lofted body (superellipse sections), planar fins, eyes, bill/barbels,
 // a painted skin and a vertex-shader swim wave. Built at length 1 (head +x, tail -x), then
@@ -359,6 +360,12 @@ const textureCache = new Map();
 export function buildFish(sp, morph, opts = {}) {
   const b = bodyFor(sp);
   const look = morphLook(sp, morph);
+  const hero = heroFor(sp);
+  if (hero) {   // a real model (see heroFish.js); same uniforms and swim wave as the procedural fish
+    const uniforms = { uSwim: { value: new THREE.Vector3(0, 0.025, 9) } };
+    const group = buildHero(hero, sp, morph, look, uniforms, swimPatch, opts);
+    return { group, uniforms, body: b, look };
+  }
   const key = sp.id + ':' + morph.id;
   let tex = textureCache.get(key);
   if (!tex) {

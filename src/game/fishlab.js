@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { SPECIES, MORPH_BY_ID } from './species.js';
 import { buildFish } from './fishMesh.js';
+import { heroReady } from './heroFish.js';
 
 const args = new URLSearchParams(location.search);
 const morph = MORPH_BY_ID[args.get('morph') || 'normal'];
@@ -19,6 +20,7 @@ const cols = +(args.get('cols') || 6);
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100);
 camera.position.set(0, 0, +(args.get('dist') || 13));
 const fish = [];
+await heroReady;   // real models are loaded before the grid is built
 // ?ids=pike,mako,halibut picks specific species instead of a range
 const list = args.get('ids') ? args.get('ids').split(',').map((id) => SPECIES.find((s) => s.id === id)).filter(Boolean) : SPECIES.slice(start, start + count);
 list.forEach((sp, i) => {
@@ -30,6 +32,7 @@ list.forEach((sp, i) => {
   scene.add(f.group);
   fish.push(f);
 });
+window.__lab = { scene, camera, fish };   // dev hook for headless checks
 renderer.setAnimationLoop((t) => {
   for (const f of fish) f.uniforms.uSwim.value.x = t / 1000;
   renderer.render(scene, camera);
