@@ -126,6 +126,13 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   - **Spooking**: boat noise (speed-scaled radius), hull/walker shadow over shallow fish, fast walking on foot, any `Game.splash` (amp x size, so a whale or jumping fish spooks far, a cast does not), a thrashing hooked fish, pelican plunges. Bold fish have a smaller radius; spooked fish bolt away, alarm neighbours, then stay wary 5-9 s.
   - **Bait balls** (`baitBalls.js`, 2 near the player in water >= 3.5 m): every 16-40 s a hunter (a real predator fish within 30 m when there is one, else an unseen one) hunts it: ball tightens and rises, nervous-water patter, then it explodes, fish leap, surface boil (impacts), and any predator fish crossing a ball scatters it. A feeding ball is a hotspot for ~14 s (`fishLife.boilNear` adds to the `hot` bite-rate factor in `rollBite`), and `birds.attract` lets pelicans dive on it. Gulls are not hooked in (they only use the scenery hotspots). The shorelife silver schools are unchanged.
   - Not touched: sonar, trolling (`troll.js`) and net boats keep their own fish logic; visible fish are not drawn on the sonar and do not chase trolled lures. Dev: `game.fishLife.spawnAt('barracuda', 6)`, `fishLife.actors`, `fishLife.balls.balls[i].huntT = 0` forces a hunt, `fishLife.L` is the lure state; set `TUNE.enabled = false` (import `fishTune.js`) to compare frame time.
+- Real 3D assets (see `docs/asset-wishlist.md`): importer `tools/blender/import_assets.py` + manifest `tools/assets/manifest.json`
+  (`blender -b --factory-startup --python tools/blender/import_assets.py -- --src <dir with each zip extracted into its own folder> [--only id] [--preview DIR]`;
+  sources are the zips in `H:\3d assests\`). Mode `fish` bakes the pose to a static mesh (nose +x, length 1), decimates, shrinks textures to 1024 px WEBP, Draco-exports to
+  `public/models/fish/`. `src/game/heroFish.js` maps species -> model and `buildFish` uses it (same swim shader, morphs via grey-scale tint shader; procedural body is the fallback while loading).
+  Done: tuna (5 species), swordfish, shark (mako, porbeagle, blacktip, lemon, tiger), perch (yellow perch, sauger); 0.85 MB total. `node tools/assets/gen_credits.mjs` rebuilds
+  `public/credits.md` + `src/game/creditsData.js` (credit line shows in the Esc menu). `fishlab.html?ids=a,b&n=2` needs `n` = number of ids.
+  Not done yet: wildlife (ducks, hippo, moose, turtle, dolphin, whale) needs a `rigged` mode in the importer (keep clips) + `wildlife.js` wiring; stingray (no species yet); props.
 
 ## Known gaps / ideas
 - No angler body when walking in third person (NPC anglers have one; the player's could reuse `buildAngler`).
