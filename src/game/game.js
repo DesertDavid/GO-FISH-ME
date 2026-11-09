@@ -166,6 +166,7 @@ export class Game {
         return;
       }
       if (this.ui.isOpen()) return;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;   // browser shortcuts (Ctrl+C, Ctrl+R...) aren't game keys
       if (this.wantLock) this.grabPointer?.();   // last grab was refused: retry on this key
       this.keys.add(k);
       const open = { t: 'tackle', b: 'shop', y: 'marina', m: 'map', c: 'chart', j: 'journal', h: 'help', o: 'settings', e: 'events' }[k];
@@ -341,6 +342,8 @@ export class Game {
     // holster: ease the rod and hands down out of view (and back up)
     this.rod.holster += ((this.holstered ? 1 : 0) - this.rod.holster) * Math.min(1, dt * 7);
     if (this.holstered && this.rod.holster > 0.995) this.rod.holster = 1;
+    // a screaming trolling rod: take the rod back out so the click can grab it
+    if (this.holstered && this.troll.pending) { this.holstered = false; this.ui.toast('Rod out', 'info'); }
     const canAct = (this.view === 'first' || this.view === 'under') && !this.holstered;
     const input = {
       down: this.mouse.down && !this.ui.isOpen() && canAct,
