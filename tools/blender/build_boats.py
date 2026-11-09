@@ -430,18 +430,6 @@ def build_jon(root):
     for s in (1, -1):
         cw = jon_z(1.6)
         box('cleat', (0.16, 0.035, 0.03), (1.6, s * (cw[0] - 0.12), cw[3] - 0.03), steel, root, bevel=0.01)
-    # oars stowed + oarlocks
-    wood = mat('oar_wood', srgb(0xb08a5a), 0.0, 0.6)
-    for s in (1, -1):
-        tw, _, _, tz = jon_z(-0.55)
-        tube('oarlock', [(-0.55, s * tw, tz + 0.01), (-0.55, s * (tw + 0.02), tz + 0.14), (-0.55, s * (tw + 0.08), tz + 0.18)], 0.008, steel, root)
-        tube('oar', [(x_, s * (jon_z(x_)[0] - 0.14), jon_z(x_)[3] - 0.06) for x_ in (-1.6, -1.0, -0.4, 0.2, 0.7)], 0.014, wood, root)
-        bm = bmesh.new()
-        bmesh.ops.create_cube(bm, size=1.0)
-        for v in bm.verts:
-            v.co = Vector((v.co.x * 0.42, v.co.y * 0.12, v.co.z * 0.015))
-        o = mesh_obj('oar_blade', bm, wood, root)
-        o.location = (0.85, s * (jon_z(0.85)[0] - 0.16), jon_z(0.85)[3] - 0.06)
     # fuel tank, tackle box, rod holders
     tz = zf + 0.14
     box('fuel_tank', (0.42, 0.26, 0.28), (-1.5, -0.42, tz), mat('fuel_red', srgb(0xb3261c), 0.0, 0.4), root, bevel=0.05)
