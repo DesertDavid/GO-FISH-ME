@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { SPECIES_BY_ID, rollMorph, rollWeight } from './species.js';
+import { rollMorph, rollWeight } from './species.js';
+import { poolFit, pickFrom } from './bait.js';
+import { TUNING as BAIT } from './baitData.js';
 import { RODS, REELS, LINES, LURES } from './gear.js';
 import { buildFish, fishLengthM } from './fishMesh.js';
 
@@ -7,9 +9,6 @@ import { buildFish, fishLengthM } from './fishMesh.js';
 // The fight is a force balance: fish pull vs. drag setting vs. line strength, with stamina,
 // runs, jumps, head shakes and slack.
 const G = 9.81;
-const DEPTH_INDEX = { s: 0, m: 1, b: 2 };
-// species that feed mostly after dark: much more likely at night, a bit less by day
-const NIGHT_FEEDERS = new Set(['channelcat', 'bluecat', 'flathead', 'walleye', 'sauger', 'burbot', 'redtail', 'piraiba', 'snook', 'tarpon', 'mangrovesnapper', 'swordfish', 'lemonshark', 'blacktip', 'nurseshark', 'tigershark', 'ling', 'wolffish', 'sablefish', 'pacifichalibut', 'barramundi', 'mangrovejack', 'trairao']);
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _fwd = new THREE.Vector3();
 
 export class Fishing {
@@ -89,6 +88,8 @@ export class Fishing {
     c.rod.castAnim = 1;
     c.audio.play('cast', this.power);
     this.lineOut = 0;
+    this.sinkT = 0;
+    this.match = null;
   }
 
   updateFlight(dt) {
@@ -119,7 +120,9 @@ export class Fishing {
     const bottom = Math.max(0.3, -c.heightAt(this.lure.x, this.lure.z));
     if (lure.depth === 's') return 0.04;
     if (lure.depth === 'b') return bottom - 0.15;
-    return Math.min(bottom * 0.65, lure.bobber ? 1.8 : 2.6 + (this.moving ? 1.2 : 0));
+    const base = Math.min(bottom * 0.65, lure.bobber ? 1.8 : 2.6 + (this.moving ? 1.2 : 0));
+    // let it sink: a mid-water lure that is paused falls toward deeper fish (reel or move to bring it up)
+    return lure.bobber ? base : Math.min(Math.max(base, bottom - 0.3), base + Math.min(BAIT.sink.max, this.sinkT * BAIT.sink.rate));
   }
 
   updateWater(dt, input) {
@@ -142,6 +145,7 @@ export class Fishing {
     }
     const moved = horiz(prev, this.lure) / Math.max(dt, 1e-4);
     this.moving = moved > 0.25;
+    this.sinkT = reeling || this.moving ? Math.max(0, this.sinkT - BAIT.sink.fall * dt) : this.sinkT + dt;
     this.depth += THREE.MathUtils.clamp(this.targetDepth() - this.depth, -1.2 * dt, 0.7 * dt);
     this.lure.y = c.waterAt(0) - (lure.bobber ? 0 : this.depth);
     const home = reeling && horiz(tip, this.lure) < 3;
@@ -161,41 +165,35 @@ export class Fishing {
     }
   }
 
+  // how well the current lure/depth/time/weather suits this water's fish (cached, see baitData.js)
+  matchInfo() {
+    const c = this.ctx, now = performance.now();
+    if (this.match && now - this.matchT < BAIT.cacheT * 1000) return this.match;
+    const e = this.gearOverride || c.save.equip;
+    const lure = LURES[e.lure];
+    const depth = lure.bobber ? Math.min(this.depth, 1.8) : this.depth;
+    this.matchT = now;
+    this.match = poolFit(c.loc.pool, { lureId: e.lure, lure, depth, bottom: Math.max(0.3, -c.heightAt(this.lure.x, this.lure.z)), hour: c.hour(), wx: c.weatherId ? c.weatherId() : 'partly' });
+    return this.match;
+  }
+
   rollBite(dt, rod, lure) {
     const c = this.ctx;
     let activity = lure.active ? (this.moving ? 1 : 0.3) : (this.moving ? 0.5 : 1);
     if (lure.fly && rod.fly) activity *= 1.35;
     const hot = c.hotspots ? c.hotspots.near(this.lure.x, this.lure.z, 55) : 0;
     const hour = c.hour();
-    // dawn and dusk are best; the dark hours are steady, with night feeders taking over
+    // dawn and dusk are best overall; per-species time/weather/depth/lure taste is in the match model
     const isNight = hour < 5.2 || hour > 20.6;
     const tod = isNight ? 0.95 : hour < 8.5 || hour > 17.5 ? 1.4 : hour > 11 && hour < 15 ? 0.85 : 1;
-    const rate = 0.07 * activity * (1 + hot * 3.5) * tod * (c.weatherBite ? c.weatherBite() : 1);
+    const info = this.matchInfo();
+    const rate = 0.07 * activity * (1 + hot * 3.5) * tod * (c.weatherBite ? c.weatherBite() : 1) * info.rate;
     if (Math.random() > rate * dt) return null;
-    const pool = c.loc.pool;
-    const z = DEPTH_INDEX[lure.bobber ? 'm' : lure.depth];
-    const entries = [];
-    let sum = 0;
-    for (const [id, w] of Object.entries(pool)) {
-      const sp = SPECIES_BY_ID[id];
-      if (!sp) continue;
-      const dietOk = [...lure.diet].some((ch) => sp.diet.includes(ch)) ? 1 : 0.05;
-      const dz = Math.abs(DEPTH_INDEX[sp.depth] - z);
-      const nightW = isNight ? (NIGHT_FEEDERS.has(id) ? 3 : 0.45) : (NIGHT_FEEDERS.has(id) ? 0.7 : 1);
-      const wt = w * dietOk * [1, 0.4, 0.12][dz] * nightW;
-      entries.push([sp, wt]);
-      sum += wt;
-    }
-    let r = Math.random() * sum;
-    for (const [sp, wt] of entries) {
-      r -= wt;
-      if (r <= 0) {
-        const big = (lure.size || 1) * ((['tuna', 'billfish', 'swordfish', 'shark'].includes(sp.body) ? c.boatSpec().bigGame || 1 : 1));
-        const luck = this.luck * (performance.now() < this.luckUntil ? 1.6 : 1);
-        return { sp, morph: rollMorph(Math.random, luck), lb: rollWeight(sp, Math.random, big) };
-      }
-    }
-    return null;
+    const sp = pickFrom(info);
+    if (!sp) return null;
+    const big = (lure.size || 1) * ((['tuna', 'billfish', 'swordfish', 'shark'].includes(sp.body) ? c.boatSpec().bigGame || 1 : 1));
+    const luck = this.luck * (performance.now() < this.luckUntil ? 1.6 : 1);
+    return { sp, morph: rollMorph(Math.random, luck), lb: rollWeight(sp, Math.random, big) };
   }
 
   updateBite(dt, input) {
@@ -257,6 +255,7 @@ export class Fishing {
       r: horiz(tip, this.lure), theta: Math.atan2(this.lure.z - tip.z, this.lure.x - tip.x),
       depth: Math.max(0.6, this.depth), behavior: 'run', bT: 1.5, dir: 1, power: 1, jumpT: -1, jumps: 0, thrown: false,
       pos: this.lure.clone(), heading: 0, shake: 0, time: 0,
+      how: { lure: (this.gearOverride || c.save.equip).lure, depth: Math.round(this.depth * 10) / 10, hour: c.hour() },
     };
     this.lineOut = this.fish.r + 1;
     this.overload = 0;
@@ -506,7 +505,7 @@ export class Fishing {
     }
     if (this.state === 'water' || this.state === 'bite') {
       const mode = striking ? 'strike' : this.state === 'bite' ? 'nibble' : 'idle';
-      c.ui.lureMarker(_w.set(this.lure.x, surf + 0.3, this.lure.z), c.camera, `${Math.round(horiz(c.rod.tip, this.lure))} m${lure.bobber ? '' : ` · ${this.depth.toFixed(1)} m deep`}`, mode);
+      c.ui.lureMarker(_w.set(this.lure.x, surf + 0.3, this.lure.z), c.camera, `${Math.round(horiz(c.rod.tip, this.lure))} m${lure.bobber ? '' : ` · ${this.depth.toFixed(1)} m deep`}${c.biteQuality && c.biteQuality() ? ' · ' + '▮'.repeat(this.matchInfo().ticks) + '▯'.repeat(3 - this.matchInfo().ticks) : ''}`, mode);
     } else c.ui.lureMarker(null);
   }
 

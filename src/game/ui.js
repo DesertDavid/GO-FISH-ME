@@ -1,6 +1,8 @@
 import { RODS, REELS, LINES, LURES, BOATS, BOAT_ORDER } from './gear.js';
 import { LOCATIONS, LOCATION_ORDER } from './locations.js';
 import { SPECIES, SPECIES_BY_ID, MORPHS, CATALOG_SIZE } from './species.js';
+import { hintFor } from './bait.js';
+import { TUNING as BAIT } from './baitData.js';
 import { catalogCount } from './save.js';
 import { wellSlots } from './livewell.js';
 import { freezeSaves, writeSave } from './save.js';
@@ -48,6 +50,7 @@ export class UI {
       ${slider('lookSpeed', 'Look speed', 0.3, 2.5, 0.05)}
       ${toggle('invertY', 'Invert look up/down')}
       ${toggle('sonar', 'Fish finder panel (F)')}
+      ${toggle('biteQuality', 'Bite quality ticks on the lure marker (how well lure, depth and time suit the fish)')}
       ${toggle('compass', 'Compass bar and waypoints (Z drops a waypoint)')}
       ${toggle('mouseLock', 'Mouse look (click to lock the mouse; off = right-drag)')}
     </div>
@@ -398,11 +401,41 @@ export class UI {
     const rows = ids.map((id) => {
       const sp = SPECIES_BY_ID[id], e = s.journal[id];
       const chips = MORPHS.map((m) => `<span class="chip" title="${m.name}" style="background:${e?.morphs[m.id] ? MORPH_COLORS[m.id] : 'rgba(255,255,255,0.05)'}"></span>`).join('');
-      return `<div class="sp-row ${e ? '' : 'unknown'}"><span class="nm">${e ? esc(sp.name) : '???'}</span><span class="meta">${e ? `${e.caught} caught · best ${lbs(e.best)}` : `record ${lbs(sp.lb[2])}`}</span><div class="chips">${chips}</div></div>`;
+      return `<div class="sp-row ${e ? '' : 'unknown'}"><span class="nm">${e ? esc(sp.name) : '???'}</span><span class="meta">${e ? `${e.caught} caught · best ${lbs(e.best)}` : `record ${lbs(sp.lb[2])}`}</span><div class="chips">${chips}</div>${e ? this.hintHtml(sp, e) : ''}</div>`;
     }).join('');
     const species = Object.keys(s.journal).length;
     const tabs = [[this.g.loc.id, 'Here'], ...LOCATION_ORDER.filter((l) => l !== this.g.loc.id).map((l) => [l, LOCATIONS[l].name]), ['all', 'All species']];
     return this.head('Fishing Journal') + `<div class="journal-sum"><span>Species <b>${species} / ${SPECIES.length}</b></span><span>Catalog <b>${catalogCount(s)} / ${CATALOG_SIZE.toLocaleString()}</b></span><span>Fish caught <b>${s.stats.caught}</b></span><span>Earned <b>${money(s.stats.earned)}</b></span></div>` + this.tabs('journal', tabs) + `<div>${rows}</div><p class="tips">Every species comes in ${MORPHS.length} colour variants (golden, albino, piebald, calico, ghost and more). Rare variants are worth several times more.</p>`;
+  }
+
+  // progressive journal hints: more catches of a species reveal more (tiers in baitData TUNING.hints)
+  hintHtml(sp, e) {
+    const n = e.caught, H = BAIT.hints, h = hintFor(sp);
+    const parts = [];
+    if (n >= H.bait) {
+      const worked = e.how && LURES[e.how.lure] ? `<span class="hint-worked" title="The lure that took your first one">first on ${esc(LURES[e.how.lure].name)}</span>` : '';
+      parts.push(`<div class="hint-bait">${h.labels.map((l) => `<span class="tag">${l}</span>`).join('')}${worked}</div>`);
+    }
+    const hint = [];
+    if (n >= H.depth) {
+      // water column: 0-12 m strip with the preferred band and a fish at its centre
+      const W = 120, sc = W / 12, d = h.depth;
+      const band = d.bottom ? `<rect x="${W - 22}" y="5" width="22" height="10" rx="2" class="band"/>` : `<rect x="${Math.min(W - 4, d.lo * sc)}" y="5" width="${Math.max(6, Math.min(W, d.hi * sc) - d.lo * sc)}" height="10" rx="2" class="band"/>`;
+      const fx = d.bottom ? W - 12 : Math.min(W - 10, d.c * sc + 2);
+      let ticks = '';
+      for (let m = 0; m <= 12; m += 3) ticks += `<line x1="${m * sc}" x2="${m * sc}" y1="15" y2="19" class="tick"/>`;
+      hint.push(`<svg class="hint-depth" viewBox="0 0 ${W} 22" width="${W}" height="22" role="img" aria-label="${d.bottom ? 'Near the bottom' : `Holds around ${d.lo.toFixed(0)} to ${d.hi.toFixed(0)} metres`}"><title>${d.bottom ? 'Hugs the bottom' : `Holds ${d.lo.toFixed(0)}-${d.hi.toFixed(0)} m down`}</title>${band}<path class="fish" d="M${fx - 6} 10 q3 -4 7 -1 l3 -3 v8 l-3 -3 q-4 3 -7 -1z"/>${ticks}</svg>`);
+    }
+    if (n >= H.time) {
+      const labels = ['dawn', 'day', 'dusk', 'night'];
+      hint.push(`<span class="hint-time" title="Best times: dawn / day / dusk / night">${h.time.map((v, i) => `<i style="height:${Math.round(4 + v * 12)}px" class="${v >= 0.9 ? 'hi' : ''}" title="${labels[i]}"></i>`).join('')}</span>`);
+    }
+    if (n >= H.weather) {
+      const names = ['clear', 'partly cloudy', 'overcast', 'rain', 'storm'];
+      hint.push(`<span class="hint-wx" title="Weather it bites in: clear / partly / overcast / rain / storm">${h.wx.map((v, i) => `<i style="height:${Math.round(4 + v * 10)}px" class="${v >= 0.95 ? 'hi' : ''}" title="${names[i]}"></i>`).join('')}</span>`);
+    }
+    if (hint.length) parts.push(`<div class="hint-row">${hint.join('')}</div>`);
+    return parts.length ? `<div class="hint">${parts.join('')}</div>` : '';
   }
 
   renderHelp() {
@@ -424,6 +457,7 @@ export class UI {
     return `<div class="morph">${c.morph.id === 'normal' ? 'Caught' : c.morph.name + ' variant'}</div><h2>${esc(c.sp.name)}</h2><div class="badges">${badges}</div>
       <div class="big"><div><b>${lbs(c.lb)}</b><span>weight</span></div><div><b>${inches(c.inches)}</b><span>length</span></div><div><b style="color:var(--accent-2)">${money(c.value)}</b><span>market value</span></div></div>
       <div class="stats small">World record about ${lbs(c.sp.lb[2])}. ${c.morph.id !== 'normal' ? `Rare variant: worth ${c.morph.value}x. ` : ''}${c.fishOfDay ? 'Fish of the day at the market. ' : ''}${c.buyer ? 'Buyer boat price (15% cut).' : ''}</div>
+      ${c.isNewSpecies && c.how && LURES[c.how.lure] ? `<div class="stats small how">First of its kind: it took the <b>${esc(LURES[c.how.lure].name)}</b>${c.how.depth > 0.1 && !LURES[c.how.lure].bobber ? ` at ${c.how.depth} m` : ''} around ${hourText(c.how.hour)}. Logged in your journal.</div>` : ''}
       <div class="actions">${this.catchButtons(c)}</div>`;
   }
 
@@ -521,3 +555,8 @@ function dietText(diet) {
 }
 
 export { money, lbs };
+
+function hourText(h) {
+  const hh = Math.floor(h) % 24;
+  return `${hh % 12 || 12} ${hh < 12 ? 'am' : 'pm'}`;
+}

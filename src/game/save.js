@@ -60,13 +60,16 @@ export function resetSave() {
 }
 
 // Record a catch in the journal; returns { save, isNewSpecies, isNewMorph, isRecord }.
-export function logCatch(save, speciesId, morphId, lb) {
+// `how` ({lure, depth, hour}) is optional; the first catch of a species stores it as journal hint data.
+export function logCatch(save, speciesId, morphId, lb, how) {
   const prev = save.journal[speciesId] || { caught: 0, best: 0, morphs: {} };
   const entry = {
     caught: prev.caught + 1,
     best: Math.max(prev.best, lb),
     morphs: { ...prev.morphs, [morphId]: (prev.morphs[morphId] || 0) + 1 },
   };
+  const first = prev.how || (how && how.lure ? how : null);
+  if (first) entry.how = first;
   const next = { ...save, journal: { ...save.journal, [speciesId]: entry } };
   return { save: next, isNewSpecies: !save.journal[speciesId], isNewMorph: !prev.morphs[morphId], isRecord: prev.caught > 0 && lb > prev.best };
 }

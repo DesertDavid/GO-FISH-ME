@@ -29,7 +29,12 @@ export class Sonar {
     ctx.fillStyle = '#c84020'; ctx.fillRect(x, by + 3, 2, 6);
     ctx.fillStyle = '#5a2a18'; ctx.fillRect(x, by + 9, 2, c.height);
     // fish arches and bait clouds
-    for (const d of fishDepths) { ctx.fillStyle = '#ffe060'; ctx.fillRect(x, y(d) - 1, 2, 3); }
+    // arches: thicker, brighter returns for bigger fish; each sits at the depth its species holds
+    for (const f of fishDepths) {
+      const d = f.d ?? f, s = f.s ?? 0.3;
+      ctx.fillStyle = s > 0.6 ? '#fff0a0' : '#ffe060';
+      ctx.fillRect(x, y(d) - 1 - Math.round(s * 2), 2, 3 + Math.round(s * 4));
+    }
     if (hot > 0.05) {
       ctx.fillStyle = `rgba(80,200,255,${0.25 + hot * 0.5})`;
       for (let i = 0; i < 4; i++) ctx.fillRect(x, y(1.5 + Math.random() * 3), 2, 2);

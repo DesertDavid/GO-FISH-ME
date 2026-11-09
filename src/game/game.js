@@ -128,6 +128,8 @@ export class Game {
       canFish: () => this.canFish(),
       hour: () => this.save.hour,
       weatherBite: () => this.weather?.bite ?? 1,
+      weatherId: () => this.weather?.id ?? 'partly',
+      biteQuality: () => this.settings.biteQuality,
       cloudCover: () => this.e.sky.params.cloudCoverage,
       fishingBusy: () => this.fishing.busy(),
       startTrollFight: (p, lure) => this.startTrollFight(p, lure),
@@ -667,7 +669,7 @@ export class Game {
 
   // ---------------------------------------------------------------- catches & economy
   onCatch(f, done) {
-    const res = logCatch(this.save, f.sp.id, f.morph.id, f.lb);
+    const res = logCatch(this.save, f.sp.id, f.morph.id, f.lb, f.how);
     const kept = keepFish(f);
     const access = this.marketAccess();
     const value = this.market.value(this.save, kept, access === 'buyer');
@@ -682,7 +684,7 @@ export class Game {
     }
     this.ui.showCatch({
       sp: f.sp, morph: f.morph, lb: f.lb, inches, value, iced: kept.iced,
-      isNewSpecies: res.isNewSpecies, isNewMorph: res.isNewMorph, isRecord: res.isRecord,
+      how: f.how, isNewSpecies: res.isNewSpecies, isNewMorph: res.isNewMorph, isRecord: res.isRecord,
       well: well.length, slots, cull, canSell: !!access, buyer: access === 'buyer', fishOfDay: this.market.fishOfDay(this.save.day || 1) === f.sp.id,
     });
   }

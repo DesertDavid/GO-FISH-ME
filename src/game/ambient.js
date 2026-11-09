@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SPECIES_BY_ID, MORPHS } from './species.js';
 import { buildFish, fishLengthM } from './fishMesh.js';
+import { holdDepth } from './bait.js';
 
 // A few fish cruising near the boat, seen through the water (refraction + absorption do the rest).
 export class AmbientFish {
@@ -34,10 +35,11 @@ export class AmbientFish {
         const { m } = fishLengthM(sp, Math.min(lb, 60));
         const model = buildFish(sp, MORPHS[0], { patchProp: c.patchProp });
         model.group.scale.setScalar(m);
-        const depth = Math.min(bottom - 0.4, 1.2 + Math.random() * 3);
+        // hold where this species likes to be at this hour (so the fish finder hints at the right depth)
+        const depth = holdDepth(sp, bottom, c.hour ? c.hour() : 12);
         model.group.position.set(x, -depth, z);
         c.scene.add(model.group);
-        this.fish.push({ model, heading: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.6, turn: 0, depth, t: Math.random() * 10 });
+        this.fish.push({ sp, lb, model, heading: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.6, turn: 0, depth, t: Math.random() * 10 });
       }
     }
     for (let i = this.fish.length - 1; i >= 0; i--) {
@@ -62,6 +64,6 @@ export class AmbientFish {
 
   // fish near a point for the fish finder
   near(x, z, r) {
-    return this.fish.filter((f) => Math.hypot(f.model.group.position.x - x, f.model.group.position.z - z) < r).map((f) => f.depth);
+    return this.fish.filter((f) => Math.hypot(f.model.group.position.x - x, f.model.group.position.z - z) < r).map((f) => ({ d: f.depth, s: Math.min(1, Math.log10(1 + f.lb) / 2.2) }));
   }
 }

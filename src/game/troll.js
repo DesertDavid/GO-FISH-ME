@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { SPECIES_BY_ID, rollMorph, rollWeight } from './species.js';
+import { LURES } from './gear.js';
+import { fit } from './bait.js';
 
 // Trolling spread: three boat rods (two off the outriggers, one off the transom) pulling
 // skirted baits through the wake. Cruise at 2-5 m/s; when one goes off, click to take
@@ -95,7 +97,9 @@ export class Trolling {
 
   strike() {
     const c = this.ctx;
-    const pool = Object.entries(c.loc.pool).map(([id, w]) => [SPECIES_BY_ID[id], w]).filter(([sp]) => sp && PELAGIC.has(sp.body) && sp.depth !== 'b');
+    // trolled skirts near the surface: weight by how well time, weather and lure suit each species
+    const cond = { lureId: 'trollskirt', lure: LURES.trollskirt, depth: 0.3, bottom: 100, hour: c.hour(), wx: c.weatherId ? c.weatherId() : 'partly' };
+    const pool = Object.entries(c.loc.pool).map(([id, w]) => [SPECIES_BY_ID[id], SPECIES_BY_ID[id] ? w * fit(SPECIES_BY_ID[id], cond).weight : w]).filter(([sp]) => sp && PELAGIC.has(sp.body) && sp.depth !== 'b');
     if (!pool.length) return;
     let r = Math.random() * pool.reduce((a, [, w]) => a + w, 0), sp = pool[0][0];
     for (const [s, w] of pool) { r -= w; if (r <= 0) { sp = s; break; } }

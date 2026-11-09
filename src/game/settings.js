@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   mouseLock: true,
   sonar: true,
   compass: true,
+  biteQuality: false,
 });
 
 export function loadSettings() {

@@ -243,3 +243,16 @@ table.well td.b .btn { padding: 4px 10px; font-size: 12px; margin-left: 4px; }
 .sv-btns .btn { padding: 5px 11px; font-size: 13px; min-width: 56px; }
 .sv-msg { min-height: 22px; margin-top: 12px; color: var(--accent); font-size: 14px; font-weight: 600; }
 .sv-msg.bad { color: #ff8a7a; }
+
+/* journal hints (bait / depth / time / weather) */
+.sp-row .hint { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: 2px; font-size: 12px; color: var(--dim); }
+.hint .tag { display: inline-block; margin-right: 6px; padding: 1px 7px; border: 1px solid var(--rule); border-radius: 3px; color: var(--text); }
+.hint-worked { color: var(--faint); }
+.hint-row { display: flex; align-items: flex-end; gap: 16px; }
+.hint-depth .band { fill: rgba(80, 200, 255, 0.22); }
+.hint-depth .fish { fill: var(--accent-2, #e8b030); }
+.hint-depth .tick { stroke: var(--faint); stroke-width: 1; }
+.hint-time, .hint-wx { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; }
+.hint-time i, .hint-wx i { display: block; width: 6px; background: rgba(255, 255, 255, 0.18); border-radius: 1px; }
+.hint-time i.hi, .hint-wx i.hi { background: var(--accent-2, #e8b030); }
+.how b { color: var(--text); }
