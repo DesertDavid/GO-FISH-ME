@@ -301,20 +301,198 @@ def common_mats(top, bottom, stripe, deck, trim=0x9aa3ab):
         'trim': mat('trim', srgb(trim), 0.8, 0.3),
     }
 
+# ---------------------------------------------------------------- jon boat (riveted aluminium)
+JON = dict(length=3.8, beam=1.55, depth=0.55, deckDrop=0.42, sheer=0.08)
+
+def jon_sections(t):
+    """t 0 stern..1 bow. Returns (top half-width, bottom half-width, bottom z, sheer z)."""
+    L, B, D = JON['length'], JON['beam'] / 2, JON['depth']
+    # plan: parallel sides to ~50%, then a long taper to a squared punt bow
+    if t < 0.5:
+        w = B * (0.93 + 0.07 * math.sin(t / 0.5 * math.pi / 2))
+    else:
+        u = (t - 0.5) / 0.5
+        w = B * (0.32 + 0.68 * (1 - u ** 1.7) ** 0.8)
+    bw = w * 0.80 - 0.02                                   # flat bottom, sides flare out
+    rake = 0.30 * smoothstep(0.58, 1.0, t) ** 1.6          # bow rocker / raked stem
+    zs = D * (1 + JON['sheer'] * smoothstep(0.35, 1.0, t) ** 1.5)
+    return w, bw, rake, zs
+
+def jon_z(x):
+    return jon_sections((x + JON['length'] / 2) / JON['length'])
+
 def build_jon(root):
-    spec = dict(length=3.8, beam=1.55, depth=0.55, deadrise=2, transom=0.95, bowMin=0.62, bowRise=0.9,
-                forefoot=0.72, sheer=0.08, flare=0.12, deckDrop=0.42, waterline=0.3)
-    alu = 0xb7bcc0
-    m = common_mats(alu, 0x3d4f3a, 0x3d4f3a, 0x55605a)
-    m['topside'] = mat('alu', srgb(0x9ea6ab), 0.85, 0.42)
-    m['bottom'] = mat('alu_green', srgb(0x34452f), 0.3, 0.6)
-    build_hull(spec, root, m)
-    wood = mat('bench_alu', srgb(0x8a9296), 0.8, 0.4)
-    for x in (-1.2, 0.0, 1.05):
-        b, k, ch, sh = sheer_at(spec, x)
-        box('bench', (0.28, b * 1.9, 0.05), (x, 0, sh - 0.12), wood, root, bevel=0.01)
-    outboard(root, -1.95, 0, 0.45, 0.6, mat('cowl_jon', srgb(0x1d1f22), 0.3, 0.35))
-    tube('tiller', [(-2.05, 0, 0.7), (-1.55, 0.05, 0.62)], 0.025, mat('tiller', srgb(0x111111), 0.2, 0.5), root)
+    spec = dict(JON)
+    green = mat('jon_paint', srgb(0x35482f), 0.25, 0.5)
+    alu = mat('alu', srgb(0xa9b1b6), 0.9, 0.38)
+    alu_dark = mat('alu_dull', srgb(0x8b9398), 0.85, 0.5)
+    rivet = mat('rivet', srgb(0xc9cfd3), 0.95, 0.3)
+    weld = mat('weld', srgb(0x6f777b), 0.7, 0.6)
+    ply = mat('transom_ply', srgb(0x6b5233), 0.0, 0.8)
+    black = mat('jon_black', srgb(0x141517), 0.3, 0.5)
+    steel = mat('steel', srgb(0xb8bec4), 1.0, 0.25)
+    L = spec['length']
+    NS = 40
+    xs = [-L / 2 + L * i / NS for i in range(NS + 1)]
+    T = 0.014
+
+    def ring(i, inset=0.0):
+        w, bw, zb, zs = jon_sections(i / NS)
+        w2, bw2, zb2 = w - inset * 1.1, bw - inset, zb + inset
+        return [(xs[i], w2, zs), (xs[i], bw2, zb2), (xs[i], -bw2, zb2), (xs[i], -w2, zs)]
+
+    def shell(name, inset, material, outward):
+        bm = bmesh.new()
+        rs = [[bm.verts.new(p) for p in ring(i, inset)] for i in range(NS + 1)]
+        for i in range(NS):
+            for j in range(3):
+                f = (rs[i][j], rs[i + 1][j], rs[i + 1][j + 1], rs[i][j + 1])
+                bm.faces.new(f)
+        bm.faces.new(rs[0][::-1])
+        bm.faces.new(rs[-1])
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)   # outward
+        if not outward:
+            for f in bm.faces:
+                f.normal_flip()
+        return mesh_obj(name, bm, material, root)
+
+    shell('hull_out', 0.0, green, True)
+    # inner skin shows bare aluminium; open at the top, so drop the end caps' visibility issue
+    shell('hull_in', T, alu, False)
+
+    # rolled gunwale + rolled transom/bow edges
+    for s in (1, -1):
+        tube('gunwale', [(xs[i], s * (jon_sections(i / NS)[0] + 0.004), jon_sections(i / NS)[3]) for i in range(NS + 1)], 0.022, alu, root)
+    w0, bw0, zb0, zs0 = jon_sections(0.0)
+    tube('transom_roll', [(xs[0], w0, zs0), (xs[0], -w0, zs0)], 0.022, alu, root)
+    w1, bw1, zb1, zs1 = jon_sections(1.0)
+    tube('bow_roll', [(xs[-1], w1, zs1), (xs[-1], -w1, zs1)], 0.022, alu, root)
+
+    # floor plate (walking surface = game eye reference) + corrugation ribs
+    zf = spec['depth'] - spec['deckDrop']
+    bm = bmesh.new()
+    prev = None
+    for i in range(2, NS - 7):
+        w, bw, zb, zs = jon_sections(i / NS)
+        z = zf + zb
+        row = (bm.verts.new((xs[i], bw * 0.97, z)), bm.verts.new((xs[i], -bw * 0.97, z)))
+        if prev:
+            bm.faces.new((prev[0], prev[1], row[1], row[0]))
+        prev = row
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if f.normal.z < 0:
+            f.normal_flip()
+    mesh_obj('floor', bm, alu_dark, root)
+    x = xs[3]
+    while x < xs[NS - 8]:
+        w, bw, zb, zs = jon_z(x)
+        box('rib', (0.035, bw * 1.9, 0.022), (x, 0, zf + zb + 0.011), alu, root, bevel=0.006)
+        x += 0.22
+
+    # three bench seats
+    for bx, bwid in ((-1.15, 0.30), (-0.05, 0.30), (0.95, 0.28)):
+        w, bw, zb, zs = jon_z(bx)
+        zt = zs - 0.10
+        box('bench_top', (bwid, w * 1.9, 0.03), (bx, 0, zt), alu, root, bevel=0.008)
+        box('bench_lip', (0.03, w * 1.9, 0.09), (bx + bwid / 2 - 0.015, 0, zt - 0.06), alu, root, bevel=0.006)
+        for s in (1, -1):
+            box('bench_brk', (bwid, 0.03, 0.12), (bx, s * (bw + (w - bw) * ((zt - 0.07 - zb) / (zs - zb)) - 0.03), zt - 0.07), alu_dark, root, bevel=0.005)
+        for k in range(-5, 6):
+            cyl('rv', 0.009, 0.006, (bx + bwid / 2 + 0.002, k * 0.12, zt - 0.06), rivet, root, rot=(0, math.pi / 2, 0), seg=6)
+        if abs(bx + 0.05) < 0.01:
+            box('bench_leg', (0.05, 0.05, zt - zf), (bx, 0, (zt + zf) / 2), alu_dark, root, bevel=0.005)
+
+    # bow casting deck
+    xd, xend = 1.18, xs[-1]
+    bm = bmesh.new()
+    prev = None
+    for k in range(11):
+        x = xd + (xend - xd) * k / 10
+        w, bw, zb, zs = jon_z(x)
+        z = zs - 0.06
+        row = (bm.verts.new((x, w - 0.02, z)), bm.verts.new((x, -(w - 0.02), z)))
+        if prev:
+            bm.faces.new((prev[0], row[0], row[1], prev[1]))
+        prev = row
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if f.normal.z < 0:
+            f.normal_flip()
+    mesh_obj('bow_deck', bm, alu, root)
+    w, bw, zb, zs = jon_z(xd)
+    box('deck_face', (0.03, 2 * (w - 0.02), 0.12), (xd, 0, zs - 0.12), alu_dark, root, bevel=0.005)
+    box('hatch', (0.34, 0.30, 0.015), (1.62, 0, jon_z(1.62)[3] - 0.045), alu_dark, root, bevel=0.004)
+    cyl('hatch_latch', 0.02, 0.012, (1.52, 0, jon_z(1.52)[3] - 0.036), black, root)
+
+    # outside rivet rows: along the chine and two vertical panel seams
+    for i in range(1, NS):
+        w, bw, zb, zs = jon_sections(i / NS)
+        for s in (1, -1):
+            cyl('rv', 0.008, 0.008, (xs[i], s * (bw + (w - bw) * 0.10 + 0.004), zb + (zs - zb) * 0.10), rivet, root, seg=6)
+            cyl('rv', 0.008, 0.008, (xs[i], s * (w * 0.5 + bw * 0.5 + 0.002), zb + (zs - zb) * 0.55 - 0.0), rivet, root, seg=6) if i % 2 == 0 else None
+    for xseam in (-0.7, 0.5):
+        w, bw, zb, zs = jon_z(xseam)
+        for s in (1, -1):
+            box('seam', (0.012, 0.012, zs - zb), (xseam, s * (w + bw) / 2 * 1.0, (zs + zb) / 2), weld, root, bevel=0.003)
+            for k in range(8):
+                f = k / 7
+                cyl('rv', 0.008, 0.008, (xseam + 0.025, s * (bw + (w - bw) * f + 0.004), zb + (zs - zb) * f), rivet, root, seg=6)
+                cyl('rv', 0.008, 0.008, (xseam - 0.025, s * (bw + (w - bw) * f + 0.004), zb + (zs - zb) * f), rivet, root, seg=6)
+
+    # transom: plywood cap, rolled top, corner posts
+    box('transom_ply', (0.05, 0.92, 0.26), (xs[0] + 0.03, 0, zs0 - 0.15), ply, root, bevel=0.01)
+    box('transom_cap', (0.06, 0.98, 0.025), (xs[0] + 0.03, 0, zs0 - 0.02), alu, root, bevel=0.005)
+    for s in (1, -1):
+        box('transom_corner', (0.07, 0.04, zs0 - zb0 - 0.04), (xs[0] + 0.035, s * (w0 - 0.04), (zs0 + zb0) / 2), alu_dark, root, bevel=0.006)
+    # bow: welded stem band, eye, cleats
+    box('stem_band', (0.03, 0.10, zs1 - zb1), (xs[-1] + 0.01, 0, (zs1 + zb1) / 2), weld, root, bevel=0.006)
+    ring_pts = [(xs[-1] + 0.02 + 0.06 * math.sin(a / 12 * 2 * math.pi), 0, zs1 - 0.20 + 0.06 * math.cos(a / 12 * 2 * math.pi)) for a in range(13)]
+    tube('bow_eye', ring_pts, 0.01, steel, root, cyclic=True)
+    for s in (1, -1):
+        cw = jon_z(1.6)
+        box('cleat', (0.16, 0.035, 0.03), (1.6, s * (cw[0] - 0.12), cw[3] - 0.03), steel, root, bevel=0.01)
+    # oars stowed + oarlocks
+    wood = mat('oar_wood', srgb(0xb08a5a), 0.0, 0.6)
+    for s in (1, -1):
+        tw, _, _, tz = jon_z(-0.55)
+        tube('oarlock', [(-0.55, s * tw, tz + 0.01), (-0.55, s * (tw + 0.02), tz + 0.14), (-0.55, s * (tw + 0.08), tz + 0.18)], 0.008, steel, root)
+        tube('oar', [(-1.6, s * 0.48, jon_z(-1.6)[3] - 0.07), (0.8, s * 0.58, jon_z(0.8)[3] - 0.07)], 0.014, wood, root)
+        bm = bmesh.new()
+        bmesh.ops.create_cube(bm, size=1.0)
+        for v in bm.verts:
+            v.co = Vector((v.co.x * 0.42, v.co.y * 0.12, v.co.z * 0.015))
+        o = mesh_obj('oar_blade', bm, wood, root)
+        o.location = (0.95, s * 0.58, jon_z(0.95)[3] - 0.07)
+    # fuel tank, tackle box, rod holders
+    tz = zf + 0.14
+    box('fuel_tank', (0.42, 0.26, 0.28), (-1.5, -0.42, tz), mat('fuel_red', srgb(0xb3261c), 0.0, 0.4), root, bevel=0.05)
+    cyl('fuel_cap', 0.04, 0.03, (-1.5, -0.42, tz + 0.15), black, root)
+    tube('fuel_hose', [(-1.5, -0.42, tz + 0.12), (-1.7, -0.3, tz + 0.05), (-1.78, -0.1, tz + 0.05), (-1.9, 0.0, zf + 0.3)], 0.012, black, root)
+    box('tackle_box', (0.38, 0.22, 0.16), (-0.55, 0.42, zf + 0.09), mat('tackle', srgb(0x2e6a52), 0.0, 0.5), root, bevel=0.03)
+    for s in (1, -1):
+        w, bw, zb, zs = jon_z(0.3)
+        cyl('rod_holder', 0.026, 0.22, (0.3, s * (w - 0.08), zs - 0.02), black, root, rot=(s * 0.35, 0, 0))
+    # tiller outboard
+    ob_x, ob_z = xs[0] - 0.04, zs0 + 0.02
+    cowl = mat('cowl_jon', srgb(0xc8cbc7), 0.15, 0.35)
+    stripe = mat('cowl_stripe', srgb(0x2d4a63), 0.15, 0.35)
+    box('ob_cowl', (0.46, 0.34, 0.34), (ob_x - 0.20, 0, ob_z + 0.12), cowl, root, bevel=0.10)
+    box('ob_stripe', (0.47, 0.345, 0.045), (ob_x - 0.20, 0, ob_z + 0.06), stripe, root, bevel=0.01)
+    box('ob_clamp', (0.12, 0.30, 0.22), (ob_x - 0.05, 0, ob_z - 0.02), black, root, bevel=0.02)
+    for s in (1, -1):
+        cyl('ob_screw', 0.022, 0.14, (ob_x - 0.07, s * 0.19, ob_z - 0.02), steel, root, rot=(math.pi / 2, 0, 0))
+        box('ob_knob', (0.05, 0.025, 0.05), (ob_x - 0.07, s * 0.27, ob_z - 0.02), black, root, bevel=0.01)
+    box('ob_leg', (0.24, 0.12, 0.66), (ob_x - 0.16, 0, ob_z - 0.38), cowl, root, bevel=0.04)
+    box('ob_plate', (0.36, 0.20, 0.025), (ob_x - 0.18, 0, ob_z - 0.68), cowl, root, bevel=0.01)
+    cyl('ob_gear', 0.065, 0.42, (ob_x - 0.20, 0, ob_z - 0.78), black, root, rot=(0, math.pi / 2, 0), r2=0.045)
+    cyl('ob_nose', 0.05, 0.12, (ob_x - 0.40, 0, ob_z - 0.78), black, root, rot=(0, math.pi / 2, 0), r2=0.025)
+    box('ob_skeg', (0.14, 0.02, 0.16), (ob_x - 0.18, 0, ob_z - 0.91), black, root, bevel=0.004)
+    for k in range(3):
+        a = k * 2 * math.pi / 3
+        box('prop_blade', (0.03, 0.15, 0.06), (ob_x - 0.41, math.cos(a) * 0.08, ob_z - 0.78 + math.sin(a) * 0.08), steel, root, bevel=0.004, rot=(a, 0.35, 0))
+    tube('tiller', [(ob_x - 0.15, 0.04, ob_z + 0.10), (ob_x + 0.65, 0.10, ob_z + 0.22), (ob_x + 1.05, 0.14, ob_z + 0.20)], 0.017, black, root)
+    cyl('tiller_grip', 0.026, 0.20, (ob_x + 1.12, 0.15, ob_z + 0.20), mat('grip', srgb(0x1d1d1f), 0.0, 0.8), root, rot=(0, math.pi / 2, 0))
     return spec
 
 def build_bass(root):

@@ -60,6 +60,7 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   Keys, Mekong (Si Phan Don), Amazon, Lake Kariba (drowned forest), Lofoten fjords, Gulf of
   Mexico (oil rig), Cabo San Lucas (sea stacks), Great Barrier Reef, Bering Sea.
 - Boats (7) incl. trawler/seiner nets; trolling; AI boats; weather; night fishing.
+- Jon boat (starter): rebuilt as a riveted aluminium jon (flat bottom, 3 benches, bow deck, ply transom, tiller outboard, oars, fuel tank); `jon_sections()` in `build_boats.py` keeps the old length/beam/depth/sheer so buoyancy and eye height are unchanged.
 - Docks + shore fishing (G to step off, walk with WASD); livewell + daily market (L).
 - Boat collisions with drowned trees, sea stacks, docks, rig legs.
 - Blender-built first-person hands; left hand follows the crank.
