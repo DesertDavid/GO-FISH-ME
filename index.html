@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2214%22 fill=%22%23101418%22/%3E%3Cpath d=%22M9 20c4-6 10-6 14 0%22 stroke=%22%23e9b25b%22 stroke-width=%222.5%22 fill=%22none%22/%3E%3C/svg%3E" />
+  <title>Reel World</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/game/ui.css" />
+</head>
+<body>
+  <div id="loading">
+    <div class="ld-title">Reel World</div>
+    <div class="ld-bar"><i id="ldBar"></i></div>
+    <div class="ld-line" id="ldText">Building the world</div>
+  </div>
+
+  <div id="hud" hidden>
+    <!-- corner: where, when, money -->
+    <div id="topLeft">
+      <div id="hLoc"></div>
+      <div class="row"><span id="hTime"></span><span id="hCash"></span></div>
+      <div class="row dim"><span id="hWeather"></span><span id="hBite"></span></div>
+    </div>
+    <div id="menuHint">Esc&nbsp;&nbsp;menu</div>
+    <div id="challenges" hidden></div>
+    <div id="leaderboard" hidden></div>
+
+    <!-- shown only when relevant -->
+    <div id="gearLine"></div>
+    <div id="boatInfo"></div>
+    <div id="power" hidden><div class="pw-bar"><i></i></div></div>
+    <div id="strike" hidden>Strike</div>
+    <div id="fightPanel" hidden>
+      <div class="fp-head"><span id="fpFish">Fish on</span><span id="fpHint"></span></div>
+      <div class="meter"><label>Line</label><div class="bar tension"><i id="fpTension"></i><b id="fpTest"></b></div><span id="fpTensionTxt"></span></div>
+      <div class="meter"><label>Fish</label><div class="bar stamina"><i id="fpStamina"></i></div><span id="fpStaminaTxt"></span></div>
+      <div class="fp-row"><span>Drag <b id="fpDrag"></b></span><span id="fpLeft">pull left</span><span id="fpRight">pull right</span><span>Out <b id="fpLine"></b></span></div>
+    </div>
+    <div id="netPanel" hidden></div>
+    <canvas id="sonar" width="260" height="150"></canvas>
+    <div id="toasts"></div>
+    <div id="crosshair"></div>
+    <div id="lureMarker" hidden><i></i><span></span></div>
+  </div>
+
+  <div id="modal" hidden><div id="modalCard"></div></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

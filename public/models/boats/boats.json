@@ -1,0 +1,37 @@
+{
+ "jon": {
+  "length": 3.8,
+  "beam": 1.55,
+  "depth": 0.55
+ },
+ "bass": {
+  "length": 6.2,
+  "beam": 2.35,
+  "depth": 0.78
+ },
+ "skiff": {
+  "length": 5.6,
+  "beam": 2.1,
+  "depth": 0.62
+ },
+ "center": {
+  "length": 8.6,
+  "beam": 2.8,
+  "depth": 1.35
+ },
+ "sport": {
+  "length": 14.0,
+  "beam": 4.6,
+  "depth": 2.5
+ },
+ "trawler": {
+  "length": 20.0,
+  "beam": 6.4,
+  "depth": 3.4
+ },
+ "seiner": {
+  "length": 26.0,
+  "beam": 8.0,
+  "depth": 3.9
+ }
+}
