@@ -28,6 +28,7 @@ import { NightFX } from './night.js';
 import { Docks } from './docks.js';
 import { Chart, SERVICE_INFO } from './chart.js';
 import { Obstacles } from './obstacles.js';
+import { Buildings } from './buildings.js';
 import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
 import { SPECIES_BY_ID } from './species.js';
 
@@ -83,6 +84,9 @@ export class Game {
     this.obstacles = new Obstacles();
     this.obstacles.add(scenery.userData.colliders);
     this.obstacles.add(this.docks.colliders());
+    this.buildings = new Buildings(this);
+    this.scene.add(this.buildings.group);
+    this.obstacles.add(this.buildings.colliders());
     this.obstacles.add((this.loc.stacks || []).map(([x, z, r]) => ({ x, z, r: r * 1.05 })));
     this.bumpCool = 0;
     this.market = new Market(this.loc);
@@ -392,6 +396,7 @@ export class Game {
     this.net.update(dt);
     const bp = this.foot ? this.footPos : this.boat.position;
     this.docks.update(this.nightLevel(), bp);
+    this.buildings.update(dt, this.nightLevel(), bp);
     this.shoreHintTick(dt);
     this.hotspots.update(dt, this.time, this.e.floaters, bp);
     this.ambient.update(dt, bp);
@@ -494,7 +499,7 @@ export class Game {
 
   // ---------------------------------------------------------------- on foot (docks and shore)
   groundAt(x, z) { return this.docks.deckAt(x, z) ?? this.heightAt(x, z); }
-  standable(x, z) { return (this.docks.deckAt(x, z) !== null || this.heightAt(x, z) > -0.55) && !this.shore?.blocks(x, z); }
+  standable(x, z) { return (this.docks.deckAt(x, z) !== null || this.heightAt(x, z) > -0.55) && !this.shore?.blocks(x, z) && !this.buildings?.blocks(x, z); }
 
   // where something is, as a clock bearing from the way you face ("at 2 o'clock")
   bearing(x, z, from, facing) {
@@ -628,6 +633,12 @@ export class Game {
     }
     const hints = text ? [['G', text]] : [];
     if (this.view === 'first' && !this.fishing.busy() && !this.ui.isOpen() && this.save.livewell.length && this.marketAccess() === 'dock') hints.push(['L', 'sell your catch at the dock']);
+    // at a shop door on foot: what this building sells (B tackle & permits, Y boats)
+    const door = this.foot && this.view === 'first' && !this.ui.isOpen() ? this.buildings?.doorNear(this.foot.x, this.foot.z) : null;
+    if (door) {
+      if (door.services.includes('tackle')) hints.push(['B', `${door.title}: bait, tackle & permits`]);
+      if (door.services.includes('boats')) hints.push(['Y', 'boat dealer']);
+    }
     this.ui.shoreHint(hints);
   }
 
@@ -782,7 +793,7 @@ export class Game {
     if (!this.docks.list.length) return 'buyer';
     this.chart.places();   // makes sure each dock has its profile
     if (this.foot) {
-      if (this.docks.deckAt(this.foot.x, this.foot.z) === null) return null;
+      if (this.docks.deckAt(this.foot.x, this.foot.z) === null) { const sd = this.buildings?.doorNear(this.foot.x, this.foot.z); return sd ? { dock: sd.dock } : null; }
       const n = this.docks.nearest(this.foot.x, this.foot.z);
       return n ? { dock: n.dock } : null;
     }
@@ -812,7 +823,7 @@ export class Game {
   // ocean: a buyer boat takes the catch for a cut), else null
   marketAccess() {
     if (!this.docks.list.length) return 'buyer';
-    if (this.foot) return this.docks.deckAt(this.foot.x, this.foot.z) !== null ? 'dock' : null;
+    if (this.foot) return this.docks.deckAt(this.foot.x, this.foot.z) !== null || this.buildings?.doorNear(this.foot.x, this.foot.z) ? 'dock' : null;
     const bp = this.boat.position, n = this.docks.nearest(bp.x, bp.z);
     return n && n.dist < this.boat.hull.length / 2 + 6 && Math.abs(this.boatSpeed()) < 1.5 ? 'dock' : null;
   }
