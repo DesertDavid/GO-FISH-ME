@@ -13,6 +13,8 @@ import { buildScenery, Hotspots } from './scenery.js';
 import { AmbientFish } from './ambient.js';
 import { Wildlife } from './wildlife.js';
 import { AIBoats } from './aiBoats.js';
+import { ShoreLife } from './shorelife.js';
+import { Birds } from './birds.js';
 import { Trolling, TROLL_GEAR } from './troll.js';
 import { Tournament, tournamentsFor } from './tournaments.js';
 import { Sonar } from './sonar.js';
@@ -99,6 +101,10 @@ export class Game {
     this.aiBoats = new AIBoats(this.ctx(), e.floaters, this.patchProp, this.start);
     progress(0.92, 'Other anglers heading out…');
     await this.aiBoats.spawn(this.loc.water === 'offshore' ? 2 : 3);
+    this.shore = new ShoreLife(this);
+    await this.shore.init();
+    this.birds = new Birds(this);
+    this.birds.init();
     this.sonar = new Sonar(document.getElementById('sonar'));
     this.compass = new Compass(this, document.getElementById('compass'));
     this.applyGear();
@@ -386,6 +392,8 @@ export class Game {
     this.wildlife.update(dt, bp);
     this.nightFX.update(this.nightLevel(), this.camera);
     this.aiBoats.update(dt, bp);
+    this.shore.update(dt, bp, this.nightLevel());
+    this.birds.update(dt, bp, this.nightLevel(), this.camera.position);
     this.audio.update(dt, REELS[this.save.equip.reel].ratio);
 
     // clock: one real second = one game minute; nights are skipped
@@ -477,7 +485,7 @@ export class Game {
 
   // ---------------------------------------------------------------- on foot (docks and shore)
   groundAt(x, z) { return this.docks.deckAt(x, z) ?? this.heightAt(x, z); }
-  standable(x, z) { return this.docks.deckAt(x, z) !== null || this.heightAt(x, z) > -0.55; }
+  standable(x, z) { return (this.docks.deckAt(x, z) !== null || this.heightAt(x, z) > -0.55) && !this.shore?.blocks(x, z); }
 
   // where something is, as a clock bearing from the way you face ("at 2 o'clock")
   bearing(x, z, from, facing) {
