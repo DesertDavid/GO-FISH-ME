@@ -236,9 +236,10 @@ export class UI {
     if (this.panel === 'catch' || this.panel === 'haul') return;
     this.panel = null;
     $('modal').hidden = true;
+    this.g.grabPointer?.();   // back to mouse-look without an extra click
   }
 
-  forceClose() { this.panel = null; $('modal').hidden = true; }
+  forceClose() { this.panel = null; $('modal').hidden = true; this.g.grabPointer?.(); }
 
   render() {
     const card = $('modalCard');

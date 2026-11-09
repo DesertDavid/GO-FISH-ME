@@ -158,6 +158,7 @@ export class Game {
         return;
       }
       if (this.ui.isOpen()) return;
+      if (this.wantLock) this.grabPointer?.();   // last grab was refused: retry on this key
       this.keys.add(k);
       const open = { t: 'tackle', b: 'shop', y: 'marina', m: 'map', j: 'journal', h: 'help', o: 'settings', e: 'events' }[k];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
@@ -192,15 +193,20 @@ export class Game {
     this.lockRaw = true;
     this.lockFails = 0;
     const lockRefused = () => {
-      if (this.lockFailed) return;
+      if (this.lockFailed || this.lockSoft) return;
       if (this.lockRaw) { this.lockRaw = false; return; }   // try plain mode on the next click
       if (++this.lockFails < 3) return;
       this.lockFailed = true;
       this.ui.lookHint(false);
       this.ui.toast('Mouse lock isn\'t available in this browser - right-drag to look around.', 'info');
     };
-    const lockPointer = () => {
+    // soft = re-grab after a menu closes: the browser may refuse (cooldown after its own Esc
+    // unlock, no fresh key/click), which is fine - we just try again on the next key or click
+    const lockPointer = (soft = false) => {
       if (!this.settings.mouseLock || this.lockFailed || locked() || this.ui.isOpen()) return false;
+      if (soft && !navigator.userActivation?.isActive) { this.wantLock = true; return false; }
+      this.lockSoft = soft;
+      this.wantLock = soft;
       try {
         const p = this.lockRaw ? el.requestPointerLock({ unadjustedMovement: true }) : el.requestPointerLock();
         if (p && p.catch) p.catch(lockRefused);
@@ -214,7 +220,11 @@ export class Game {
     document.addEventListener('pointerlockchange', () => {
       this.mouse.down = false;
       this.mouse.right = false;
-      if (locked()) this.lockFails = 0;
+      if (locked()) {
+        this.lockFails = 0;
+        this.wantLock = false;
+        if (this.ui.isOpen()) document.exitPointerLock();   // a menu opened while the grab was in flight
+      }
       this.ui.lookHint(this.settings.mouseLock && !this.lockFailed && !locked());
     });
     el.addEventListener('pointerdown', (ev) => {
@@ -243,7 +253,9 @@ export class Game {
       else if (this.mouse.right) look(ev.clientX - this.mouse.x, ev.clientY - this.mouse.y);
       this.mouse.x = ev.clientX; this.mouse.y = ev.clientY;
     });
-    this.freePointer = () => { if (locked()) document.exitPointerLock(); };
+    this.freePointer = () => { this.wantLock = false; if (locked()) document.exitPointerLock(); };
+    // called by the UI as a menu closes, inside the click/key that closed it
+    this.grabPointer = () => lockPointer(true);
     el.addEventListener('wheel', (ev) => {
       ev.preventDefault();
       if (this.view === 'third') this.look.dist = THREE.MathUtils.clamp(this.look.dist + Math.sign(ev.deltaY) * 3, -10, 60);
