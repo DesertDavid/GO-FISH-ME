@@ -385,7 +385,7 @@ export class Fishing {
     const land = c.boatLength() * 0.35 + 2.5;
     if (f.r < land) {
       if (f.stamina < 0.32) return this.landed();
-      if (f.behavior !== 'run') { f.behavior = 'run'; f.bT = 2.5; f.power = 1; f.dir = Math.random() < 0.5 ? 1 : -1; f.theta += Math.PI * 0.2; c.ui.toast('It sees the boat and bolts!', 'info'); }
+      if (f.behavior !== 'run') { f.behavior = 'run'; f.bT = 2.5; f.power = 1; f.dir = Math.random() < 0.5 ? 1 : -1; f.theta += Math.PI * 0.2; c.ui.toast(c.boatLength() ? 'It sees the boat and bolts!' : 'It sees you and bolts!', 'info'); }
     }
     c.ui.fightTick({ tension: T, test: line.test, drag: D, maxDrag: reel.drag, lineOut: this.lineOut, cap: reel.cap, stamina: f.stamina, fishSide, overload: this.overload, runWarn: this.runWarn });
   }

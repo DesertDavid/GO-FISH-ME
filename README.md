@@ -9,6 +9,8 @@ tournaments against AI rivals. An underwater camera follows your lure or the fis
 The clock runs the full 24 hours: after dark the moon and stars come out, your boat shows an
 anchor light, the bobber glows, and night feeders (catfish, walleye, snook, tarpon, sharks and
 others) bite harder.
+Every lake, river and coast has wooden docks on its real shoreline: pull alongside, press `G` to
+step off, and fish from the dock or walk the bank and wade the shallows.
 
 ## Run it
 
@@ -34,6 +36,8 @@ Open the address it prints (http://localhost:5173 by default) in Chrome or Edge.
 | Drag setting | mouse wheel or `[` `]` |
 | Pull the rod against the fish | `A` / `D` during a fight |
 | Drive the boat | `W` `S` `A` `D` |
+| Step onto a dock or the bank / back aboard | `G` |
+| Walk (on foot) | `W` `A` `S` `D`, `Shift` to hurry |
 | Look around | right-drag or arrow keys |
 | First / third person | `V` |
 | Shoot / haul the net (trawler, seiner) | `N` |

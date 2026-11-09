@@ -21,6 +21,7 @@ import { fishLengthM } from './fishMesh.js';
 import { makeChallenges, recordCatch } from './challenges.js';
 import { Weather } from './weather.js';
 import { NightFX } from './night.js';
+import { Docks } from './docks.js';
 
 const TABLES = { rods: RODS, reels: REELS, lines: LINES, lures: LURES };
 const KIND_OF = { rods: 'rod', reels: 'reel', lines: 'line', lures: 'lure' };
@@ -48,6 +49,8 @@ export class Game {
     this.water = [0, 0, 0];
     this.time = 0;
     this.sunTimer = 0;
+    this.foot = null;                 // on foot: { x, z, y, speed } (docks and shore)
+    this.footPos = new THREE.Vector3();
   }
 
   async init(progress) {
@@ -60,6 +63,8 @@ export class Game {
     this.start = findStart(this.loc);
     this.hotspots = new Hotspots(this.loc, this.heightAt, this.start, this.patchProp);
     this.scene.add(this.hotspots.group);
+    this.docks = new Docks(this.loc, this.heightAt, this.patchProp, this.start);
+    this.scene.add(this.docks.group);
     progress(0.85, 'Launching the boat…');
     let boatId = this.save.boat;
     if (!BOATS[boatId].waters.includes(this.loc.water)) boatId = this.save.boats.find((b) => BOATS[b].waters.includes(this.loc.water)) || 'jon';
@@ -109,7 +114,7 @@ export class Game {
       startTrollFight: (p, lure) => this.startTrollFight(p, lure),
       boatSpeed: () => this.boatSpeed(),
       boatSpec: () => BOATS[this.save.boat],
-      boatLength: () => this.boat.hull.length,
+      boatLength: () => (this.foot ? 0 : this.boat.hull.length),
       get boat() { return game.boat; },
       onCatch: (f, done) => this.onCatch(f, done),
       onHaul: (rows, morphs) => this.onHaul(rows, morphs),
@@ -145,9 +150,10 @@ export class Game {
       this.keys.add(k);
       const open = { t: 'tackle', b: 'shop', y: 'marina', m: 'map', j: 'journal', h: 'help', o: 'settings', e: 'events' }[k];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
-      if (k === 'v') { this.view = this.view === 'first' ? 'third' : 'first'; this.look.yaw = this.view === 'third' ? 0 : this.boatSpec().face || 0; }
-      if (k === 'n') this.net.toggle();
-      if (k === 'r') this.troll.toggle();
+      if (k === 'v') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
+      if (k === 'g') this.toggleShore();
+      if (k === 'n') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else this.net.toggle(); }
+      if (k === 'r') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else this.troll.toggle(); }
       if (k === 'u') this.toggleUnderwater();
       if (k === 'p') this.togglePhoto();
       if (k === 'k') { this.commit({ hour: this.save.hour + 1 }); this.applySun(true); this.tourTick(60); this.ui.toast('An hour passes…', 'info'); }
@@ -261,8 +267,9 @@ export class Game {
     // boat controls (A/D steer the rod during a fight)
     const c = this.boat.control;
     const throttleTarget = (k('w') ? 1 : 0) - (k('s') ? 1 : 0);
-    c.throttle += (throttleTarget - c.throttle) * Math.min(1, dt * 3);
-    c.steer = fighting ? 0 : (k('d') ? 1 : 0) - (k('a') ? 1 : 0);
+    c.throttle += ((this.foot ? 0 : throttleTarget) - c.throttle) * Math.min(1, dt * 3);
+    c.steer = fighting || this.foot ? 0 : (k('d') ? 1 : 0) - (k('a') ? 1 : 0);
+    if (this.foot) this.walk(dt, k, fighting);
     if (k('arrowleft')) this.look.yaw += dt * 1.6;
     if (k('arrowright')) this.look.yaw -= dt * 1.6;
     if (k('arrowup')) this.look.pitch = Math.min(1.1, this.look.pitch + dt * 1.2);
@@ -272,7 +279,7 @@ export class Game {
     this.updateCamera(dt);
 
     // the underwater camera hands back to the angler when there's nothing left to watch
-    if (this.view === 'under' && !['water', 'bite', 'fight'].includes(this.fishing.state)) { this.view = 'first'; this.look.yaw = this.boatSpec().face || 0; this.look.pitch = -0.06; }
+    if (this.view === 'under' && !['water', 'bite', 'fight'].includes(this.fishing.state)) { this.view = 'first'; this.restoreLook(); }
     const canAct = this.view === 'first' || this.view === 'under';
     const input = {
       down: this.mouse.down && !this.ui.isOpen() && canAct,
@@ -287,7 +294,9 @@ export class Game {
     this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo);
     this.ui.power(this.fishing.state === 'charging' ? this.fishing.power : null);
     this.net.update(dt);
-    const bp = this.boat.position;
+    const bp = this.foot ? this.footPos : this.boat.position;
+    this.docks.update(this.nightLevel(), bp);
+    this.shoreHintTick(dt);
     this.hotspots.update(dt, this.time, this.e.floaters, bp);
     this.ambient.update(dt, bp);
     this.wildlife.update(dt, bp);
@@ -316,8 +325,8 @@ export class Game {
       this.ui.hud();
       if (Math.floor(this.time) % 10 === 0) writeSave(this.save);
     }
-    const depth = this.depthUnderBoat();
-    this.sonar.update(dt, depth, this.ambient.near(bp.x, bp.z, 14), this.hotspots.near(bp.x, bp.z, 60));
+    this.sonar.c.style.display = this.foot ? 'none' : '';
+    if (!this.foot) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, 14), this.hotspots.near(bp.x, bp.z, 60));
   }
 
   updateCamera(dt) {
@@ -328,6 +337,7 @@ export class Game {
     if (this.view === 'first') this.anglerLook = { yaw: this.look.yaw, pitch: this.look.pitch };
     const al = this.anglerLook || { yaw: this.boatSpec().face || 0, pitch: -0.06 };
     const A = this.angler;
+    if (this.foot) return this.footCamera(dt, al);
     this.boat.eyeWorld(A.position);
     // half of the boat's roll/pitch reaches the eye
     // world-space tilt = boat rotation with its heading taken out
@@ -374,6 +384,143 @@ export class Game {
     cam.lookAt(target.x, Math.min(target.y, surf - 0.2), target.z);
   }
 
+  // ---------------------------------------------------------------- on foot (docks and shore)
+  groundAt(x, z) { return this.docks.deckAt(x, z) ?? this.heightAt(x, z); }
+  standable(x, z) { return this.docks.deckAt(x, z) !== null || this.heightAt(x, z) > -0.55; }
+
+  // where something is, as a clock bearing from the way you face ("at 2 o'clock")
+  bearing(x, z, from, facing) {
+    const rel = Math.atan2(-(z - from.z), x - from.x) - facing;
+    const h = ((Math.round((-rel / (Math.PI * 2)) * 12) % 12) + 12) % 12;
+    return `at ${h || 12} o'clock`;
+  }
+
+  walk(dt, k, fighting) {
+    const f = this.foot, b = this.boat.body, m = this.moor;
+    // the boat stays tied up where it was left
+    if (m && b) {
+      const kk = Math.min(1, dt * 1.5);
+      b.vel.x += ((m.x - b.pos.x) * 0.4 - b.vel.x) * kk;
+      b.vel.z += ((m.z - b.pos.z) * 0.4 - b.vel.z) * kk;
+      b.angVel.y *= Math.exp(-dt * 2);
+    }
+    f.speed = 0;
+    if (fighting || this.fishing.state === 'charging' || this.ui.isOpen() || this.view !== 'first') return;
+    const fwd = (k('w') ? 1 : 0) - (k('s') ? 1 : 0), side = (k('d') ? 1 : 0) - (k('a') ? 1 : 0);
+    if (!fwd && !side) return;
+    const yaw = this.look.yaw, run = k('shift') ? 3.6 : 1.7;
+    let mx = -Math.sin(yaw) * fwd + Math.cos(yaw) * side, mz = -Math.cos(yaw) * fwd - Math.sin(yaw) * side;
+    const l = Math.hypot(mx, mz); mx /= l; mz /= l;
+    const step = run * dt, nx = f.x + mx * step, nz = f.z + mz * step;
+    const g0 = this.groundAt(f.x, f.z);
+    // no stepping off the dock edge or up a cliff; slide along edges instead
+    const ok = (x, z) => this.standable(x, z) && Math.abs(this.groundAt(x, z) - g0) < 0.35;
+    if (ok(nx, nz)) { f.x = nx; f.z = nz; } else if (ok(nx, f.z)) f.x = nx; else if (ok(f.x, nz)) f.z = nz; else return;
+    f.speed = run;
+  }
+
+  footCamera(dt, al) {
+    const f = this.foot, A = this.angler, cam = this.camera;
+    const g = this.groundAt(f.x, f.z), surf = this.water[0] || 0;
+    f.bob = (f.bob || 0) + dt * f.speed * 2.2;
+    const eye = Math.max(g, surf - 1.1) + 1.68 + Math.sin(f.bob * 2) * 0.022 * Math.min(1, f.speed);
+    f.y = f.y === undefined ? eye : f.y + (eye - f.y) * Math.min(1, dt * 10);
+    A.position.set(f.x, f.y, f.z);
+    _e.set(al.pitch, al.yaw, 0, 'YXZ');
+    A.quaternion.setFromEuler(_e);
+    A.updateMatrixWorld();
+    this.footPos.set(f.x, g, f.z);
+    if (this.view === 'first') {
+      cam.position.copy(A.position);
+      cam.quaternion.copy(A.quaternion);
+    } else if (this.view === 'under') {
+      this.underwaterCamera(dt);
+    } else {
+      const a = al.yaw + Math.PI * 1.5 + this.look.yaw;
+      const dist = Math.max(2.5, 7 + this.look.dist * 0.5);
+      const pitch = THREE.MathUtils.clamp(0.3 - this.look.pitch * 0.6, 0.05, 1.3);
+      const t = _v.set(f.x, f.y - 0.5, f.z);
+      cam.position.set(t.x + Math.cos(a) * dist * Math.cos(pitch), t.y + Math.sin(pitch) * dist, t.z - Math.sin(a) * dist * Math.cos(pitch));
+      cam.position.y = Math.max(cam.position.y, surf + 0.8, this.groundAt(cam.position.x, cam.position.z) + 0.5);
+      cam.lookAt(t);
+    }
+    cam.updateMatrixWorld();
+  }
+
+  restoreLook() {
+    if (this.foot && this.anglerLook) { this.look.yaw = this.anglerLook.yaw; this.look.pitch = this.anglerLook.pitch; }
+    else { this.look.yaw = this.boatSpec().face || 0; this.look.pitch = -0.06; }
+  }
+
+  // somewhere to step off the boat: the nearest dock, else a bit of bank beside the hull
+  shoreSpot() {
+    const bp = this.boat.position, reach = this.boat.hull.length / 2 + 6;
+    const n = this.docks.nearest(bp.x, bp.z);
+    if (n && n.dist < reach) return { x: n.point.x, z: n.point.z, dock: true, yaw: Math.atan2(-n.dock.dx, -n.dock.dz) };
+    for (let r = this.boat.hull.beam / 2 + 0.8; r < reach; r += 0.8) {
+      for (let a = 0; a < Math.PI * 2; a += 0.25) {
+        const x = bp.x + Math.cos(a) * r, z = bp.z + Math.sin(a) * r;
+        if (this.heightAt(x, z) > 0.05) return { x, z, yaw: Math.atan2(Math.cos(a), Math.sin(a)) };   // facing back out over the water
+      }
+    }
+    return null;
+  }
+
+  toggleShore() {
+    if (this.view !== 'first') { this.view = 'first'; this.restoreLook(); }
+    if (this.fishing.busy() || this.troll.active) { this.ui.toast('Reel in first.', 'info'); return; }
+    if (this.net.state !== 'stowed') { this.ui.toast('Haul the net first.', 'info'); return; }
+    if (this.foot) {
+      const bp = this.boat.position, d = Math.hypot(bp.x - this.foot.x, bp.z - this.foot.z);
+      if (d > this.boat.hull.length / 2 + 4) {
+        this.ui.toast(`Your boat is ${Math.round(d)} m away, ${this.bearing(bp.x, bp.z, this.foot, this.look.yaw + Math.PI / 2)}. Walk back to it.`, 'info');
+        return;
+      }
+      this.look.yaw -= this.boat.heading() - Math.PI / 2;   // world yaw back to boat-relative
+      this.foot = null;
+      this.moor = null;
+      this.ui.toast('Back aboard.', 'info');
+      return;
+    }
+    if (Math.abs(this.boatSpeed()) > 1.2) { this.ui.toast('Stop the boat first.', 'info'); return; }
+    const spot = this.shoreSpot();
+    if (!spot) {
+      const bp = this.boat.position, n = this.docks.nearest(bp.x, bp.z);
+      if (n) this.ui.toast(`Nearest dock: ${Math.round(n.centre)} m, ${this.bearing(n.dock.end.x, n.dock.end.z, bp, this.boat.heading())}. Pull up alongside and press G.`, 'info');
+      else if (this.heightAt(bp.x, bp.z) < -60) this.ui.toast('Open ocean - no shore to fish from out here.', 'info');
+      else this.ui.toast('Get up close to the bank, then press G to go ashore.', 'info');
+      return;
+    }
+    const bp = this.boat.position;
+    this.moor = { x: bp.x, z: bp.z };
+    this.foot = { x: spot.x, z: spot.z, speed: 0 };
+    this.look.yaw = spot.yaw;
+    this.look.pitch = -0.06;
+    this.anglerLook = { yaw: this.look.yaw, pitch: this.look.pitch };
+    this.ui.toast(spot.dock ? 'On the dock. WASD to walk, Shift to hurry, G to get back in the boat.' : 'Ashore. WASD to walk the bank, G to get back in the boat.', 'good');
+  }
+
+  // "G" prompt when there's somewhere to step to
+  shoreHintTick(dt) {
+    this.hintT = (this.hintT || 0) - dt;
+    if (this.hintT > 0) return;
+    this.hintT = 0.3;
+    let text = '';
+    if (this.view === 'first' && !this.fishing.busy() && !this.ui.isOpen()) {
+      if (this.foot) {
+        const bp = this.boat.position;
+        if (Math.hypot(bp.x - this.foot.x, bp.z - this.foot.z) < this.boat.hull.length / 2 + 4) text = 'get back in the boat';
+      } else if (Math.abs(this.boatSpeed()) < 1.2) {
+        const bp = this.boat.position, reach = this.boat.hull.length / 2 + 6, n = this.docks.nearest(bp.x, bp.z);
+        if (n && n.dist < reach) text = 'step onto the dock';
+        else {
+          for (let a = 0; a < 6.28 && !text; a += 0.5) if (this.heightAt(bp.x + Math.cos(a) * (reach - 1), bp.z + Math.sin(a) * (reach - 1)) > 0.05) text = 'go ashore';
+        }
+      }
+    }
+    this.ui.shoreHint(text);
+  }
+
   // photo mode: hide every overlay (HUD and rod); the views and camera controls still work
   togglePhoto() {
     this.photo = !this.photo;
@@ -391,7 +538,7 @@ export class Game {
 
   toggleUnderwater() {
     const s = this.fishing.state;
-    if (this.view === 'under') { this.view = 'first'; this.look.yaw = this.boatSpec().face || 0; return; }
+    if (this.view === 'under') { this.view = 'first'; this.restoreLook(); return; }
     if (s !== 'water' && s !== 'bite' && s !== 'fight') { this.ui.toast('Cast first - the underwater camera follows your lure or fish.', 'info'); return; }
     this.view = 'under';
     this.underInit = false;
@@ -438,7 +585,7 @@ export class Game {
     if (f.impacts.length > 8) f.impacts.shift();
   }
 
-  boatSpeed() { return this.boat?.speed || 0; }
+  boatSpeed() { return this.foot ? 0 : this.boat?.speed || 0; }
   boatSpec() { return BOATS[this.save.boat]; }
   hour() { return this.save.hour; }
   depthUnderBoat() { const p = this.boat.position; return Math.max(0, -this.heightAt(p.x, p.z)); }
@@ -592,6 +739,7 @@ export class Game {
     this.commit({ boat: id });
     this.boat = await new PlayerBoat(id).create(this.e.floaters, this.patchProp, p, yaw);
     this.look.yaw = BOATS[id].face || 0;
+    this.foot = null; this.moor = null;
     this.ui.toast(`Now running the ${BOATS[id].name}`, 'good');
     this.ui.hud();
   }

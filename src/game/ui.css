@@ -101,6 +101,8 @@ kbd { font: 600 12px var(--font); color: var(--dim); }
 #lureMarker.strike i { border-color: var(--text); background: var(--text); }
 #lureMarker.strike span { color: var(--text); font-weight: 700; }
 #lookHint { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 14px; color: var(--dim); pointer-events: none; }
+#shoreHint { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); font-size: 14px; color: var(--text); text-shadow: var(--shadow); pointer-events: none; }
+#shoreHint kbd { font: 600 12px var(--font); border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 3px; padding: 1px 6px; margin-right: 8px; }
 #photoHint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); font: 400 14px var(--font); color: var(--dim); text-shadow: var(--shadow); opacity: 0; pointer-events: none; }
 #photoHint.show { animation: photoHint 3.5s ease-out forwards; }
 @keyframes photoHint { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
