@@ -2,6 +2,17 @@
 
 Read this first at the start of every session. Update it whenever a feature is finished.
 
+## How we work (the user's rules)
+- The main session builds: plans, writes code, talks to the user.
+- Searching/reading lots of files, docs or the web: send a Haiku helper, get back only what matters.
+- Opus helper as advisor only: (1) review the plan before a big change, (2) diagnose an error that
+  happened twice, (3) check for misses before calling anything non-trivial done. Give it a short
+  written summary, never the whole conversation; at most one Opus check per task.
+- Small, simple tasks: no helpers.
+- Read only the parts of files needed; don't re-read unchanged files.
+- When a feature is done or the chat gets long: update this file, then tell the user
+  "good point to start a fresh session."
+
 ## What it is
 A first-person fishing game with realistic water: three.js + Vite, built on the Ultra-Water
 ocean renderer (FFT ocean, buoyancy, sky, post-FX). 14 real locations, 145 fish species x 16
@@ -74,6 +85,14 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   hidden = no per-frame sonar drawing (also hidden on foot).
 - Holster the rod: `X` toggles held/put away (`Game.toggleHolster`, `rod.holster` 0..1 eases the rod
   and hands down out of view). Refused while a line is out/fighting; casting is off while holstered.
+- Chart (key C, also in the Esc menu): `game/chart.js`. North-up map of the current water drawn
+  from `loc.height` (cached per location in a 560 px canvas: depth shading + contours, hillshaded
+  land, shoreline), range grid, your boat/position with heading, and dock markers. Docks now have
+  roles (`dockProfile`): dock 0 Marina (fish market + bait & tackle + boat dealer), dock 1 Bait
+  shop (market + tackle), others Fish buyer (market only). Selling already needed a dock; now the
+  Tackle shop (B) and Marina (Y) also only open at a dock with that service (`Game.serviceHere`,
+  gated in `ui.open`; toast says which dock and how far). Water with no docks (offshore) keeps the
+  buyer boat and everything is available. Tackle box (T) stays available anywhere.
 
 ## Known gaps / ideas
 - No angler body when walking in third person.

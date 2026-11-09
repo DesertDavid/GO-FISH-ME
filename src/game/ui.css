@@ -212,3 +212,17 @@ table.well td.b .btn { padding: 4px 10px; font-size: 12px; margin-left: 4px; }
 .pb { display: grid; grid-template-columns: 1fr auto 14px; gap: 8px; padding: 3px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
 .pb b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .pb .up { color: #6fbf73; } .pb .down { color: #d0603a; } .pb .flat { color: var(--dim); }
+
+/* ---- chart (C): local map */
+.chart { display: grid; grid-template-columns: auto minmax(220px, 1fr); gap: 22px; align-items: start; }
+.chart-map { line-height: 0; border: 1px solid var(--rule); }
+#chartCv { width: min(68vh, 560px); height: min(68vh, 560px); image-rendering: auto; }
+.chart-side h5 { margin: 0 0 8px; font: 700 13px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+.chart-side .svc { display: grid; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--rule); }
+.chart-side .svc b { font-weight: 600; }
+.chart-side .svc.here b { color: var(--amber); }
+.chart-side .svc .d { color: var(--amber); font: 600 13px "IBM Plex Mono", monospace; }
+.chart-side .small { color: var(--dim); font-size: 13px; margin: 12px 0 0; }
+.chart-side .legend .k { display: inline-block; width: 10px; height: 10px; margin-right: 5px; background: var(--text); clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%); }
+.chart-side .legend .k.you { background: var(--amber); clip-path: circle(50%); }
+@media (max-width: 760px) { .chart { grid-template-columns: 1fr; } }

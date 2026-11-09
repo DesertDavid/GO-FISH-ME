@@ -22,6 +22,7 @@ import { makeChallenges, recordCatch } from './challenges.js';
 import { Weather } from './weather.js';
 import { NightFX } from './night.js';
 import { Docks } from './docks.js';
+import { Chart, SERVICE_INFO } from './chart.js';
 import { Obstacles } from './obstacles.js';
 import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
 import { SPECIES_BY_ID } from './species.js';
@@ -76,6 +77,7 @@ export class Game {
     this.obstacles.add((this.loc.stacks || []).map(([x, z, r]) => ({ x, z, r: r * 1.05 })));
     this.bumpCool = 0;
     this.market = new Market(this.loc);
+    this.chart = new Chart(this);
     progress(0.85, 'Launching the boat…');
     let boatId = this.save.boat;
     if (!BOATS[boatId].waters.includes(this.loc.water)) boatId = this.save.boats.find((b) => BOATS[b].waters.includes(this.loc.water)) || 'jon';
@@ -160,7 +162,7 @@ export class Game {
       if (this.ui.isOpen()) return;
       if (this.wantLock) this.grabPointer?.();   // last grab was refused: retry on this key
       this.keys.add(k);
-      const open = { t: 'tackle', b: 'shop', y: 'marina', m: 'map', j: 'journal', h: 'help', o: 'settings', e: 'events' }[k];
+      const open = { t: 'tackle', b: 'shop', y: 'marina', m: 'map', c: 'chart', j: 'journal', h: 'help', o: 'settings', e: 'events' }[k];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
       if (k === 'v') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
       if (k === 'g') this.toggleShore();
@@ -719,6 +721,37 @@ export class Game {
     p.done();
     this.pendingCatch = null;
     this.ui.hud();
+  }
+
+  // the dock you are at (on it, or tied up alongside), 'buyer' where the water has no docks
+  // (a supply/buyer boat covers everything), else null
+  dockHere() {
+    if (!this.docks.list.length) return 'buyer';
+    this.chart.places();   // makes sure each dock has its profile
+    if (this.foot) {
+      if (this.docks.deckAt(this.foot.x, this.foot.z) === null) return null;
+      const n = this.docks.nearest(this.foot.x, this.foot.z);
+      return n ? { dock: n.dock } : null;
+    }
+    const bp = this.boat.position, n = this.docks.nearest(bp.x, bp.z);
+    return n && n.dist < this.boat.hull.length / 2 + 6 && Math.abs(this.boatSpeed()) < 1.5 ? { dock: n.dock } : null;
+  }
+
+  // can you use this service (sell / tackle / boats) where you are? toasts where to go if not
+  serviceHere(kind) {
+    const at = this.dockHere();
+    if (at === 'buyer') return true;
+    if (at && at.dock.profile.services.includes(kind)) return true;
+    const from = this.foot || this.boat.position;
+    const list = this.docks.list.filter((d) => d.profile.services.includes(kind));
+    list.sort((a, b) => Math.hypot(a.end.x - from.x, a.end.z - from.z) - Math.hypot(b.end.x - from.x, b.end.z - from.z));
+    const d = list[0];
+    const what = { tackle: 'The tackle shop', boats: 'The boat dealer', sell: 'The fish market' }[kind];
+    if (d) {
+      const dx = d.end.x - from.x, dz = d.end.z - from.z, dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+      this.ui.toast(`${what} is at the ${d.profile.name} dock, ${Math.round(Math.hypot(dx, dz))} m ${dirs[Math.round(Math.atan2(dx, -dz) / (Math.PI / 4) + 8) % 8]}. Press C for the chart.`, 'info');
+    } else this.ui.toast(`No ${what.toLowerCase().replace('the ', '')} on this water.`, 'info');
+    return false;
   }
 
   // ---------------------------------------------------------------- livewell & market
