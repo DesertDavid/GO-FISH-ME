@@ -323,10 +323,10 @@ def jon_z(x):
 
 def build_jon(root):
     spec = dict(JON)
-    green = mat('jon_paint', srgb(0x1b58a6), 0.15, 0.4)
+    green = mat('jon_paint', srgb(0x1b58a6), 0.0, 0.45)
     bare = mat('alu_bare', srgb(0xb4bbc0), 0.9, 0.35)
-    alu = mat('jon_grey', srgb(0x8e9498), 0.25, 0.55)
-    alu_dark = mat('jon_grey_dk', srgb(0x676c70), 0.2, 0.7)
+    alu = mat('jon_grey', srgb(0x8e9498), 0.0, 0.7)
+    alu_dark = mat('jon_grey_dk', srgb(0x676c70), 0.0, 0.8)
     rivet = mat('rivet', srgb(0xc9cfd3), 0.95, 0.3)
     weld = mat('weld', srgb(0x6f777b), 0.7, 0.6)
     ply = mat('transom_ply', srgb(0x6b5233), 0.0, 0.8)
@@ -457,8 +457,9 @@ def build_jon(root):
     for k in range(3):
         a = k * 2 * math.pi / 3
         box('prop_blade', (0.03, 0.15, 0.06), (ob_x - 0.41, math.cos(a) * 0.08, ob_z - 0.78 + math.sin(a) * 0.08), steel, root, bevel=0.004, rot=(a, 0.35, 0))
-    tube('tiller', [(ob_x - 0.15, 0.04, ob_z + 0.10), (ob_x + 0.65, 0.10, ob_z + 0.22), (ob_x + 1.05, 0.14, ob_z + 0.20)], 0.017, black, root)
-    cyl('tiller_grip', 0.026, 0.20, (ob_x + 1.12, 0.15, ob_z + 0.20), mat('grip', srgb(0x1d1d1f), 0.0, 0.8), root, rot=(0, math.pi / 2, 0))
+    box('tiller_mount', (0.10, 0.10, 0.09), (ob_x + 0.03, 0.0, ob_z + 0.08), black, root, bevel=0.02)
+    tube('tiller', [(ob_x + 0.0, 0.0, ob_z + 0.09), (ob_x + 0.20, 0.01, ob_z + 0.13), (ob_x + 0.45, 0.04, ob_z + 0.19)], 0.016, black, root)
+    cyl('tiller_grip', 0.025, 0.14, (ob_x + 0.52, 0.05, ob_z + 0.20), mat('grip', srgb(0x1d1d1f), 0.0, 0.8), root, rot=(0, math.pi / 2, 0))
     for m_ in (green, bare, alu, alu_dark):
         m_.use_backface_culling = True            # no outer-hull backfaces showing through the cockpit
     return spec

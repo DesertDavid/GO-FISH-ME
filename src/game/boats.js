@@ -51,8 +51,8 @@ export class PlayerBoat {
     model.traverse((o) => {
       if (!o.isMesh) return;
       o.material = o.material.clone();
-      patchProp(o.material);
-      o.receiveShadow = true;
+      patchProp(o.material, this.id === 'jon' ? 'boat' : 'prop');
+      o.receiveShadow = this.id !== 'jon';   // coarse sun-shadow map blotches a boat this small
       o.castShadow = false;
       o.layers.enable(1);
     });

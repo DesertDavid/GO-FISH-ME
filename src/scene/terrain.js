@@ -213,7 +213,9 @@ const FOG = /* glsl */`
 // mode: 'terrain' | 'rock' | 'prop' (props keep their own colours, just get the
 // underwater light falloff, caustics and fog)
 function patch(material, uniforms, mode) {
-  const ground = mode !== 'prop';
+  const ground = mode === 'terrain' || mode === 'rock';
+  // 'boat': a prop that doesn't take the coarse floater-shadow projection (it blotches a small hull)
+  const lights = mode === 'boat' ? LIGHTS_BEGIN.replace('directLight.color *= floatShadow(shadowAt);', '') : LIGHTS_BEGIN;
   if (mode === 'rock') material.defines = { ...material.defines, ROCK: '' };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -235,7 +237,7 @@ function patch(material, uniforms, mode) {
       .replace('#include <map_fragment>', '#include <map_fragment>\n' + (ground ? ALBEDO : '') + UNDERWATER)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n' + (ground ? ROUGH : ''))
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + (ground ? RIPPLES : ''))
-      .replace('#include <lights_fragment_begin>', LIGHTS_BEGIN)
+      .replace('#include <lights_fragment_begin>', lights)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n' + CAUSTICS)
       .replace('#include <opaque_fragment>', FOG + '#include <opaque_fragment>');
   };
@@ -395,5 +397,5 @@ export function createTerrain({ sky, caustics, floatShadow, water, absorption, r
   const group = new THREE.Group();
   group.add(ground, rocks);
   for (const o of [ground, rocks]) o.layers.enable(reflectionLayer);
-  return { group, uniforms, shoreRocks, patchProp: (m) => patch(m, uniforms, 'prop') };
+  return { group, uniforms, shoreRocks, patchProp: (m, mode = 'prop') => patch(m, uniforms, mode) };
 }
