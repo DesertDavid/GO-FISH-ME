@@ -130,12 +130,50 @@ def fuse(ob, voxel=0.0005, smooth_iters=30, faces=18000):
     l.iterations = 12
     l.lambda_factor = 0.8
     l.use_volume_preserve = True
-    d = ob.modifiers.new('dec', 'DECIMATE')
-    d.ratio = 1.0
-    for m in list(ob.modifiers)[:-1]:
+    # Final topology: re-voxelise the smoothed shape at a coarser size chosen for the face
+    # budget. That gives even, square-ish faces (decimating instead leaves long slivers whose
+    # shading sparkles), then smooth away the voxel stair-steps that catch the sun.
+    for m in list(ob.modifiers):
         bpy.ops.object.modifier_apply(modifier=m.name)
-    d.ratio = min(1.0, faces / max(1, len(ob.data.polygons)))
-    bpy.ops.object.modifier_apply(modifier=d.name)
+    area = sum(p.area for p in ob.data.polygons)
+    r2 = ob.modifiers.new('remesh2', 'REMESH')
+    r2.mode = 'VOXEL'
+    r2.voxel_size = max(voxel, math.sqrt(area / faces))
+    l2 = ob.modifiers.new('lap2', 'LAPLACIANSMOOTH')
+    l2.iterations = 8
+    l2.lambda_factor = 0.7
+    l2.use_volume_preserve = True
+    s2 = ob.modifiers.new('smooth2', 'SMOOTH')
+    s2.factor = 0.5
+    s2.iterations = 6
+    for m in list(ob.modifiers):
+        bpy.ops.object.modifier_apply(modifier=m.name)
+    # air pockets trapped inside a fist come out of the remesh as extra inner shells that
+    # flicker through the skin; keep only the outer surface (the largest shell)
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    seen, shells = set(), []
+    for v in bm.verts:
+        if v in seen:
+            continue
+        stack, shell = [v], []
+        seen.add(v)
+        while stack:
+            a = stack.pop()
+            shell.append(a)
+            for e in a.link_edges:
+                b = e.other_vert(a)
+                if b not in seen:
+                    seen.add(b)
+                    stack.append(b)
+        shells.append(shell)
+    shells.sort(key=len, reverse=True)
+    junk = [v for sh in shells[1:] for v in sh]
+    if junk:
+        bmesh.ops.delete(bm, geom=junk, context='VERTS')
+    bm.to_mesh(ob.data)
+    bm.free()
+    print(ob.name, 'shells', len(shells), 'removed verts', len(junk))
     for p in ob.data.polygons:
         p.use_smooth = True
 
@@ -161,8 +199,8 @@ def tint_skin(ob, skel, base=0xc58c6c):
         c = c.lerp(pale, 0.25 * max(0.0, -v.normal.dot(skel.palm_normal)) if hasattr(skel, 'palm_normal') else 0)
         col.data[v.index].color = (c.x, c.y, c.z, 1)
 
-def nail(name, tip, dirv, out, width, mat):
-    """A slightly domed fingernail on the back of the last bone."""
+def nail(name, tip, dirv, out, width, mat, skin=None):
+    """A slightly domed fingernail on the back of the last bone, laid on the skin surface."""
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=1)
     me = bpy.data.meshes.new(name)
@@ -173,8 +211,18 @@ def nail(name, tip, dirv, out, width, mat):
     d = P(*dirv).normalized()
     o = P(*out).normalized()
     o = (o - d * o.dot(d)).normalized()
-    side = d.cross(o).normalized()
     centre = P(*tip) - d * (width * 0.7) + o * (width * 0.46)
+    if skin is not None:
+        # snap to the skin: nearest surface point to the rough spot, its normal as 'out'
+        ok, loc, nrm, _ = skin.closest_point_on_mesh(centre)
+        # only when that surface is this fingertip (tucked tips can find the palm instead)
+        if ok and (loc - centre).length < width * 0.5 and nrm.dot(o) > 0.3:
+            o = (nrm - d * nrm.dot(d)).normalized()
+            centre = loc + o * (width * 0.02)
+        else:   # a tip tucked into the fist: its nail can't be seen, so leave it out
+            bpy.data.objects.remove(ob, do_unlink=True)
+            return None
+    side = d.cross(o).normalized()
     for v in me.vertices:
         x, y, z = v.co
         v.co = centre + side * (x * width * 0.46) + d * (y * width * 0.6) + o * (z * width * 0.07)
@@ -251,7 +299,7 @@ FINGERS = {  # bone lengths (proximal, middle, distal) and radii at MCP, PIP, DI
 def lerp3(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
-def build_hand(name, frame, fingers, wrist, palm_bases, thumb, forearm_dir, palm_normal, skin_mat, nail_mat, sleeve_mat, thumb_nail=(0, 1, 0)):
+def build_hand(name, frame, fingers, wrist, palm_bases, thumb, forearm_dir, palm_normal, skin_mat, nail_mat, sleeve_mat, thumb_nail=(0, 1, 0), split_arm=False, finger_nails=True):
     """fingers: list of (finger name, s at knuckle, s at tip, theta at knuckle, core radius)."""
     sk = Skeleton()
     sk.palm_normal = P(*palm_normal).normalized()
@@ -269,7 +317,8 @@ def build_hand(name, frame, fingers, wrist, palm_bases, thumb, forearm_dir, palm
         sk.bone(pts[0], lerp3(pts[0], pts[1], 0.3), R[0] * 1.12, R[0] * 1.02)
         tipv = V3(*pts[-1]) - V3(*pts[-2])
         mid = V3(*pts[-1]) - (O + A * ((V3(*pts[-1]) - O).dot(A)))
-        nails.append((pts[-1], tuple(tipv), tuple(mid), R[-1] * 2))
+        if finger_nails:   # a fist's nails face its palm, out of sight
+            nails.append((pts[-1], tuple(tipv), tuple(mid), R[-1] * 2))
     # heel of the hand and wrist (in the palm pad)
     sk.palm.append((V3(*palm_bases[0]), V3(*palm_bases[-1]), 0.013, 0.0135))
     sk.palm.append((V3(*lerp3(palm_bases[0], palm_bases[-1], 0.5)), V3(*wrist), 0.015, 0.019))
@@ -279,11 +328,13 @@ def build_hand(name, frame, fingers, wrist, palm_bases, thumb, forearm_dir, palm
     sk.bone(wrist, thumb[1], 0.017, 0.012)
     sk.bone(palm_bases[0], thumb[1], 0.013, 0.0115)
     tipv = V3(*thumb[-1]) - V3(*thumb[-2])
-    nails.append((thumb[-1], tuple(tipv), None, tR[-1] * 2.1))
-    # forearm (skin) back toward the sleeve
+    if finger_nails:
+        nails.append((thumb[-1], tuple(tipv), None, tR[-1] * 2.1))
+    # forearm (skin) back toward the sleeve; a separate arm piece when the hand moves on its own
     fd = V3(*forearm_dir).normalized()
     fw = V3(*wrist)
-    sk.bone(wrist, tuple(fw + fd * 0.08), 0.021, 0.026)
+    arm_sk = Skeleton() if split_arm else sk
+    arm_sk.bone(tuple(fw - fd * (0.012 if split_arm else 0)), tuple(fw + fd * 0.08), 0.0185, 0.025)
 
     ob = sweep_mesh(name, sk)
     fuse(ob)
@@ -293,16 +344,38 @@ def build_hand(name, frame, fingers, wrist, palm_bases, thumb, forearm_dir, palm
     for i, (tip, dirv, out, w) in enumerate(nails):
         if out is None:
             out = thumb_nail
-        parts.append(nail(f'{name}_nail{i}', tip, dirv, out, w, nail_mat))
-    parts.append(sleeve(f'{name}_sleeve', wrist, forearm_dir, sleeve_mat))
-    # join into one object per hand (materials stay separate primitives in the glTF)
-    bpy.ops.object.select_all(action='DESELECT')
-    for p in parts:
-        p.select_set(True)
-    bpy.context.view_layer.objects.active = ob
-    bpy.ops.object.join()
-    ob.name = name
-    return ob
+        n = nail(f'{name}_nail{i}', tip, dirv, out, w, nail_mat, skin=ob)
+        if n:
+            parts.append(n)
+        else:
+            print(name, 'nail', i, 'tucked away, skipped')
+    arm_parts = parts
+    if split_arm:
+        arm = sweep_mesh(name.replace('Hand', 'Arm'), arm_sk)
+        fuse(arm, faces=9000)
+        tint_skin(arm, arm_sk)
+        arm.data.materials.append(skin_mat)
+        arm_parts = [arm]
+    arm_parts.append(sleeve(f'{name}_sleeve', wrist, forearm_dir, sleeve_mat))
+    # join into one object per piece (materials stay separate primitives in the glTF)
+    def join(objs, keep):
+        bpy.ops.object.select_all(action='DESELECT')
+        for p in objs:
+            p.select_set(True)
+        bpy.context.view_layer.objects.active = keep
+        bpy.ops.object.join()
+        return keep
+    join(parts, ob).name = name
+    if not split_arm:
+        return ob, None
+    arm = join(arm_parts, arm_parts[0])
+    arm.name = name.replace('Hand', 'Arm')
+    # pivots for the game: the wrist (where the forearm meets the hand) and the elbow
+    for nm, pt in ((name.replace('Hand', 'Wrist'), fw), (name.replace('Hand', 'Elbow'), fw + fd * 0.3)):
+        e = bpy.data.objects.new(nm, None)
+        e.location = P(*pt)
+        bpy.context.collection.objects.link(e)
+    return ob, arm
 
 # ---------------------------------------------------------------- the two hands
 reset()
@@ -313,7 +386,7 @@ sleevem = material('Sleeve', srgb(0x1f5f6a), 0.85)
 # Right hand on the grip. Axis = rod (z); theta 0 = angler's right (-x), 90 = down.
 fr = (V3(0, 0, 0), V3(0, 0, 1), V3(-1, 0, 0), V3(0, -1, 0))
 CORE_R = 0.0125 + 0.0088 + 0.0006
-right = build_hand(
+right, _ = build_hand(
     'HandR', fr,
     fingers=[('index', 0.112, 0.116, math.radians(20), CORE_R),
              ('middle', 0.094, 0.097, math.radians(22), CORE_R),
@@ -329,7 +402,7 @@ right = build_hand(
 # Left hand round the crank knob. Axis = knob (x); theta 0 = back (-z), 90 = up.
 fl = (V3(0, 0, 0), V3(1, 0, 0), V3(0, 0, -1), V3(0, 1, 0))
 KNOB = 0.008 + 0.0086 + 0.0006
-left = build_hand(
+left, arm_l = build_hand(
     'HandL', fl,
     fingers=[('index', -0.005, -0.004, math.radians(14), KNOB),
              ('middle', 0.0115, 0.012, math.radians(12), KNOB),
@@ -339,21 +412,29 @@ left = build_hand(
     palm_bases=[(-0.004, -0.04, -0.06), (0.011, -0.042, -0.064), (0.026, -0.042, -0.064), (0.04, -0.04, -0.06)],
     thumb=[(-0.008, -0.045, -0.058), (-0.02, -0.032, -0.026), (-0.017, -0.019, 0.0), (-0.011, -0.008, 0.017)],
     forearm_dir=(0.3, -0.35, -1),
-    palm_normal=(0, 0.5, 0.85), thumb_nail=(-0.4, -0.6, 0.6),
+    palm_normal=(0, 0.5, 0.85), thumb_nail=(-0.4, -0.6, 0.6), split_arm=True, finger_nails=False,
     skin_mat=skin, nail_mat=nailm, sleeve_mat=sleevem)
 
 # Roll the left fist forward round the knob so, seen from the angler's eye, it shows its
 # knuckles rather than the backs of the curled fingers.
-left.rotation_euler = (math.radians(35), 0, 0)
+from mathutils import Matrix
+roll = Matrix.Rotation(math.radians(35), 4, 'X')
+bpy.context.view_layer.update()   # so matrix_world reflects the empties' locations
+for o in (left, arm_l, bpy.data.objects['WristL'], bpy.data.objects['ElbowL']):
+    o.matrix_world = roll @ o.matrix_world
 bpy.ops.object.select_all(action='DESELECT')
-left.select_set(True)
+for o in (left, arm_l):
+    o.select_set(True)
 bpy.context.view_layer.objects.active = left
-bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+bpy.ops.object.transform_apply(location=True, rotation=True, scale=False)
 
 # ---------------------------------------------------------------- export
 bpy.ops.object.select_all(action='DESELECT')
 right.select_set(True)
 left.select_set(True)
+arm_l.select_set(True)
+bpy.data.objects['WristL'].select_set(True)
+bpy.data.objects['ElbowL'].select_set(True)
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 kw = dict(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_yup=True)
 try:
@@ -384,6 +465,7 @@ if PREVIEW:
     f = bpy.context.object; f.scale = (0.012, 0.03, 0.06); f.location = P(0, -0.04, 0.07); f.data.materials.append(black)
     # the left hand is previewed beside the reel at an arbitrary knob spot
     left.location = P(0.057, -0.025, 0.07)
+    arm_l.location = left.location
     cyl(0.008, -0.0125, 0.0125, black, axis='x', at=(0.057, -0.025, 0.07))
     sc = bpy.context.scene
     sc.render.engine = 'BLENDER_WORKBENCH'
