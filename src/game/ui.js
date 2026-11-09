@@ -5,6 +5,7 @@ import { hintFor } from './bait.js';
 import { TUNING as BAIT } from './baitData.js';
 import { catalogCount } from './save.js';
 import { wellSlots } from './livewell.js';
+import { levelInfo, gateLevel, meets, unlocksAt, MAX_LEVEL, xpAt, GATES, reelSmooth, lineCastMul, permitLeft, permitText, permitPrice, PERMIT_OPTIONS, respoolCost, SHARPEN_COST, restockCost, wearWord, effectiveTest, WEAR_DEFAULT } from './progress.js';
 import { freezeSaves, writeSave } from './save.js';
 import { listSlots, putSlot, deleteSlot, summarize, fmtPlayed, fmtWhen, parseFile, downloadFile, pickFile, installAsLive, diskBackup } from './saveSlots.js';
 
@@ -134,7 +135,7 @@ export class UI {
     const r = this.g.tourResult;
     return `<div class="m-head"><h2>${esc(r.def.name)}: ${r.place}${['st', 'nd', 'rd'][r.place - 1] || 'th'} place</h2><span>${r.prize ? money(r.prize) : ''}</span></div>
       <table class="haul"><tr><th>Angler</th><th>Score</th></tr>${r.rows.map((x, i) => `<tr${x.you ? ' style="color:var(--orange)"' : ''}><td>${i + 1}. ${esc(x.name)}</td><td>${x.score ? x.score.toFixed(2) + ' lb' : '-'}</td></tr>`).join('')}</table>
-      <p class="tips">${r.prize ? `Prize money: <b>${money(r.prize)}</b>` : 'No prize this time - top three get paid.'}</p>
+      <p class="tips">${r.prize ? `Prize money: <b>${money(r.prize)}</b>` : 'No prize this time - top three get paid.'} <b>+${r.xp} xp</b></p>
       <div class="actions"><button class="btn primary" data-act="close">Back to fishing</button></div>`;
   }
 
@@ -200,17 +201,42 @@ export class UI {
     el.innerHTML = `<b>${type === 'trawl' ? 'TRAWL' : 'PURSE SEINE'}</b> · ${label}<div class="bar" style="margin-top:6px"><i style="width:${(total / cap) * 100}%;background:var(--accent)"></i></div><span class="small">${Math.round(total).toLocaleString()} / ${cap.toLocaleString()} lb · press N to haul</span>`;
   }
 
+  // small amber "+n xp" next to the level readout
+  xpGain(n) {
+    const el = $('hLevel');
+    if (!el) return;
+    let t = el.querySelector('.gain');
+    if (!t) { t = document.createElement('em'); t.className = 'gain'; el.appendChild(t); }
+    t.textContent = `+${n} xp`;
+    t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');
+  }
+
+  levelUp(level, unlocks) {
+    let el = $('levelUp');
+    if (!el) { el = document.createElement('div'); el.id = 'levelUp'; $('hud').appendChild(el); }
+    const list = unlocks.length ? `<span>${unlocks.map((u) => `${esc(u.kind)}: ${esc(u.name)}`).join(' · ')}</span>` : '<span>Keep fishing</span>';
+    el.innerHTML = `<small>ANGLER LEVEL</small><b>${level}</b>${list}`;
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+    clearTimeout(this._luT);
+    this._luT = setTimeout(() => el.classList.remove('on'), 5200);
+  }
+
   hud() {
     const g = this.g, s = g.save, loc = g.loc;
     $('hLoc').innerHTML = `${esc(loc.name)}<small>${esc(loc.region)}</small>`;
     const h = g.hour(), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
     $('hTime').textContent = `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`;
     $('hCash').textContent = money(s.cash);
+    const li = levelInfo(s.xp || 0);
+    $('hLevel').innerHTML = `<span>Lv <b>${li.level}</b></span><i class="xpbar"><i style="width:${Math.round(li.frac * 100)}%"></i></i>`;
     // just the bait you're fishing; speed only while under way
     const e = s.equip;
     const well = s.livewell || [], slots = wellSlots(s.boat), weak = well.some((k) => !k.iced && k.health > 0 && k.health < 0.35);
     const wellTxt = well.length ? ` · <span class="${weak ? 'warn' : ''}">livewell ${well.length}/${slots}</span>` : '';
-    $('gearLine').innerHTML = `<b>${esc(LURES[e.lure].name)}</b>${g.troll?.active ? ' · trolling spread out' : ''}${wellTxt}`;
+const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
+    const permitTxt = pl > 0 ? ` · <span class="${pl < 3 ? 'warn' : ''}">permit ${permitText(pl)}</span>` : ' · <span class="warn">no permit</span>';
+    const wearTxt = w.line >= 0.5 ? ` · <span class="${w.line >= 0.8 ? 'warn' : ''}">line ${wearWord(w.line).toLowerCase()}</span>` : '';
+    $('gearLine').innerHTML = `<b>${esc(LURES[e.lure].name)}</b>${g.troll?.active ? ' · trolling spread out' : ''}${wellTxt}${wearTxt}${permitTxt}`;
     const knots = Math.abs(g.boatSpeed()) * 1.944;
     $('boatInfo').hidden = knots < 1;
     $('boatInfo').innerHTML = `<b>${knots.toFixed(0)}</b>knots`;
@@ -233,12 +259,12 @@ export class UI {
 
   // Esc menu: everything that used to sit on screen as buttons, plus today's goals
   renderPause() {
-    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ['events', 'Tournaments', 'E'], ['chart', 'Chart', 'C'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['saves', 'Save / Load', ''], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
+    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ['events', 'Tournaments', 'E'], ['chart', 'Chart', 'C'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['angler', 'Angler log', ''], ['saves', 'Save / Load', ''], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
     const list = items.map(([id, label, key]) => `<button data-act="${id === 'resume' ? 'close' : 'go'}" data-id="${id}">${label}${key ? `<kbd>${key}</kbd>` : ''}</button>`).join('');
     const ch = this.g.save.challenges;
     const goals = ch ? ch.list.map((c) => `<div class="ch ${c.done ? 'done' : ''}"><span>${esc(c.text)}<div class="prog">${c.done ? 'Done' : `${Math.min(c.have, c.need)} of ${c.need}`}</div></span><b>${money(c.reward)}</b></div>`).join('') : '';
     return `<div><div class="pause-title">${esc(this.g.loc.name)} · Day ${this.g.save.day || 1}</div><div class="pause-list">${list}</div></div>
-      <div class="pause-side"><h5>Today's challenges</h5>${goals}</div>`;
+      <div class="pause-side"><div class="lvl-line">Angler level <b>${levelInfo(this.g.save.xp || 0).level}</b><span>${this.xpText()}</span></div><h5>Today's challenges</h5>${goals}</div>`;
   }
 
   // ---- Save / Load screen ----
@@ -249,7 +275,7 @@ export class UI {
     if (!sv.diskAsked) { sv.diskAsked = true; diskBackup().then((b) => { sv.disk = b; if (this.panel === 'saves') this.render(); }); }
     const row = (title, when, data, btns, cls = '') => {
       const x = data && summarize(data);
-      const body = x ? `<div class="sv-main"><b>${esc(x.location)}</b><span>${money(x.cash)} · Day ${x.day} · ${esc(x.places)} · ${esc(x.catalog)}</span></div><div class="sv-time"><span>${fmtPlayed(x.played)} played</span><span>${esc(when)}</span></div>`
+      const body = x ? `<div class="sv-main"><b>${esc(x.location)}</b><span>Lv ${x.level} · ${money(x.cash)} · Day ${x.day} · ${esc(x.places)} · ${esc(x.catalog)}</span></div><div class="sv-time"><span>${fmtPlayed(x.played)} played</span><span>${esc(when)}</span></div>`
         : `<div class="sv-main"><span class="empty">Empty</span></div><div class="sv-time"></div>`;
       return `<div class="sv-row ${cls}"><div class="sv-name">${title}</div>${body}<div class="sv-btns">${btns}</div></div>`;
     };
@@ -322,7 +348,7 @@ export class UI {
 
   render() {
     const card = $('modalCard');
-    const fn = { shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell }[this.panel];
+    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell }[this.panel];
     if (fn) card.innerHTML = fn.call(this);
     if (this.panel === 'chart') this.g.chart.mount();
   }
@@ -336,19 +362,70 @@ export class UI {
     return `<div class="tabs">${list.map(([id, label]) => `<button class="${id === cur ? 'on' : ''}" data-act="tab" data-group="${group}" data-id="${id}">${label}</button>`).join('')}</div>`;
   }
 
+  xpText() {
+    const li = levelInfo(this.g.save.xp || 0);
+    return li.level >= MAX_LEVEL ? 'max level' : `${Math.round(li.into)} / ${Math.round(li.need)} xp`;
+  }
+
+  // Angler log: level, what is next, gear condition, permit
+  renderAngler() {
+    const g = this.g, s = g.save, li = levelInfo(s.xp || 0), w = s.wear || WEAR_DEFAULT;
+    const rows = [];
+    for (let L = li.level + 1; L <= MAX_LEVEL && rows.length < 6; L++) {
+      const u = unlocksAt(L);
+      if (u.length) rows.push(`<div class="lv-row"><b>Lv ${L}</b><span>${u.map((x) => `${esc(x.kind)}: ${esc(x.name)}`).join(' · ')}</span><em>${Math.max(0, xpAt(L) - (s.xp || 0)).toLocaleString()} xp to go</em></div>`);
+    }
+    const pl = permitLeft(s, g.loc.id);
+    const bar = (v) => `<div class="cond ${v >= 0.8 ? 'low' : v >= 0.5 ? 'mid' : 'ok'}"><i style="width:${Math.round((1 - v) * 100)}%"></i></div>`;
+    return this.head('Angler log', `Level ${li.level}`) + `
+      <div class="lv-bar"><i style="width:${Math.round(li.frac * 100)}%"></i></div>
+      <div class="lv-sub"><span>${this.xpText()}</span><span>${(s.xp || 0).toLocaleString()} xp total</span></div>
+      <h5 class="board-h">Coming up</h5>${rows.join('') || '<p class="small">Top of the ladder. Everything is open.</p>'}
+      <h5 class="board-h">Tackle condition</h5>
+      <div class="lv-cond"><span>Line (${esc(LINES[s.equip.line].name)})</span>${bar(w.line)}<span class="small">${wearWord(w.line)}</span></div>
+      <div class="lv-cond"><span>Hooks</span>${bar(w.hook)}<span class="small">${wearWord(w.hook)}</span></div>
+      <h5 class="board-h">Permit: ${esc(g.loc.name)}</h5><p class="small">${pl > 0 ? `Valid, ${permitText(pl)}.` : 'None. Buy one at the tackle shop (B): day, 3-day or week passes.'}</p>
+      <p class="tips">XP comes from every fish (bigger, rarer, new species, colour variants and records pay more), daily challenges and tournament finishes. Levels open better tackle, bigger boats and farther waters.</p>
+      <div class="actions"><button class="btn primary" data-act="close">Back</button></div>`;
+  }
+
   renderShop() {
     const s = this.g.save, cur = this.tab.shop || 'rods';
+    if (cur === 'service') return this.renderService();
     const cats = { rods: [RODS, 'rods', 'rod'], reels: [REELS, 'reels', 'reel'], lines: [LINES, 'lines', 'line'], lures: [LURES, 'lures', 'lure'] };
     const [table, owned] = cats[cur];
-    const stat = (id, it) => cur === 'rods' ? `Power <b>${it.power} lb</b> · cast <b>${it.cast} m</b> · sensitivity <b>${Math.round(it.sens * 100)}</b>` :
-      cur === 'reels' ? `Max drag <b>${it.drag} lb</b> · ratio <b>${it.ratio}:1</b> · holds <b>${it.cap} m</b>` :
-        cur === 'lines' ? `Breaks at <b>${it.test} lb</b> · ${it.braid ? 'braid: no stretch, sensitive' : 'mono: stretch absorbs shock'}` :
+    const mine = table[s.equip[cats[cur][2]]];
+    const d = (v, k, unit = '') => { if (!mine) return ''; const x = v - mine[k]; return !x ? '' : ` <span class="dl ${x > 0 ? 'up' : 'dn'}">${x > 0 ? '+' : ''}${+x.toFixed(1)}${unit}</span>`; };
+    const stat = (id, it) => cur === 'rods' ? `Power <b>${it.power} lb</b>${d(it.power, 'power')} · cast <b>${it.cast} m</b>${d(it.cast, 'cast')} · sensitivity <b>${Math.round(it.sens * 100)}</b>` :
+      cur === 'reels' ? `Max drag <b>${it.drag} lb</b>${d(it.drag, 'drag')} · ratio <b>${it.ratio}:1</b> · holds <b>${it.cap} m</b>${d(it.cap, 'cap')} · smoothness <b>${Math.round(reelSmooth(id) * 100)}</b>` :
+        cur === 'lines' ? `Breaks at <b>${it.test} lb</b>${d(it.test, 'test')} · casts <b>${Math.round(lineCastMul(it.test) * 100)}%</b> · ${it.braid ? 'braid: no stretch, sensitive' : 'mono: stretch absorbs shock'}` :
           `Targets: <b>${dietText(it.diet)}</b> · ${({ s: 'surface', m: 'mid-water', b: 'bottom' })[it.depth]} · ${it.active ? 'retrieve or troll it' : 'let it sit'}`;
     const items = Object.entries(table).map(([id, it]) => {
-      const have = s[owned].includes(id);
-      return `<div class="item"><h4>${esc(it.name)}</h4><div class="stats">${stat(id, it)}</div><div class="foot"><span class="price">${it.price ? money(it.price) : 'Free'}</span>${have ? '<span class="small">Owned</span>' : `<button class="btn primary" data-act="buy" data-kind="${owned}" data-id="${id}" ${s.cash < it.price ? 'disabled' : ''}>Buy</button>`}</div></div>`;
+      const have = s.equip && s[owned].includes(id), need = cur === 'lures' ? 1 : gateLevel(cur, id), lock = !have && !meets(s, cur, id), out = cur === 'lures' && (s.wear?.lost || []).includes(id);
+      return `<div class="item ${lock ? 'locked' : ''}"><h4>${esc(it.name)}</h4><div class="stats">${stat(id, it)}</div><div class="foot"><span class="price">${it.price ? money(it.price) : 'Free'}${need > 1 ? ` <span class="lv">Lv ${need}</span>` : ''}</span>${have ? `<span class="small">${out ? 'Out of stock' : 'Owned'}</span>` : lock ? `<span class="small">Reach level ${need}</span>` : `<button class="btn primary" data-act="buy" data-kind="${owned}" data-id="${id}" ${s.cash < it.price ? 'disabled' : ''}>Buy</button>`}</div></div>`;
     }).join('');
-    return this.head('Tackle Shop', money(s.cash)) + this.tabs('shop', [['rods', 'Rods'], ['reels', 'Reels'], ['lines', 'Line'], ['lures', 'Lures & Bait']]) + `<div class="grid">${items}</div><p class="tips">Tip: match line strength to the fish, and keep your drag below the line's breaking strength. Big game needs a heavy reel with lots of line.</p>`;
+    return this.head('Tackle Shop', money(s.cash)) + this.tabs('shop', [['rods', 'Rods'], ['reels', 'Reels'], ['lines', 'Line'], ['lures', 'Lures & Bait'], ['service', 'Service & permits']]) + `<div class="grid">${items}</div><p class="tips">Better tackle opens as your angler level rises. Tip: match line strength to the fish, and keep your drag below the line's breaking strength. Big game needs a heavy reel with lots of line.</p>`;
+  }
+
+  // Service & permits tab of the tackle shop
+  renderService() {
+    const g = this.g, s = g.save, w = s.wear || WEAR_DEFAULT, e = s.equip, loc = g.loc;
+    const pl = permitLeft(s, loc.id);
+    const permits = PERMIT_OPTIONS.map((o) => { const pr = permitPrice(loc, o); return `<div class="item"><h4>${o.label} permit</h4><div class="foot"><span class="price">${money(pr)}</span><button class="btn gold" data-act="permit" data-id="${o.id}" ${s.cash < pr ? 'disabled' : ''}>Buy</button></div></div>`; }).join('');
+    const lineDef = LINES[e.line], rc = respoolCost(lineDef);
+    const lost = (w.lost || []).map((id) => { const c = restockCost(LURES[id]); return `<div class="item"><h4>${esc(LURES[id].name)}</h4><div class="stats">Lost on a snag</div><div class="foot"><span class="price">${money(c)}</span><button class="btn primary" data-act="service" data-id="${id}" ${s.cash < c ? 'disabled' : ''}>Restock</button></div></div>`; }).join('');
+    const bar = (v) => `<div class="cond ${v >= 0.8 ? 'low' : v >= 0.5 ? 'mid' : 'ok'}"><i style="width:${Math.round((1 - v) * 100)}%"></i></div>`;
+    return this.head('Tackle Shop', money(s.cash)) + this.tabs('shop', [['rods', 'Rods'], ['reels', 'Reels'], ['lines', 'Line'], ['lures', 'Lures & Bait'], ['service', 'Service & permits']]) + `
+      <h5 class="board-h">Fishing permit: ${esc(loc.name)}</h5>
+      <p class="small">${pl > 0 ? `You hold a permit, ${permitText(pl)}. Buying more extends it.` : 'Rangers check the water here. You need a permit to cast, troll or shoot a net.'}</p>
+      <div class="grid">${permits}</div>
+      <h5 class="board-h">Tackle service</h5>
+      <div class="grid">
+        <div class="item"><h4>Respool: ${esc(lineDef.name)}</h4><div class="stats">${bar(w.line)} ${wearWord(w.line)} · breaks at <b>${Math.round(effectiveTest(lineDef.test, w.line))}</b> of ${lineDef.test} lb</div><div class="foot"><span class="price">${money(rc)}</span><button class="btn primary" data-act="service" data-id="line" ${w.line < 0.02 || s.cash < rc ? 'disabled' : ''}>Respool</button></div></div>
+        <div class="item"><h4>Sharpen hooks</h4><div class="stats">${bar(w.hook)} ${wearWord(w.hook)} · sets ${Math.round((1 - 0.4 * w.hook) * 100)}% as well as new</div><div class="foot"><span class="price">${money(SHARPEN_COST)}</span><button class="btn primary" data-act="service" data-id="hook" ${w.hook < 0.02 || s.cash < SHARPEN_COST ? 'disabled' : ''}>Sharpen</button></div></div>
+        ${lost}
+      </div>
+      <p class="tips">Line wears with casting and fighting fish, and a frayed line breaks well under its rating. Bottom lures can snag; most come free with a duller hook, some break off and need restocking.</p>`;
   }
 
   renderTackle() {
@@ -370,8 +447,9 @@ export class UI {
       let btn;
       if (on) btn = '<span class="small" style="color:var(--accent)">Your boat</span>';
       else if (have) btn = `<button class="btn primary" data-act="boat" data-id="${id}" ${canHere ? '' : 'disabled title="Can\'t run this boat here"'}>Take it out</button>`;
+      else if (!meets(s, 'boats', id)) btn = `<span class="small">Reach level ${gateLevel('boats', id)}</span>`;
       else btn = `<button class="btn gold" data-act="buyboat" data-id="${id}" ${s.cash < b.price ? 'disabled' : ''}>Buy ${money(b.price)}</button>`;
-      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(b.name)}</h4><div class="stats">${esc(b.blurb)}</div><div class="stats">Top speed <b>${Math.round(b.speed * 1.944)} kn</b> · waters <b>${b.waters.join(', ')}</b>${b.net ? ` · <b>${b.net === 'trawl' ? 'trawl net' : 'purse seine'}</b> ${b.netCap.toLocaleString()} lb` : ''}</div><div class="foot"><span class="price">${b.price ? money(b.price) : 'Free'}</span>${btn}</div></div>`;
+      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(b.name)}</h4><div class="stats">${esc(b.blurb)}</div><div class="stats">Top speed <b>${Math.round(b.speed * 1.944)} kn</b> · waters <b>${b.waters.join(', ')}</b>${b.net ? ` · <b>${b.net === 'trawl' ? 'trawl net' : 'purse seine'}</b> ${b.netCap.toLocaleString()} lb` : ''}</div><div class="foot"><span class="price">${b.price ? money(b.price) : 'Free'}${gateLevel('boats', id) > 1 ? ` <span class="lv">Lv ${gateLevel('boats', id)}</span>` : ''}</span>${btn}</div></div>`;
     }).join('');
     return this.head('Marina', money(s.cash)) + `<div class="grid">${items}</div><p class="tips">Lakes and rivers need a small boat. Offshore locations need a seaworthy one (center console or bigger). Net boats fish commercially: look for diving gulls over bait schools.</p>`;
   }
@@ -388,9 +466,10 @@ export class UI {
       const caught = Object.keys(l.pool).filter((sp) => s.journal[sp]).length;
       let btn;
       if (here) btn = '<span class="small" style="color:var(--accent-2)">You are here</span>';
-      else if (!open) btn = `<button class="btn gold" data-act="unlock" data-id="${id}" ${s.cash < l.price ? 'disabled' : ''}>License ${money(l.price)}</button>`;
+      else if (!open && !meets(s, 'locs', id)) btn = `<span class="small">Reach level ${gateLevel('locs', id)}</span>`;
+      else if (!open) btn = `<button class="btn gold" data-act="unlock" data-id="${id}" ${s.cash < l.price ? 'disabled' : ''}>Open waters ${money(l.price)}</button>`;
       else btn = `<button class="btn primary" data-act="travel" data-id="${id}" ${boatOk ? '' : 'disabled title="You need a boat that can run here"'}>Travel</button>`;
-      return `<div class="item loc-card ${here ? 'here' : ''} ${open ? '' : 'locked'}"><img class="loc-pic" src="/images/locations/${id}.webp" alt="" loading="lazy" draggable="false" onerror="this.remove()"><span class="water">${l.water}</span><h4>${esc(l.name)}</h4><div class="stats">${esc(l.region)}</div><div class="stats">${esc(l.blurb)}</div><div class="stats">Species found: <b>${caught} / ${Object.keys(l.pool).length}</b>${boatOk ? '' : ' · <b style="color:var(--bad)">needs a bigger boat</b>'}</div><div class="foot"><span></span>${btn}</div></div>`;
+      return `<div class="item loc-card ${here ? 'here' : ''} ${open ? '' : 'locked'}"><img class="loc-pic" src="/images/locations/${id}.webp" alt="" loading="lazy" draggable="false" onerror="this.remove()"><span class="water">${l.water}</span><h4>${esc(l.name)}</h4><div class="stats">${esc(l.region)}</div><div class="stats">${esc(l.blurb)}</div><div class="stats">Species found: <b>${caught} / ${Object.keys(l.pool).length}</b>${boatOk ? '' : ' · <b style="color:var(--bad)">needs a bigger boat</b>'}</div>${open ? `<div class="stats">Permit: <b>${permitText(permitLeft(s, id))}</b></div>` : (meets(s, 'locs', id) ? '' : `<div class="stats">Level <b>${gateLevel('locs', id)}</b> to open</div>`)}<div class="foot"><span></span>${btn}</div></div>`;
     }).join('');
     return this.head('Travel', money(s.cash)) + `<div class="grid">${items}</div>`;
   }
@@ -456,7 +535,7 @@ export class UI {
     const badges = [c.isNewSpecies && '<span class="badge gold">New species</span>', c.isNewMorph && !c.isNewSpecies && c.morph.id !== 'normal' && '<span class="badge gold">New variant</span>', c.isRecord && '<span class="badge">Personal best</span>', c.lb > c.sp.lb[2] * 0.7 && '<span class="badge gold">Trophy</span>'].filter(Boolean).join('');
     return `<div class="morph">${c.morph.id === 'normal' ? 'Caught' : c.morph.name + ' variant'}</div><h2>${esc(c.sp.name)}</h2><div class="badges">${badges}</div>
       <div class="big"><div><b>${lbs(c.lb)}</b><span>weight</span></div><div><b>${inches(c.inches)}</b><span>length</span></div><div><b style="color:var(--accent-2)">${money(c.value)}</b><span>market value</span></div></div>
-      <div class="stats small">World record about ${lbs(c.sp.lb[2])}. ${c.morph.id !== 'normal' ? `Rare variant: worth ${c.morph.value}x. ` : ''}${c.fishOfDay ? 'Fish of the day at the market. ' : ''}${c.buyer ? 'Buyer boat price (15% cut).' : ''}</div>
+      <div class="stats small">World record about ${lbs(c.sp.lb[2])}. ${c.morph.id !== 'normal' ? `Rare variant: worth ${c.morph.value}x. ` : ''}${c.fishOfDay ? 'Fish of the day at the market. ' : ''}${c.buyer ? 'Buyer boat price (15% cut). ' : ''}<b style="color:var(--amber)">+${c.xp} xp</b></div>
       ${c.isNewSpecies && c.how && LURES[c.how.lure] ? `<div class="stats small how">First of its kind: it took the <b>${esc(LURES[c.how.lure].name)}</b>${c.how.depth > 0.1 && !LURES[c.how.lure].bobber ? ` at ${c.how.depth} m` : ''} around ${hourText(c.how.hour)}. Logged in your journal.</div>` : ''}
       <div class="actions">${this.catchButtons(c)}</div>`;
   }
@@ -525,6 +604,8 @@ export class UI {
       case 'buyboat': g.buyBoat(d.id); this.render(); break;
       case 'boat': g.switchBoat(d.id); this.forceClose(); break;
       case 'unlock': g.unlock(d.id); this.render(); break;
+      case 'permit': g.buyPermit(d.id); this.render(); break;
+      case 'service': g.service(d.id); this.render(); break;
       case 'travel': g.travel(d.id); break;
       case 'keep': this.forceClose(); g.finishCatch('keep'); break;
       case 'cull': this.forceClose(); g.finishCatch('cull'); break;

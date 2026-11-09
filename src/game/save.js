@@ -1,5 +1,6 @@
 // Player progress in localStorage. Every change goes through update() so callers get a new object.
-const KEY = 'reelworld-save-v1';
+import { SAVE_VERSION, upgradeSave } from './progress.js';
+const KEY = 'reelworld-save-v1';   // key name kept for compatibility; the data carries its own version (v)
 
 export const DEFAULT_SAVE = Object.freeze({
   cash: 250,
@@ -22,6 +23,10 @@ export const DEFAULT_SAVE = Object.freeze({
   waypoints: {},     // { locationId: [{ id, x, z, name }] }
   market: null,     // { day, loc, sold: { speciesId: count } }
   played: 0,        // seconds of play time
+  v: SAVE_VERSION,  // save format version (progress.js upgradeSave brings older saves up)
+  xp: 0,            // angler experience; level is derived (progress.js)
+  wear: { line: 0, hook: 0, lost: [] },   // line/hook wear 0..1, lures lost to snags (restock at the shop)
+  permits: { okeechobee: { until: 78.5 } },   // { locationId: { until: absolute game hours } }; new anglers start with 3 days at the home lake
 });
 
 export function loadSave() {
@@ -29,7 +34,10 @@ export function loadSave() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULT_SAVE);
     const data = JSON.parse(raw);
-    return { ...structuredClone(DEFAULT_SAVE), ...data, equip: { ...DEFAULT_SAVE.equip, ...(data.equip || {}) }, stats: { ...DEFAULT_SAVE.stats, ...(data.stats || {}) } };
+    const merged = { ...structuredClone(DEFAULT_SAVE), ...data, equip: { ...DEFAULT_SAVE.equip, ...(data.equip || {}) }, stats: { ...DEFAULT_SAVE.stats, ...(data.stats || {}) } };
+    // old saves have no version: strip the defaults the merge just filled in so the upgrade sees what was really saved
+    if ((data.v || 1) < SAVE_VERSION) { delete merged.xp; delete merged.wear; delete merged.permits; merged.v = 1; }
+    return upgradeSave(merged);
   } catch (err) {
     console.warn('save load failed, starting fresh', err);
     return structuredClone(DEFAULT_SAVE);

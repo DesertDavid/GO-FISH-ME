@@ -8,7 +8,7 @@ const cache = new Map();
 
 export const SERVICE_INFO = {
   sell: { label: 'Fish market' },
-  tackle: { label: 'Bait & tackle' },
+  tackle: { label: 'Bait, tackle & permits' },
   boats: { label: 'Boat dealer' },
 };
 

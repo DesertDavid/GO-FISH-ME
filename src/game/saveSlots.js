@@ -4,11 +4,13 @@ import { LOCATIONS, LOCATION_ORDER } from './locations.js';
 import { DEFAULT_SAVE, readRaw, writeRaw } from './save.js';
 import { CATALOG_SIZE } from './species.js';
 import { BOATS, RODS, REELS, LINES, LURES } from './gear.js';
+import { upgradeSave, levelOf } from './progress.js';
+const clamp01 = (n) => (typeof n === 'number' && isFinite(n) ? Math.max(0, Math.min(1, n)) : 0);
 
 const SLOTS_KEY = 'reelworld-slots-v1';
 export const SLOT_COUNT = 4;
 export const FILE_FORMAT = 'reelworld-save';
-export const FILE_VERSION = 1;
+export const FILE_VERSION = 2;   // 2: angler xp, wear, permits (older files still import; upgradeSave fills them in)
 
 // ---- storage ----
 function readSlots() {
@@ -64,6 +66,7 @@ export function summarize(data) {
   return {
     location: loc ? loc.name : 'Unknown water',
     cash: data.cash || 0,
+    level: levelOf(typeof data.xp === 'number' ? data.xp : upgradeSave(data).xp),
     places: `${(data.unlocked || []).length} of ${LOCATION_ORDER.length} waters`,
     catalog: `${caught} of ${CATALOG_SIZE} in journal`,
     day: data.day || 1,
@@ -92,7 +95,13 @@ export function sanitizeSave(raw) {
   if (!LOCATIONS[raw.location]) throw new Error(`The save is set at a place this version does not have (${String(raw.location).slice(0, 30)}).`);
   if (raw.journal !== undefined && (typeof raw.journal !== 'object' || raw.journal === null)) throw new Error('The save journal is damaged.');
   const def = structuredClone(DEFAULT_SAVE);
-  const out = { ...def, ...raw, equip: { ...def.equip, ...raw.equip }, stats: { ...def.stats, ...(raw.stats || {}) }, unlocked: raw.unlocked.filter((id) => LOCATIONS[id]) };
+  const up = upgradeSave(raw);   // v1 files get xp / permits / wear derived from their progress
+  const out = { ...def, ...up, equip: { ...def.equip, ...raw.equip }, stats: { ...def.stats, ...(raw.stats || {}) }, unlocked: raw.unlocked.filter((id) => LOCATIONS[id]) };
+  if (typeof out.xp !== 'number' || !isFinite(out.xp) || out.xp < 0) out.xp = 0;
+  out.wear = { line: clamp01(out.wear.line), hook: clamp01(out.wear.hook), lost: out.wear.lost.filter((id) => LURES[id]) };
+  const permits = {};
+  for (const [id, p] of Object.entries(out.permits || {})) if (LOCATIONS[id] && p && isFinite(p.until)) permits[id] = { until: +p.until };
+  out.permits = permits;
   // anything the game indexes by id must exist, or loading would crash on a hand-edited / newer file
   if (!BOATS[out.boat]) out.boat = 'jon';
   out.boats = out.boats.filter((id) => BOATS[id]);

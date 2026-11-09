@@ -4,6 +4,7 @@ import { poolFit, pickFrom } from './bait.js';
 import { TUNING as BAIT } from './baitData.js';
 import { RODS, REELS, LINES, LURES } from './gear.js';
 import { buildFish, fishLengthM } from './fishMesh.js';
+import { effectiveTest, reelSmooth, WEAR_DEFAULT, lineCastMul, CAST_WEAR, HOOK_WEAR_PER_FISH, hookMul, snagChance, fightWear } from './progress.js';
 
 // Rod-and-reel fishing: cast -> lure in the water -> nibbles -> strike window -> fight.
 // The fight is a force balance: fish pull vs. drag setting vs. line strength, with stamina,
@@ -36,7 +37,25 @@ export class Fishing {
   // gearOverride: the boat's trolling tackle while fighting a fish off the spread
   get gear() {
     const e = this.gearOverride || this.ctx.save.equip;
-    return { rod: RODS[e.rod], reel: REELS[e.reel], line: LINES[e.line], lure: LURES[e.lure] };
+    // worn line breaks below its rating (progress.js); the boat's trolling tackle is always fresh
+    const line = this.gearOverride ? LINES[e.line] : { ...LINES[e.line], rated: LINES[e.line].test, test: effectiveTest(LINES[e.line].test, this.wear.line) };
+    return { rod: RODS[e.rod], reel: { ...REELS[e.reel], smooth: reelSmooth(e.reel) }, line, lure: LURES[e.lure] };
+  }
+
+  get wear() { return this.gearOverride ? WEAR_DEFAULT : this.ctx.save.wear || WEAR_DEFAULT; }
+
+  // a snag on the way back: usually you work it free (duller hook), sometimes it breaks off
+  snag() {
+    const c = this.ctx, { lure } = this.gear;
+    c.wearAdd('line', 0.02);
+    if (Math.random() < 0.35) {
+      c.audio.play('snap');
+      this.reset();
+      c.lureLost(lure);
+      return;
+    }
+    c.wearAdd('hook', 0.12);
+    c.ui.toast(`Snagged on the bottom - worked it free. The hook is duller.`, 'info');
   }
 
   dragSetting() {
@@ -74,10 +93,11 @@ export class Fishing {
   }
 
   cast() {
-    const c = this.ctx, { rod, lure } = this.gear;
+    const c = this.ctx, { rod, lure, line } = this.gear;
     const fwd = c.angler.getWorldDirection(_fwd).setY(0).normalize();
-    // even a quick tap lobs it a useful distance
-    let dist = Math.max(8, rod.cast * (0.25 + 0.75 * this.power) * (lure.fly && !rod.fly ? 0.45 : 1) * (0.95 + Math.random() * 0.08));
+    // even a quick tap lobs it a useful distance; thinner line casts farther
+    let dist = Math.max(8, rod.cast * lineCastMul(line.rated ?? line.test) * (0.25 + 0.75 * this.power) * (lure.fly && !rod.fly ? 0.45 : 1) * (0.95 + Math.random() * 0.08));
+    if (!this.gearOverride) c.wearAdd('line', CAST_WEAR);
     const start = c.rod.tip.clone();
     const aim = (Math.random() - 0.5) * 0.06 * this.power;
     fwd.applyAxisAngle(new THREE.Vector3(0, 1, 0), aim);
@@ -155,6 +175,7 @@ export class Fishing {
       this.reset();
       return;
     }
+    if (!this.gearOverride && Math.random() < snagChance(lure, this.moving) * dt) { this.snag(); if (this.state !== 'water') return; }
     // bites
     this.biteClock += dt;
     if (this.biteClock < 1.2) return;
@@ -206,10 +227,13 @@ export class Fishing {
         c.ui.toast('Wait for it... strike when you see STRIKE!', 'info');
       }
       if (b.t <= 0) {
-        c.rod.twitch = 0.35;
-        c.audio.play('tick');
-        c.splash(this.lure.x, this.lure.z, 0.03, 0.2);
-        c.ui.toast('Nibble...', 'info');
+        // a stiffer, less sensitive rod doesn't telegraph every tap (the strike itself is always obvious)
+        if (Math.random() < 0.45 + rod.sens * 0.55) {
+          c.rod.twitch = 0.35;
+          c.audio.play('tick');
+          c.splash(this.lure.x, this.lure.z, 0.03, 0.2);
+          c.ui.toast('Nibble...', 'info');
+        }
         b.bob = 0.6;
         b.nibbles--;
         if (b.nibbles <= 0) {
@@ -228,7 +252,7 @@ export class Fishing {
       const reelSet = b.held && input.down && b.t < 1.0 + rod.sens * 0.6 - 0.25;
       if (input.pressed || reelSet) {
         c.ui.strike(false);
-        if (Math.random() < 0.9 + (line.braid ? 0.07 : 0)) this.hook();
+        if (Math.random() < (0.9 + (line.braid ? 0.07 : 0)) * hookMul(this.wear.hook)) this.hook();
         else { c.ui.toast('Missed the hookset!', 'bad'); this.bite = null; this.state = 'water'; this.biteClock = 0; }
         return;
       }
@@ -245,6 +269,7 @@ export class Fishing {
   hook() {
     const c = this.ctx, b = this.bite;
     const sp = b.sp, lb = b.lb;
+    if (!this.gearOverride) c.wearAdd('hook', HOOK_WEAR_PER_FISH);
     const { m } = fishLengthM(sp, lb);
     const model = buildFish(sp, b.morph, { patchProp: c.patchProp });
     model.group.scale.setScalar(m);
@@ -320,6 +345,9 @@ export class Fishing {
       if (slack > 0.5) T = Math.max(0, P * 0.15 - slack * 0.2);
       else { T = reeling ? Math.min(D, P + 0.3 * D) : P * 0.8; this.lineOut = Math.min(this.lineOut, f.r + 0.2); if (reeling && P < D) { this.lineOut -= retrieve * (1 - P / D) * dt; f.r = this.lineOut; } }
     }
+    // a rough drag lets go in jerks: the cheaper the reel, the harder it hits the line
+    if (radial > 0 && P > D) T *= 1 + (1 - reel.smooth) * 0.35 * Math.max(0, Math.sin(f.time * 17));
+    if (!this.gearOverride) c.wearAdd('line', fightWear(dt, T / line.test));
     c.audio.reel(reeling);
     // rod angle: pulling against the fish's side tires it faster
     const toFish = Math.atan2(f.pos.z - c.angler.position.z, f.pos.x - c.angler.position.x);
@@ -344,7 +372,7 @@ export class Fishing {
     if (spike > line.test) this.overload += dt * ((spike / line.test - 1) * 6 + 0.4);
     else if (!this.runWarn) this.overload = Math.max(0, this.overload - dt * 0.15);
     this.tension = T;
-    if (this.overload >= 1) return this.lose(this.runWarn ? 'SNAP! You cranked against a running fish and twisted the line.' : 'SNAP! The line broke.', 'snap');
+    if (this.overload >= 1) return this.lose(this.runWarn ? 'SNAP! You cranked against a running fish and twisted the line.' : this.wear.line > 0.5 ? 'SNAP! The frayed line gave out. Respool at the tackle shop.' : 'SNAP! The line broke.', 'snap');
     if (T > rod.power * 3) return this.lose('Your rod couldn\'t take it - fish lost.', 'snap');
     if (this.lineOut > reel.cap) return this.lose('Spooled! The fish took all your line.', 'snap');
     // slack line lets a fish throw the hook
