@@ -110,8 +110,10 @@ export function block(o2 = {}) {
         M.box('tex:conc', x0 - 0.15, x0 + 0.1, Y1, Y1 + 0.9, z0, z1, 0xd8d0c0); M.box('tex:conc', x1 - 0.1, x1 + 0.15, Y1, Y1 + 0.9, z0, z1, 0xd8d0c0);
         if (o2.tile) M.box('tex:tile', x0 - 0.4, x1 + 0.4, Y1 + 0.9, Y1 + 1.4, z1 - 0.1, z1 + 0.5, 0xb85a3a);
         // window grid: glass + (some lit) glow, balcony slab per floor on the front
+        const floorLit = Array.from({ length: t.fl }, () => 0.25 + rand() * 1.1), colLit = Array.from({ length: 8 }, () => rand());
         for (let f = 0; f < t.fl; f++) {
           const fy = Y0 + f * 3.2 + 0.9;
+          M.box('tex:conc', x0 - 0.05, x1 + 0.05, Y0 + f * 3.2 - 0.1, Y0 + f * 3.2 + 0.1, z0 - 0.05, z1 + 0.05, 0xcfc9bb, { sides: [1, 1, 1, 1, 0, 0] });
           if (o2.balcony && f > 0) M.box('tex:conc', x0 + 0.5, x1 - 0.5, Y0 + f * 3.2 - 0.12, Y0 + f * 3.2 + 0.05, z1, z1 + 1.3, 0xe0d8c8);
           if (o2.balcony && f > 0) M.box('plain', x0 + 0.5, x1 - 0.5, Y0 + f * 3.2 + 0.05, Y0 + f * 3.2 + 0.95, z1 + 1.2, z1 + 1.26, 0x2a3a48);
           for (const side of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -123,7 +125,7 @@ export function block(o2 = {}) {
               const hw2 = 0.65, a = [px + tx2 * -hw2 + tz * 0 + nx * off, fy, pz + tz * -hw2 + nz * off], b = [px + tx2 * hw2 + nx * off, fy, pz + tz * hw2 + nz * off];
               const c = [b[0], fy + 1.4, b[2]], dd = [a[0], fy + 1.4, a[2]];
               M.quad('glass', a, b, c, dd, 0x18222a, { jit: 0.2 });
-              if (rand() < (o2.lit ?? 0.5)) {
+              if (rand() < (o2.lit ?? 0.5) * floorLit[f] * (0.55 + 0.9 * colLit[k % 8])) {
                 const wc = [[1, 0.78, 0.45], [1, 0.86, 0.6], [0.8, 0.9, 1]][Math.floor(rand() * 3)], kk = 0.8 + rand() * 0.5;
                 const e = 0.015, a2 = [a[0] + nx * e, a[1] + 0.05, a[2] + nz * e], b2 = [b[0] + nx * e, a[1] + 0.05, b[2] + nz * e];
                 M.quad('glow', a2, b2, [b2[0], fy + 1.35, b2[2]], [a2[0], fy + 1.35, a2[2]], new THREE.Color(wc[0] * kk, wc[1] * kk, wc[2] * kk), { rect: M.white, jit: 0, uo: 0, vo: 0 });
@@ -235,7 +237,8 @@ export const wat = {
     M.box('tex:conc', -hw - 1, hw + 1, -Math.min(4, o.found), 1.0, -hd - 1, hd + 1, 0xd8d0c0, { sides: [1, 1, 1, 1, 1, 0] });
     M.box('tex:stucco', -hw, hw, 1.0, 6, -hd, hd, 0xf0e8d8);
     for (const [k, [hy, sc]] of [[0, [6, 1.45]], [1, [8.4, 1.15]]]) {
-      const y = hy, x = hw * sc, z = hd * sc, top = y + 2.6 - k * 0.4;
+      const y = hy, x = hw * sc, z = hd * sc, top = y + 3.6 - k * 0.5;
+      for (const [cx, cz] of [[-x, z], [x, z], [x, -z], [-x, -z]]) M.beam('plain', [cx, y, cz], [cx * 1.06, y + 0.9, cz * 1.06], 0.14, 0xe8c040);
       const rc = k ? 0xc84a22 : 0xd05a28;
       M.quad('tex:tile', [-x, y, z], [x, y, z], [x * 0.75, top, z * 0.2], [-x * 0.75, top, z * 0.2], rc);
       M.quad('tex:tile', [x, y, -z], [-x, y, -z], [-x * 0.75, top, -z * 0.2], [x * 0.75, top, -z * 0.2], rc);
@@ -244,6 +247,9 @@ export const wat = {
       M.beam('plain', [-x, y + 0.1, z], [x, y + 0.1, z], 0.2, 0xe8c040);
     }
     M.box('plain', -hw * 0.9, hw * 0.9, 6, 8.4, -hd * 0.5, hd * 0.5, 0xf0e8d8);
+    for (let i = -2; i <= 2; i++) { M.prism('plain', i * (hw * 0.38), hd + 0.9, 1.0, 5.6, 0.22, 0.2, 8, 0x9a2a22, false); M.prism('plain', i * (hw * 0.38), hd + 0.9, 5.6, 5.8, 0.3, 0.3, 8, 0xe8c040, true); }
+    M.box('tex:conc', -hw - 0.2, hw + 0.2, 0.6, 1.0, hd, hd + 2.0, 0xd0c8b6);
+    M.box('plain', -hw * 0.9, hw * 0.9, 5.8, 6.05, hd - 0.1, hd + 1.1, 0xe8c040);
     // door and tall windows, a little gold
     M.box('plain', -1.2, 1.2, 1.0, 4.2, hd, hd + 0.1, 0x8a2a22, { sides: [1, 0, 0, 0, 0, 0] });
     for (const sx of [-4, 4]) { M.quad('glass', [sx - 0.6, 2, hd + 0.03], [sx + 0.6, 2, hd + 0.03], [sx + 0.6, 4.2, hd + 0.03], [sx - 0.6, 4.2, hd + 0.03], 0x1c2230); M.quad('glow', [sx - 0.5, 2.1, hd + 0.05], [sx + 0.5, 2.1, hd + 0.05], [sx + 0.5, 4.1, hd + 0.05], [sx - 0.5, 4.1, hd + 0.05], new THREE.Color(1, 0.74, 0.4), { rect: M.white, jit: 0, uo: 0, vo: 0 }); }
