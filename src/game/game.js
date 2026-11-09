@@ -123,13 +123,13 @@ export class Game {
     if (!this.save.seenHelp) { this.ui.open('help'); this.commit({ seenHelp: true }); }
     this.ensureChallenges();
     this.ui.toast(`Welcome to ${this.loc.name}`, 'good');
+    if (!hasPermit(this.save, this.loc.id)) this.ui.toast('Fishing here needs a permit: buy one at the tackle shop (Chart: C).', 'info');
   }
 
   // shared context handed to the fishing/net systems
   ctx() {
     return {
       camera: this.camera, angler: this.angler, scene: this.scene, overlay: this.overlay, patchProp: this.patchProp, loc: this.loc,
-    if (!hasPermit(this.save, this.loc.id)) this.ui.toast('Fishing here needs a permit: buy one at the tackle shop (Chart: C).', 'info');
       get save() { return game.save; },
       rod: this.rod, ui: this.ui, audio: this.audio, hotspots: this.hotspots,
       heightAt: this.heightAt,
@@ -151,14 +151,14 @@ export class Game {
       get boat() { return game.boat; },
       onCatch: (f, done) => this.onCatch(f, done),
       onHaul: (rows, morphs) => this.onHaul(rows, morphs),
+      wearAdd: (kind, amt) => this.wearAdd(kind, amt),
+      lureLost: (lure) => this.lureLost(lure),
     };
   }
 
   commit(patch) {
     this.save = { ...this.save, ...patch };
     writeSave(this.save);
-      wearAdd: (kind, amt) => this.wearAdd(kind, amt),
-      lureLost: (lure) => this.lureLost(lure),
   }
 
   applyGear() {
@@ -327,16 +327,10 @@ export class Game {
     if (this.net.state !== 'stowed') { this.ui.toast('Haul the net in before casting.', 'info'); return false; }
     if (this.troll.active) { this.ui.toast('Clear the trolling spread first (R).', 'info'); return false; }
     if (Math.abs(this.boatSpeed()) > 6) { this.ui.toast('Slow down to cast.', 'info'); return false; }
+    if (!this.permitOk()) return false;
     return true;
   }
 
-  // ---------------------------------------------------------------- loop
-  update(dt) {
-    this.time += dt;
-    if (!this.permitOk()) return false;
-    const fighting = this.fishing.state === 'fight';
-    const k = (key) => this.keys.has(key);
-    // boat controls (A/D steer the rod during a fight)
   // fishing here needs a permit (a tournament entry covers it); toasts where to buy one
   permitOk() {
     if (this.tour && !this.tour.done) return true;
@@ -346,6 +340,13 @@ export class Game {
     this.ui.toast(`No fishing permit for ${this.loc.name}. Get one ${where}.`, 'bad');
     return false;
   }
+
+  // ---------------------------------------------------------------- loop
+  update(dt) {
+    this.time += dt;
+    const fighting = this.fishing.state === 'fight';
+    const k = (key) => this.keys.has(key);
+    // boat controls (A/D steer the rod during a fight)
 
     const c = this.boat.control;
     const throttleTarget = (k('w') ? 1 : 0) - (k('s') ? 1 : 0);
@@ -417,6 +418,7 @@ export class Game {
       this.ui.toast('Midnight - new challenges are posted.', 'good');
     }
     this.save.hour = hour;
+    this.permitWatch();
     this.save.played = (this.save.played || 0) + dt;
     for (const k of ageWell(this.save.livewell, dt / 60)) {
       this.ui.toast(`The ${SPECIES_BY_ID[k.sp].name.toLowerCase()} in your livewell died. Sell soon - it's worth less now.`, 'bad');
@@ -425,7 +427,6 @@ export class Game {
     // re-bake the sky every 15 s, but every 2 s around dusk and dawn so the change is smooth
     const nearHorizon = Math.abs(this.sunElevation(hour)) < 5;
     if (this.sunTimer > (nearHorizon ? 2 : 15)) this.applySun();
-    this.permitWatch();
     if (Math.floor(this.time) !== Math.floor(this.time - dt)) {
       this.ui.hud();
       if (Math.floor(this.time) % 10 === 0) { writeSave(this.save); autoBackup(this.save); }
@@ -768,6 +769,7 @@ export class Game {
       xpGain += challengeXp(c.reward);
       this.ui.leaderboard(this.tour);
     }
+    this.addXp(xpGain);
     writeSave(this.save);
     p.done();
     this.pendingCatch = null;
@@ -776,7 +778,6 @@ export class Game {
 
   // the dock you are at (on it, or tied up alongside), 'buyer' where the water has no docks
   // (a supply/buyer boat covers everything), else null
-    this.addXp(xpGain);
   dockHere() {
     if (!this.docks.list.length) return 'buyer';
     this.chart.places();   // makes sure each dock has its profile
