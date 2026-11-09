@@ -178,7 +178,8 @@ export class Buildings {
       const pd = spec.porch ? 1.9 : 0;
       this.rects.push({ x: site.cx + sn * pd / 2, z: site.cz + cs * pd / 2, hw: spec.w / 2 + 0.35, hd: spec.d / 2 + 0.35 + pd / 2, c: cs, s: sn, role, dock: dk });
       const dpos = [site.cx + sn * (spec.d / 2 + pd + 1.0) + cs * (o.doorS || 0), site.cz + cs * (spec.d / 2 + pd + 1.0) - sn * (o.doorS || 0)];
-      this.doors.push({ x: dpos[0], z: dpos[1], dock: dk, role, title: role === 'marina' ? 'Marina office' : role === 'bait' ? 'Bait & tackle' : 'Fish market', services: prof.services });
+      const kd = spec.d / 2 + (pd ? pd * 0.5 + 0.3 : 0.7);
+      this.doors.push({ kx: site.cx + sn * kd + cs * (o.doorS || 0), kz: site.cz + cs * kd - sn * (o.doorS || 0), ky: y0 + 0.05, yaw: Math.atan2(sn, cs), x: dpos[0], z: dpos[1], dock: dk, role, title: role === 'marina' ? 'Marina office' : role === 'bait' ? 'Bait & tackle' : 'Fish market', services: prof.services });
       dk.shop = { x: dpos[0], z: dpos[1], role, title: prof.name };
       // extras: fuel pumps and a boat yard at the marina
       if (role === 'marina') {

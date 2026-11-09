@@ -29,6 +29,7 @@ import { Docks } from './docks.js';
 import { Chart, SERVICE_INFO } from './chart.js';
 import { Obstacles } from './obstacles.js';
 import { Buildings } from './buildings.js';
+import { Keepers } from './keepers.js';
 import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
 import { SPECIES_BY_ID } from './species.js';
 
@@ -109,6 +110,7 @@ export class Game {
     await this.aiBoats.spawn(this.loc.water === 'offshore' ? 2 : 3);
     this.shore = new ShoreLife(this);
     await this.shore.init();
+    this.keepers = new Keepers(this);
     this.birds = new Birds(this);
     this.birds.init();
     this.sonar = new Sonar(document.getElementById('sonar'));
@@ -185,6 +187,7 @@ export class Game {
         this.keys.clear();
         return;
       }
+      if (this.ui.panel === 'talk') { if (/^[1-9]$/.test(k)) this.ui.talkPick(+k - 1); return; }
       if (this.ui.isOpen()) return;
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;   // browser shortcuts (Ctrl+C, Ctrl+R...) aren't game keys
       if (this.wantLock) this.grabPointer?.();   // last grab was refused: retry on this key
@@ -193,6 +196,7 @@ export class Game {
       if (open) { this.ui.open(open); this.keys.clear(); return; }
       if (k === 'v') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
       if (k === 'g') this.toggleShore();
+      if (k === 'q') { this.ui.open('talk'); this.keys.clear(); return; }
       if (k === 'l') { this.ui.open('livewell'); this.keys.clear(); return; }
       if (k === 'n') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else if (this.net.state !== 'stowed' || this.permitOk()) this.net.toggle(); }
       if (k === 'r') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else if (this.troll.active || this.permitOk()) this.troll.toggle(); }
@@ -404,6 +408,7 @@ export class Game {
     this.nightFX.update(this.nightLevel(), this.camera);
     this.aiBoats.update(dt, bp);
     this.shore.update(dt, bp, this.nightLevel());
+    this.keepers.update(dt, bp, this.camera.position);
     this.birds.update(dt, bp, this.nightLevel(), this.camera.position);
     this.audio.update(dt, REELS[this.save.equip.reel].ratio);
 
@@ -639,6 +644,7 @@ export class Game {
       if (door.services.includes('tackle')) hints.push(['B', `${door.title}: bait, tackle & permits`]);
       if (door.services.includes('boats')) hints.push(['Y', 'boat dealer']);
     }
+    if (!this.ui.isOpen() && this.view === 'first' && this.keepers?.who()) hints.push(['Q', `talk to ${this.keepers.who().d.name}`]);
     this.ui.shoreHint(hints);
   }
 
@@ -1004,6 +1010,7 @@ export class Game {
     else if (what === 'hook') { cost = SHARPEN_COST; msg = 'Hooks sharpened'; }
     else if (LURES[what] && w.lost.includes(what)) { cost = restockCost(LURES[what]); msg = `Restocked ${LURES[what].name}`; }
     else return;
+    cost = this.keepers.price(cost);
     if (s.cash < cost) { this.ui.toast('Not enough cash.', 'info'); return; }
     if (this.fishing.busy() && what !== 'hook') { this.ui.toast('Reel in first.', 'info'); return; }
     const wear = what === 'line' ? { ...w, line: 0 } : what === 'hook' ? { ...w, hook: 0 } : { ...w, lost: w.lost.filter((x) => x !== what) };
@@ -1017,7 +1024,7 @@ export class Game {
   buyPermit(optId) {
     const opt = PERMIT_OPTIONS.find((o) => o.id === optId);
     if (!opt) return;
-    const price = permitPrice(this.loc, opt);
+    const price = this.keepers.price(permitPrice(this.loc, opt));
     if (this.save.cash < price) { this.ui.toast('Not enough cash.', 'info'); return; }
     // extending a running permit adds to it
     const start = Math.max(absHours(this.save), this.save.permits[this.loc.id]?.until || 0);

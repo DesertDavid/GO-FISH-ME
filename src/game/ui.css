@@ -105,6 +105,7 @@ kbd { font: 600 12px var(--font); color: var(--dim); }
 #lureMarker.strike span { color: var(--text); font-weight: 700; }
 #lookHint { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 14px; color: var(--dim); pointer-events: none; }
 #shoreHint { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); font-size: 14px; color: var(--text); text-shadow: var(--shadow); pointer-events: none; }
+#shoreHint span { white-space: nowrap; }
 #shoreHint span + span { margin-left: 22px; }
 #gearLine .warn { color: var(--amber); }
 #shoreHint kbd { font: 600 12px var(--font); border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 3px; padding: 1px 6px; margin-right: 8px; }
@@ -286,3 +287,15 @@ table.well td.b .btn { padding: 4px 10px; font-size: 12px; margin-left: 4px; }
 .dl { font-size: 12px; margin-left: 2px; }
 .dl.up { color: var(--green); }
 .dl.dn { color: var(--red); }
+
+/* shopkeeper conversation and spoken lines */
+.talk { max-width: 640px; }
+.talk .say { font: 400 22px/1.4 var(--font); margin: 4px 0 26px; padding-left: 16px; border-left: 2px solid var(--amber); min-height: 3.6em; }
+.talk-ch { display: flex; flex-direction: column; }
+.talk-ch button { text-align: left; font: 600 17px var(--font); color: var(--dim); background: none; border: 0; border-bottom: 1px solid var(--rule); padding: 10px 0; cursor: pointer; }
+.talk-ch button:hover { color: var(--text); }
+.talk-ch button kbd { color: var(--amber); margin-right: 14px; }
+#npcSay { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); max-width: min(560px, 80vw); text-align: center; font-size: 16px; color: var(--text); text-shadow: var(--shadow); opacity: 0; pointer-events: none; }
+#npcSay b { color: var(--amber); font-weight: 600; margin-right: 8px; }
+#npcSay.on { animation: npcSay 5.5s ease-out forwards; }
+@keyframes npcSay { 0% { opacity: 0; transform: translate(-50%, 4px); } 8%, 78% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }

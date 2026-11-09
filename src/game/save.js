@@ -27,6 +27,7 @@ export const DEFAULT_SAVE = Object.freeze({
   xp: 0,            // angler experience; level is derived (progress.js)
   wear: { line: 0, hook: 0, lost: [] },   // line/hook wear 0..1, lures lost to snags (restock at the shop)
   permits: { okeechobee: { until: 78.5 } },   // { locationId: { until: absolute game hours } }; new anglers start with 3 days at the home lake
+  rapport: {},      // shopkeeper standing: { 'locId.role': { visits, deals, day } } (optional; dialogue.js TIERS)
 });
 
 export function loadSave() {

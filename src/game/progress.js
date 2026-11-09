@@ -105,6 +105,9 @@ export function upgradeSave(s) {
   const out = { ...s };
   out.wear = { ...WEAR_DEFAULT, ...(s.wear || {}), lost: Array.isArray(s.wear?.lost) ? s.wear.lost.filter((id) => LURES[id]) : [] };
   out.permits = s.permits && typeof s.permits === 'object' ? s.permits : {};
+  // shopkeeper relationships (optional field; old saves just start with strangers)
+  out.rapport = {};
+  if (s.rapport && typeof s.rapport === 'object') for (const [k, e] of Object.entries(s.rapport)) if (/^[a-z0-9]+\.(marina|bait|buyer)$/.test(k) && e && typeof e === 'object') out.rapport[k] = { visits: Math.max(0, Math.min(9999, Math.floor(+e.visits) || 0)), deals: Math.max(0, Math.min(99999, Math.floor(+e.deals) || 0)), day: Math.max(0, Math.floor(+e.day) || 0) };
   if ((s.v || 1) < SAVE_VERSION || typeof s.xp !== 'number') {
     const journal = s.journal || {};
     const species = Object.keys(journal).length;

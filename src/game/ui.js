@@ -7,9 +7,11 @@ import { catalogCount } from './save.js';
 import { wellSlots } from './livewell.js';
 import { levelInfo, gateLevel, meets, unlocksAt, MAX_LEVEL, xpAt, GATES, reelSmooth, lineCastMul, permitLeft, permitText, permitPrice, PERMIT_OPTIONS, respoolCost, SHARPEN_COST, restockCost, wearWord, effectiveTest, WEAR_DEFAULT } from './progress.js';
 import { freezeSaves, writeSave } from './save.js';
+import { TIERS } from './dialogue.js';
 import { listSlots, putSlot, deleteSlot, summarize, fmtPlayed, fmtWhen, parseFile, downloadFile, pickFile, installAsLive, diskBackup } from './saveSlots.js';
 
 const $ = (id) => document.getElementById(id);
+const DEAL_ACTS = new Set(['buy', 'buyboat', 'permit', 'service', 'sellone', 'sellall', 'unlock']);
 const money = (n) => '$' + Math.round(n).toLocaleString();
 const money2 = (n) => '$' + n.toFixed(2);
 const lbs = (lb) => (lb < 1 ? `${Math.round(lb * 16)} oz` : lb < 100 ? `${lb.toFixed(2)} lb` : `${Math.round(lb).toLocaleString()} lb`);
@@ -262,6 +264,12 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     if (this.g.fishing.state === 'caught' && panel !== 'catch') return;
     // the shop and the marina are at the docks (the chart shows where)
     if ((panel === 'shop' && !this.g.serviceHere('tackle')) || (panel === 'marina' && !this.g.serviceHere('boats'))) { if (this.panel) this.close(); return; }
+    if (panel === 'talk') {
+      const k = this.g.keepers?.who();
+      if (!k) { this.toast('Nobody to talk to here. Shopkeepers stand at the shop doors on the docks (see the Chart, C).', 'info'); return; }
+      this.g.keepers.open(k);
+      this.talkExtra = null;
+    }
     if (panel === 'saves' && this.sv) { this.sv.armed = null; this.sv.msg = ''; }   // never come back to a half-armed Overwrite/Delete
     this.panel = panel;
     this.g.freePointer?.();   // menus need the cursor
@@ -271,6 +279,49 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     $('modal').classList.toggle('pauseMode', panel === 'pause');
     $('modalCard').classList.toggle('pause', panel === 'pause');
     this.render();
+  }
+
+  // ---- shopkeeper conversation (words in dialogue.js, logic in keepers.js) ----
+  renderTalk() {
+    const K = this.g.keepers, t = K.talk, k = t.k, tier = K.tier(k);
+    const tn = TIERS[tier], disc = tn.discount && k.role !== 'buyer' ? ` · ${Math.round(tn.discount * 100)}% off permits and service` : '';
+    const ch = K.choices(k).concat(this.talkExtra || [], [['bye', 'Goodbye']]);
+    this.talkList = ch;
+    return this.head(esc(k.d.name), `${esc(k.d.title)} · ${tn.name}${disc}`) + `
+      <div class="talk"><p class="say">${esc(t.line)}</p>
+      <div class="talk-ch">${ch.map(([id, label], i) => `<button data-act="talk" data-n="${i}"><kbd>${i + 1}</kbd>${esc(label)}</button>`).join('')}</div></div>
+      <p class="tips">${esc(this.g.loc.name)} · press the number or click. Esc to leave.</p>`;
+  }
+
+  talkPick(i) {
+    const K = this.g.keepers, ch = this.talkList && this.talkList[i];
+    if (!ch || !K.talk) return;
+    const id = ch[0];
+    if (id === 'bye') { this.close(); return; }
+    if (id === 'shop') { this.tab.shop = 'rods'; this.leaveTalk(true); this.open('shop'); return; }
+    if (id === 'permit') { this.tab.shop = 'service'; this.leaveTalk(true); this.open('shop'); return; }
+    if (id === 'boats') { this.leaveTalk(true); this.open('marina'); return; }
+    if (id === 'sell') { this.leaveTalk(true); this.open('livewell'); return; }
+    if (id === 'evpanel') { this.leaveTalk(true); this.open('events'); return; }
+    K.reply(id);
+    this.talkExtra = id === 'events' ? [['evpanel', 'Show me the entries']] : null;
+    this.render();
+  }
+
+  leaveTalk(toShop = false) {
+    const K = this.g.keepers, t = K.talk;
+    if (!t) return;
+    if (!toShop) this.say(t.k.d.name, K.bye(t.k));
+    t.k.talking = false;
+    K.talk = null;
+  }
+
+  // a line spoken in the world, at the bottom of the screen for a few seconds
+  say(name, text) {
+    let el = $('npcSay');
+    if (!el) { el = document.createElement('div'); el.id = 'npcSay'; $('hud').appendChild(el); }
+    el.innerHTML = `<b>${esc(name)}</b> ${esc(text)}`;
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
   }
 
   // Esc menu: everything that used to sit on screen as buttons, plus today's goals
@@ -355,6 +406,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   close() {
     if (this.panel === 'catch' || this.panel === 'haul') return;
+    if (this.panel === 'talk') this.leaveTalk();
     this.panel = null;
     $('modal').hidden = true;
     this.g.grabPointer?.();   // back to mouse-look without an extra click
@@ -364,7 +416,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   render() {
     const card = $('modalCard');
-    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell }[this.panel];
+    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell, talk: this.renderTalk }[this.panel];
     if (fn) card.innerHTML = fn.call(this);
     if (this.panel === 'chart') this.g.chart.mount();
   }
@@ -427,9 +479,9 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   renderService() {
     const g = this.g, s = g.save, w = s.wear || WEAR_DEFAULT, e = s.equip, loc = g.loc;
     const pl = permitLeft(s, loc.id);
-    const permits = PERMIT_OPTIONS.map((o) => { const pr = permitPrice(loc, o); return `<div class="item"><h4>${o.label} permit</h4><div class="foot"><span class="price">${money(pr)}</span><button class="btn gold" data-act="permit" data-id="${o.id}" ${s.cash < pr ? 'disabled' : ''}>Buy</button></div></div>`; }).join('');
-    const lineDef = LINES[e.line], rc = respoolCost(lineDef);
-    const lost = (w.lost || []).map((id) => { const c = restockCost(LURES[id]); return `<div class="item"><h4>${esc(LURES[id].name)}</h4><div class="stats">Lost on a snag</div><div class="foot"><span class="price">${money(c)}</span><button class="btn primary" data-act="service" data-id="${id}" ${s.cash < c ? 'disabled' : ''}>Restock</button></div></div>`; }).join('');
+    const permits = PERMIT_OPTIONS.map((o) => { const pr = g.keepers.price(permitPrice(loc, o)); return `<div class="item"><h4>${o.label} permit</h4><div class="foot"><span class="price">${money(pr)}</span><button class="btn gold" data-act="permit" data-id="${o.id}" ${s.cash < pr ? 'disabled' : ''}>Buy</button></div></div>`; }).join('');
+    const lineDef = LINES[e.line], rc = g.keepers.price(respoolCost(lineDef)), sharp = g.keepers.price(SHARPEN_COST);
+    const lost = (w.lost || []).map((id) => { const c = g.keepers.price(restockCost(LURES[id])); return `<div class="item"><h4>${esc(LURES[id].name)}</h4><div class="stats">Lost on a snag</div><div class="foot"><span class="price">${money(c)}</span><button class="btn primary" data-act="service" data-id="${id}" ${s.cash < c ? 'disabled' : ''}>Restock</button></div></div>`; }).join('');
     const bar = (v) => `<div class="cond ${v >= 0.8 ? 'low' : v >= 0.5 ? 'mid' : 'ok'}"><i style="width:${Math.round((1 - v) * 100)}%"></i></div>`;
     return this.head('Tackle Shop', money(s.cash)) + this.tabs('shop', [['rods', 'Rods'], ['reels', 'Reels'], ['lines', 'Line'], ['lures', 'Lures & Bait'], ['service', 'Service & permits']]) + `
       <h5 class="board-h">Fishing permit: ${esc(loc.name)}</h5>
@@ -438,7 +490,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       <h5 class="board-h">Tackle service</h5>
       <div class="grid">
         <div class="item"><h4>Respool: ${esc(lineDef.name)}</h4><div class="stats">${bar(w.line)} ${wearWord(w.line)} · breaks at <b>${Math.round(effectiveTest(lineDef.test, w.line))}</b> of ${lineDef.test} lb</div><div class="foot"><span class="price">${money(rc)}</span><button class="btn primary" data-act="service" data-id="line" ${w.line < 0.02 || s.cash < rc ? 'disabled' : ''}>Respool</button></div></div>
-        <div class="item"><h4>Sharpen hooks</h4><div class="stats">${bar(w.hook)} ${wearWord(w.hook)} · sets ${Math.round((1 - 0.4 * w.hook) * 100)}% as well as new</div><div class="foot"><span class="price">${money(SHARPEN_COST)}</span><button class="btn primary" data-act="service" data-id="hook" ${w.hook < 0.02 || s.cash < SHARPEN_COST ? 'disabled' : ''}>Sharpen</button></div></div>
+        <div class="item"><h4>Sharpen hooks</h4><div class="stats">${bar(w.hook)} ${wearWord(w.hook)} · sets ${Math.round((1 - 0.4 * w.hook) * 100)}% as well as new</div><div class="foot"><span class="price">${money(sharp)}</span><button class="btn primary" data-act="service" data-id="hook" ${w.hook < 0.02 || s.cash < sharp ? 'disabled' : ''}>Sharpen</button></div></div>
         ${lost}
       </div>
       <p class="tips">Line wears with casting and fighting fish, and a frayed line breaks well under its rating. Bottom lures can snag; most come free with a duller hook, some break off and need restocking.</p>`;
@@ -534,7 +586,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   }
 
   renderHelp() {
-    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', 'Mouse wheel / [ ]'], ['Steer rod against the fish', 'A / D'], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Throttle / steer boat', 'W S / A D'], ['Step onto a dock or the bank / back aboard', 'G'], ['Livewell & market (sell at any dock)', 'L'], ['Walk (on foot)', 'W A S D, Shift to hurry'], ['First / third person', 'V'], ['Deploy / haul net (net boats)', 'N'], ['Trolling spread (salt water)', 'R'], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', 'T / B / Y'], ['Chart: local map with docks, shops, market', 'C'], ['Travel / Journal', 'M / J'], ['Skip ahead 1 hour', 'K'], ['Underwater camera (lure / fish)', 'U'], ['Photo mode', 'P'], ['Show / hide fish finder', 'F'], ['Drop a waypoint here (shows on the compass)', 'Z'], ['Clear all waypoints on this water', 'Shift + Z'], ['Set / remove a waypoint on the chart', 'Click the chart'],['Put the rod away / take it out', 'X'], ['Tournaments', 'E'], ['Settings', 'O'], ['Save / Load, export / import (autosave is always on)', 'Esc menu'], ['Close menus', 'Esc']];
+    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', 'Mouse wheel / [ ]'], ['Steer rod against the fish', 'A / D'], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Throttle / steer boat', 'W S / A D'], ['Step onto a dock or the bank / back aboard', 'G'], ['Livewell & market (sell at any dock)', 'L'], ['Walk (on foot)', 'W A S D, Shift to hurry'], ['First / third person', 'V'], ['Deploy / haul net (net boats)', 'N'], ['Trolling spread (salt water)', 'R'], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', 'T / B / Y'], ['Talk to the shopkeeper at a shop door / listen to the locals', 'Q'], ['Chart: local map with docks, shops, market', 'C'], ['Travel / Journal', 'M / J'], ['Skip ahead 1 hour', 'K'], ['Underwater camera (lure / fish)', 'U'], ['Photo mode', 'P'], ['Show / hide fish finder', 'F'], ['Drop a waypoint here (shows on the compass)', 'Z'], ['Clear all waypoints on this water', 'Shift + Z'], ['Set / remove a waypoint on the chart', 'Click the chart'],['Put the rod away / take it out', 'X'], ['Tournaments', 'E'], ['Settings', 'O'], ['Save / Load, export / import (autosave is always on)', 'Esc menu'], ['Close menus', 'Esc']];
     return this.head('How to fish') + `<div class="help-grid">${k.map(([a, b]) => `<div><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div>
       <p class="tips"><b>Fighting:</b> reel while the fish rests or turns, and STOP reeling when it runs - cranking against a running fish twists the line until it snaps. When it runs, line peels off at your drag setting. If tension goes past the line's breaking strength it snaps, so keep drag below it. Reel when the fish rests, pull the rod the opposite way to the fish (A/D) to tire it faster, and don't give it slack or it can throw the hook. When it jumps, ease off the drag. Get a tired fish next to the boat to land it.</p>
       <p class="tips"><b>Finding fish:</b> diving gulls and bait balls mark hotspots; dawn and dusk bite best. Match the lure to what the fish eats and to its depth. Active lures need to be moving (reel or troll).</p>
@@ -612,7 +664,9 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   action(act, d) {
     const g = this.g;
+    if (DEAL_ACTS.has(act)) g.keepers.deal();
     switch (act) {
+      case 'talk': this.talkPick(+d.n); break;
       case 'close': this.close(); break;
       case 'tab': this.tab[d.group] = d.id; this.render(); break;
       case 'buy': g.buy(d.kind, d.id); this.render(); break;
