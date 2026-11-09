@@ -92,6 +92,7 @@ export class Birds {
     this.mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, side: THREE.DoubleSide });
     game.patchProp(this.mat);
     this.birds = [];
+    this.attract = [];   // feeding boils from fishLife: { x, z, on } pelicans dive on these
     this.time = 0;
     this.rand = rng(hashStr(this.loc.id) + 93);
     this.spots = [];
@@ -298,6 +299,7 @@ export class Birds {
       if (b.t > 12 && !b.victim) {
         let best = null, bd = 260;
         for (const sp of this.hot) { const k = Math.hypot(sp.x - b.x, sp.z - b.z); if (k < bd && !this.birds.some((o) => o !== b && o.pelican && o.victim === sp)) { bd = k; best = sp; } }
+        for (const at of this.attract) { const k = Math.hypot(at.x - b.x, at.z - b.z); if (at.on && k < bd && !this.birds.some((o) => o !== b && o.pelican && o.victim === at)) { bd = k; best = at; } }
         if (best) { b.victim = best; b.tgt = { x: best.x, z: best.z }; }
         else if (b.t > 50 && r() < 0.01) { const p = this.waterPoint(b.x, b.z, 30, 120, 2.5); if (p) { b.victim = { x: p.x, z: p.z, rise: true }; b.tgt = p; this.g.splash(p.x, p.z, 0.02, 0.3); } }
       }

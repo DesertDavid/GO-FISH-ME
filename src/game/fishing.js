@@ -176,10 +176,17 @@ export class Fishing {
       return;
     }
     if (!this.gearOverride && Math.random() < snagChance(lure, this.moving) * dt) { this.snag(); if (this.state !== 'water') return; }
+    // a visible fish that followed the lure and struck (fishLife.js) becomes the bite
+    const take = c.fishLife?.consumeTake();
+    if (take) {
+      this.bite = { sp: take.sp, morph: take.morph, lb: take.lb, nibbles: take.nibbles, t: take.t, phase: 'nibble', actor: take.a, mode: take.mode };
+      this.state = 'bite';
+      return;
+    }
     // bites
     this.biteClock += dt;
     if (this.biteClock < 1.2) return;
-    const fish = this.rollBite(dt, rod, lure);
+    const fish = c.fishLife?.engaged() ? null : this.rollBite(dt, rod, lure);
     if (fish) {
       this.bite = { ...fish, nibbles: 1 + Math.floor(Math.random() * 3), t: 0.5 + Math.random() * 0.7, phase: 'nibble' };
       this.state = 'bite';
@@ -202,7 +209,7 @@ export class Fishing {
     const c = this.ctx;
     let activity = lure.active ? (this.moving ? 1 : 0.3) : (this.moving ? 0.5 : 1);
     if (lure.fly && rod.fly) activity *= 1.35;
-    const hot = c.hotspots ? c.hotspots.near(this.lure.x, this.lure.z, 55) : 0;
+    const hot = Math.max(c.hotspots ? c.hotspots.near(this.lure.x, this.lure.z, 55) : 0, c.fishLife ? c.fishLife.boilNear(this.lure.x, this.lure.z) : 0);
     const hour = c.hour();
     // dawn and dusk are best overall; per-species time/weather/depth/lure taste is in the match model
     const isNight = hour < 5.2 || hour > 20.6;
@@ -229,20 +236,30 @@ export class Fishing {
     this.lure.y = c.waterAt(0) - (this.gear.lure.bobber ? 0 : this.depth);
     if (b.phase === 'nibble') {
       if (input.pressed) {
-        if (Math.random() < 0.2) { c.ui.toast('Too early! You spooked it.', 'bad'); this.bite = null; this.state = 'water'; this.biteClock = 0; return; }
+        if (Math.random() < 0.2) { c.ui.toast('Too early! You spooked it.', 'bad'); c.fishLife?.cue(b.actor, 'spook'); this.bite = null; this.state = 'water'; this.biteClock = 0; return; }
         c.ui.toast('Wait for it... strike when you see STRIKE!', 'info');
       }
       if (b.t <= 0) {
         // a stiffer, less sensitive rod doesn't telegraph every tap (the strike itself is always obvious)
-        if (Math.random() < 0.45 + rod.sens * 0.55) {
+        // (an aggressive take skips the taps: the fish just hits it)
+        if (b.mode !== 'strike' && Math.random() < 0.45 + rod.sens * 0.55) {
           c.rod.twitch = 0.35;
           c.audio.play('tick');
           c.splash(this.lure.x, this.lure.z, 0.03, 0.2);
           c.ui.toast('Nibble...', 'info');
         }
+        if (b.actor && b.nibbles > 1) c.fishLife?.cue(b.actor, 'nudge');
         b.bob = 0.6;
         b.nibbles--;
+        if (b.nibbles <= 0 && b.mode === 'halfhearted') {
+          // mouthed it and thought better of it: nothing to set the hook in
+          c.fishLife?.cue(b.actor, 'spit');
+          c.ui.toast('It mouthed the lure and spat it out.', 'info');
+          this.bite = null; this.state = 'water'; this.biteClock = 0;
+          return;
+        }
         if (b.nibbles <= 0) {
+          c.fishLife?.cue(b.actor, 'strike');
           b.phase = 'strike';
           b.t = 1.0 + rod.sens * 0.6 + (line.braid ? 0.2 : 0);
           b.held = input.down;   // already holding when it hits: counts once you keep holding
@@ -259,12 +276,13 @@ export class Fishing {
       if (input.pressed || reelSet) {
         c.ui.strike(false);
         if (Math.random() < (0.9 + (line.braid ? 0.07 : 0)) * hookMul(this.wear.hook)) this.hook();
-        else { c.ui.toast('Missed the hookset!', 'bad'); this.bite = null; this.state = 'water'; this.biteClock = 0; }
+        else { c.ui.toast('Missed the hookset!', 'bad'); c.fishLife?.cue(b.actor, 'spook'); this.bite = null; this.state = 'water'; this.biteClock = 0; }
         return;
       }
       if (b.t <= 0) {
         c.ui.strike(false);
         c.ui.toast('It let go...', 'bad');
+        c.fishLife?.cue(b.actor, 'spit');
         this.bite = null;
         this.state = 'water';
         this.biteClock = 0;
@@ -275,6 +293,7 @@ export class Fishing {
   hook() {
     const c = this.ctx, b = this.bite;
     const sp = b.sp, lb = b.lb;
+    c.fishLife?.cue(b.actor, 'hooked');
     if (!this.gearOverride) c.wearAdd('hook', HOOK_WEAR_PER_FISH);
     const { m } = fishLengthM(sp, lb);
     const model = buildFish(sp, b.morph, { patchProp: c.patchProp });

@@ -15,6 +15,7 @@ import { Wildlife } from './wildlife.js';
 import { AIBoats } from './aiBoats.js';
 import { ShoreLife } from './shorelife.js';
 import { Birds } from './birds.js';
+import { FishLife } from './fishLife.js';
 import { Trolling, TROLL_GEAR } from './troll.js';
 import { Tournament, tournamentsFor } from './tournaments.js';
 import { Sonar } from './sonar.js';
@@ -113,6 +114,8 @@ export class Game {
     this.keepers = new Keepers(this);
     this.birds = new Birds(this);
     this.birds.init();
+    this.fishLife = new FishLife(this);
+    this.fishLife.balls.attachBirds(this.birds);
     this.sonar = new Sonar(document.getElementById('sonar'));
     this.compass = new Compass(this, document.getElementById('compass'));
     this.applyGear();
@@ -138,6 +141,7 @@ export class Game {
       camera: this.camera, angler: this.angler, scene: this.scene, overlay: this.overlay, patchProp: this.patchProp, loc: this.loc,
       get save() { return game.save; },
       rod: this.rod, ui: this.ui, audio: this.audio, hotspots: this.hotspots,
+      get fishLife() { return game.fishLife; },
       heightAt: this.heightAt,
       waterAt: (i) => this.water[1 + i] ?? 0,
       waterHeightApprox: () => this.water[0] ?? 0,
@@ -410,6 +414,7 @@ export class Game {
     this.shore.update(dt, bp, this.nightLevel());
     this.keepers.update(dt, bp, this.camera.position);
     this.birds.update(dt, bp, this.nightLevel(), this.camera.position);
+    this.fishLife.update(dt, bp);
     this.audio.update(dt, REELS[this.save.equip.reel].ratio);
 
     // clock: one real second = one game minute; nights are skipped
@@ -710,6 +715,7 @@ export class Game {
     const f = this.e.floaters;
     f.impacts.push({ x, z, t: f.time, amp, size });
     if (f.impacts.length > 8) f.impacts.shift();
+    this.fishLife?.noise(x, z, amp * size);
   }
 
   boatSpeed() { return this.foot ? 0 : this.boat?.speed || 0; }
