@@ -5,7 +5,7 @@ import { BOATS } from './gear.js';
 // Player boats: the Blender-built GLB on a buoyant rigid body (scene/floaters.js), with
 // throttle + rudder forces. Hull dims mirror tools/blender/build_boats.py.
 const HULLS = {
-  jon: { length: 3.8, beam: 1.55, depth: 0.55, deckDrop: 0.42, sheer: 0.2, draft: 0.28 },
+  jon: { length: 3.8, beam: 1.55, depth: 0.55, deckDrop: 0.42, sheer: 0.2, draft: 0.17 },
   bass: { length: 6.2, beam: 2.35, depth: 0.78, deckDrop: 0.18, sheer: 0.12, draft: 0.32 },
   skiff: { length: 5.6, beam: 2.1, depth: 0.62, deckDrop: 0.2, sheer: 0.14, draft: 0.3 },
   center: { length: 8.6, beam: 2.8, depth: 1.35, deckDrop: 0.75, sheer: 0.16, draft: 0.34 },

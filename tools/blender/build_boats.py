@@ -459,6 +459,8 @@ def build_jon(root):
         box('prop_blade', (0.03, 0.15, 0.06), (ob_x - 0.41, math.cos(a) * 0.08, ob_z - 0.78 + math.sin(a) * 0.08), steel, root, bevel=0.004, rot=(a, 0.35, 0))
     tube('tiller', [(ob_x - 0.15, 0.04, ob_z + 0.10), (ob_x + 0.65, 0.10, ob_z + 0.22), (ob_x + 1.05, 0.14, ob_z + 0.20)], 0.017, black, root)
     cyl('tiller_grip', 0.026, 0.20, (ob_x + 1.12, 0.15, ob_z + 0.20), mat('grip', srgb(0x1d1d1f), 0.0, 0.8), root, rot=(0, math.pi / 2, 0))
+    for m_ in (green, bare, alu, alu_dark):
+        m_.use_backface_culling = True            # no outer-hull backfaces showing through the cockpit
     return spec
 
 def build_bass(root):
