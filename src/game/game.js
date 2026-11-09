@@ -15,6 +15,7 @@ import { AIBoats } from './aiBoats.js';
 import { Trolling, TROLL_GEAR } from './troll.js';
 import { Tournament, tournamentsFor } from './tournaments.js';
 import { Sonar } from './sonar.js';
+import { Compass } from './compass.js';
 import { GameAudio } from './audio.js';
 import { UI } from './ui.js';
 import { fishLengthM } from './fishMesh.js';
@@ -95,6 +96,7 @@ export class Game {
     progress(0.92, 'Other anglers heading out…');
     await this.aiBoats.spawn(this.loc.water === 'offshore' ? 2 : 3);
     this.sonar = new Sonar(document.getElementById('sonar'));
+    this.compass = new Compass(this, document.getElementById('compass'));
     this.applyGear();
     this.bindInput();
     this.applySettings();
@@ -173,6 +175,10 @@ export class Game {
       if (k === 'u') this.toggleUnderwater();
       if (k === 'p') this.togglePhoto();
       if (k === 'f') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
+      if (k === 'z') {
+        if (ev.shiftKey) { if (this.compass.list().length) { this.compass.clear(); this.ui.toast('Waypoints cleared', 'info'); } }
+        else this.compass.here();
+      }
       if (k === 'k') { this.commit({ hour: this.save.hour + 1 }); this.applySun(true); this.tourTick(60); this.ui.toast('An hour passes…', 'info'); }
       if (k === '[' || k === ']') this.dragNudge(k === ']' ? 1 : -1);
       if (/^[1-9]$/.test(k) && !this.fishing.busy()) {
@@ -384,6 +390,7 @@ export class Game {
     }
     const showSonar = !this.foot && this.settings.sonar;
     this.sonar.c.style.display = showSonar ? '' : 'none';
+    this.compass.update();
     if (showSonar) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, 14), this.hotspots.near(bp.x, bp.z, 60));
   }
 

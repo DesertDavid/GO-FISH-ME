@@ -93,6 +93,7 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   Tackle shop (B) and Marina (Y) also only open at a dock with that service (`Game.serviceHere`,
   gated in `ui.open`; toast says which dock and how far). Water with no docks (offshore) keeps the
   buyer boat and everything is available. Tackle box (T) stays available anywhere.
+- Compass bar (`game/compass.js`, canvas `#compass`, top centre): heading tape read from the camera (0 = north = -z, same north as the Chart), 5 deg ticks, N/NE/... labels, numeric readout + cardinal. Waypoints are per location in `save.waypoints[locId]` (max 12): `Z` drops one at your position, `Shift+Z` clears all, clicking the Chart sets one (on a dock marker = named after the dock) or removes one you click; the Chart side panel lists them. On the tape they show as amber diamonds with name + distance, edge-clamped arrows with distance when off the tape. Settings checkbox `compass` hides the bar.
 
 ## Known gaps / ideas
 - No angler body when walking in third person.

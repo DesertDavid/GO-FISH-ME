@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   invertY: false,
   mouseLock: true,
   sonar: true,
+  compass: true,
 });
 
 export function loadSettings() {

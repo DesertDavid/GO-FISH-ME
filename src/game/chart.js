@@ -1,7 +1,8 @@
 // Local chart (key C): a north-up map of the current water drawn from the real heightfield,
 // with your boat/position and the dock services (fish market, tackle & bait, boat dealer).
 // The terrain layer is rendered once per location window and cached; markers redraw live.
-const N = 560;                         // terrain raster size (px)
+import { bearingTo, fmtDist } from './compass.js';
+const N = 560;                        // terrain raster size (px)
 const MIN_HALF = 420;                  // never zoom in tighter than +-420 m
 const cache = new Map();
 
@@ -58,7 +59,7 @@ export class Chart {
 
   // square window (centre + half-size) covering the start, docks and the player
   window() {
-    const g = this.g, pts = [g.start, ...this.places(), this.playerPos(), { x: g.boat.position.x, z: g.boat.position.z }];
+    const g = this.g, pts = [g.start, ...this.places(), ...g.compass.list(), this.playerPos(), { x: g.boat.position.x, z: g.boat.position.z }];
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of pts) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
     const half = clamp(Math.max(x1 - x0, z1 - z0) * 0.5 * 1.3 + 120, MIN_HALF, Math.min(2200, g.loc.size * 0.5));
@@ -67,7 +68,7 @@ export class Chart {
 
   // does the cached raster still cover everything of interest?
   usable(w) {
-    const pts = [...this.places(), this.playerPos(), { x: this.g.boat.position.x, z: this.g.boat.position.z }];
+    const pts = [...this.places(), ...this.g.compass.list(), this.playerPos(), { x: this.g.boat.position.x, z: this.g.boat.position.z }];
     return pts.every((p) => Math.abs(p.x - w.cx) < w.half * 0.94 && Math.abs(p.z - w.cz) < w.half * 0.94);
   }
 
@@ -119,6 +120,8 @@ export class Chart {
     clearInterval(this.timer);
     this.cv = document.getElementById('chartCv');
     if (!this.cv) return;
+    this.cv.style.cursor = 'crosshair';
+    this.cv.onclick = (ev) => this.click(ev);
     this.draw();
     this.timer = setInterval(() => {
       if (this.g.ui.panel !== 'chart' || !document.getElementById('chartCv')) { clearInterval(this.timer); return; }
@@ -127,9 +130,28 @@ export class Chart {
     }, 120);
   }
 
+  // click the chart: on a waypoint removes it, on a dock sets a waypoint there, anywhere else
+  // sets one at that spot
+  click(ev) {
+    const r = this.cv.getBoundingClientRect(), win = this.view;
+    if (!win) return;
+    const k = this.cv.width / r.width, sx = (ev.clientX - r.left) * k, sy = (ev.clientY - r.top) * k;
+    const sc = this.cv.width / (win.half * 2);
+    const toPx = (x, z) => [(x - (win.cx - win.half)) * sc, (z - (win.cz - win.half)) * sc];
+    const near = (x, z, rad) => { const [a, b] = toPx(x, z); return Math.hypot(a - sx, b - sy) < rad; };
+    const comp = this.g.compass;
+    const hit = comp.list().find((w) => near(w.x, w.z, 14));
+    if (hit) { comp.remove(hit.id); this.g.ui.toast(`Waypoint removed: ${hit.name}`, 'info'); this.draw(); return; }
+    const dock = this.places().find((p) => near(p.x, p.z, 20));
+    if (dock) comp.add(dock.x, dock.z, dock.name);
+    else comp.add(win.cx - win.half + sx / sc, win.cz - win.half + sy / sc);
+    this.draw();
+  }
+
   // metres in view -> canvas px
   draw() {
     const g = this.g, { win, cv: terrain } = this.base();
+    this.view = win;
     const ctx = this.cv.getContext('2d'), W = this.cv.width;
     const sc = W / (win.half * 2);
     const px = (x) => (x - (win.cx - win.half)) * sc, pz = (z) => (z - (win.cz - win.half)) * sc;
@@ -170,6 +192,16 @@ export class Chart {
       ctx.beginPath(); ctx.moveTo(px(d.x), pz(d.z)); ctx.lineTo(x, y); ctx.stroke();
       this.badge(ctx, x, y, p);
       rows.push({ p, dist: Math.hypot(p.x - me.x, p.z - me.z), dir: dirText(p.x - me.x, p.z - me.z) });
+    }
+    // waypoints: amber diamonds with a bearing line from you
+    ctx.font = '600 11px "IBM Plex Mono", monospace';
+    for (const w of g.compass.list()) {
+      const x = px(w.x), y = pz(w.z);
+      ctx.strokeStyle = 'rgba(233,178,91,0.45)'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(px(me.x), pz(me.z)); ctx.lineTo(x, y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#e9b25b'; ctx.strokeStyle = '#0a121a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 8); ctx.lineTo(x - 6, y); ctx.closePath(); ctx.stroke(); ctx.fill();
+      ctx.fillStyle = '#f2efe8'; ctx.textAlign = 'left'; ctx.fillText(w.name, x + 9, y - 6);
     }
     // your boat (always) and you on foot
     const bp = g.boat.position, bh = g.boat.heading();
@@ -242,6 +274,9 @@ export class Chart {
         return `<div class="svc ${on ? 'here' : ''}"><b>${p.name}${on ? ' · you are here' : ''}</b><span class="small">${p.services.map((s) => SERVICE_INFO[s].label).join(' · ')}</span><span class="d">${Math.round(dist)} m ${dir}</span></div>`;
       }).join('');
     }
+    const wps = g.compass.list(), me = this.playerPos();
+    html += '<h5>Waypoints</h5>' + (wps.length ? wps.map((w) => `<div class="svc"><b>${w.name}</b><span class="d">${fmtDist(Math.hypot(w.x - me.x, w.z - me.z))} · ${String(Math.round(bearingTo(me, w.x, w.z)) % 360).padStart(3, '0')}°</span></div>`).join('') : '<p class="small">None yet.</p>') +
+      '<p class="small">Click the chart to set a waypoint (on a dock marker for that dock); click a waypoint to remove it. Z drops one at your position, Shift+Z clears all. They show on the compass bar.</p>';
     html += `<p class="small legend"><span class="k boat"></span>Your boat &nbsp; <span class="k you"></span>You on foot</p>${rows.length ? '<p class="small">Sell fish (L), buy tackle (B) and boats (Y) at the docks marked here.</p>' : ''}`;
     if (el.dataset.h !== html) { el.dataset.h = html; el.innerHTML = html; }
   }

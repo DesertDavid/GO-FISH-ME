@@ -50,6 +50,7 @@ kbd { font: 600 12px var(--font); color: var(--dim); }
 #gearLine b { color: var(--text); font-weight: 600; }
 #boatInfo { position: absolute; left: 22px; bottom: 40px; font-size: 14px; }
 #boatInfo b { font-size: 22px; font-weight: 700; margin-right: 4px; }
+#compass { position: absolute; left: 50%; top: 6px; width: min(640px, 56vw); aspect-ratio: 640 / 58; height: auto; transform: translateX(-50%); pointer-events: none; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.75)); }
 #sonar { position: absolute; right: 22px; bottom: 18px; width: 200px; height: 115px; opacity: 0.92; border-radius: 3px; }
 #crosshair { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: rgba(255, 255, 255, 0.7); box-shadow: 0 0 3px rgba(0, 0, 0, 0.8); }
 #leaderboard { position: absolute; right: 22px; top: 44px; width: 220px; font-size: 13px; }
