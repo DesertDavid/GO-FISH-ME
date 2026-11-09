@@ -20,8 +20,10 @@ day, pays a premium for the fish of the day, and pays less the more of one speci
 ## Run it
 
 On Windows, double-click `Play Reel World.bat`. It installs packages on the first run, starts
-the game on http://localhost:5200 and opens your browser. Keep its window open while you play.
-You need [Node.js](https://nodejs.org) (LTS).
+the game server in the background and opens the game in its own window (an Edge app window: no
+tabs, address bar or browser add-ons). Close the window to quit; the server stops with it.
+Saves live with that window, under `%LOCALAPPDATA%\ReelWorld`. Without Edge or Chrome it opens
+your normal browser instead. You need [Node.js](https://nodejs.org) (LTS).
 
 Or by hand:
 

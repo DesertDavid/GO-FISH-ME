@@ -8,6 +8,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/game/ui.css" />
+  <script>
+    // No browser right-click menu anywhere, from the first frame (the game uses the right
+    // button to look around). Capture phase on window so nothing can let it through.
+    addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); }, { capture: true });
+  </script>
 </head>
 <body>
   <div id="loading">

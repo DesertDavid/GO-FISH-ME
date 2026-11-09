@@ -1,6 +1,6 @@
 @echo off
-rem Reel World launcher: double-click to play. Keep this window open while you play;
-rem closing it stops the game server.
+rem Reel World launcher: double-click to play. The game opens in its own window; close that
+rem window to quit (the game server stops with it).
 cd /d "%~dp0"
 title Reel World
 
@@ -21,13 +21,6 @@ if not exist node_modules (
   )
 )
 
-rem Already running? Just open it.
-powershell -NoProfile -Command "try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 http://localhost:5200 | Out-Null; exit 0 } catch { exit 1 }"
-if not errorlevel 1 (
-  start "" http://localhost:5200
-  exit /b 0
-)
-
-echo Starting Reel World... your browser will open in a moment.
-echo Keep this window open while you play. Close it to quit.
-call npx vite --port 5200 --strictPort --open
+rem hand over to the launcher, hidden, and close this window
+start "" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0tools\launcher.ps1"
+exit /b 0

@@ -183,10 +183,15 @@ export class Game {
     // button held (left button still casts/reels). Esc or opening a menu frees it.
     // Right-drag still works as a fallback when the lock is off.
     const locked = () => document.pointerLockElement === el;
-    // if the browser refuses the lock (some embedded views do), stop asking so clicks cast
-    // normally, and fall back to right-drag
+    // A lock request only counts during a click, so never retry it later from a promise:
+    // if the raw-input mode is refused, use the plain lock from the next click on. Only after
+    // several refusals in a row do we give up and fall back to right-drag.
+    this.lockRaw = true;
+    this.lockFails = 0;
     const lockRefused = () => {
       if (this.lockFailed) return;
+      if (this.lockRaw) { this.lockRaw = false; return; }   // try plain mode on the next click
+      if (++this.lockFails < 3) return;
       this.lockFailed = true;
       this.ui.lookHint(false);
       this.ui.toast('Mouse lock isn\'t available in this browser - right-drag to look around.', 'info');
@@ -194,9 +199,8 @@ export class Game {
     const lockPointer = () => {
       if (!this.settings.mouseLock || this.lockFailed || locked() || this.ui.isOpen()) return false;
       try {
-        const p = el.requestPointerLock({ unadjustedMovement: true });
-        // older browsers don't support unadjustedMovement: retry plain, then give up
-        if (p && p.catch) p.catch(() => Promise.resolve(el.requestPointerLock()).catch(lockRefused));
+        const p = this.lockRaw ? el.requestPointerLock({ unadjustedMovement: true }) : el.requestPointerLock();
+        if (p && p.catch) p.catch(lockRefused);
       } catch {
         lockRefused();
         return false;
@@ -206,13 +210,16 @@ export class Game {
     document.addEventListener('pointerlockerror', lockRefused);
     document.addEventListener('pointerlockchange', () => {
       this.mouse.down = false;
+      this.mouse.right = false;
+      if (locked()) this.lockFails = 0;
       this.ui.lookHint(this.settings.mouseLock && !this.lockFailed && !locked());
     });
     el.addEventListener('pointerdown', (ev) => {
       this.audio.start();
+      // any click on the view grabs the mouse, so looking around can't run the cursor off the
+      // window (the first click only grabs; it doesn't cast)
+      if (!locked() && (ev.button === 0 || ev.button === 2) && lockPointer()) return;
       if (ev.button === 0) {
-        // the first click only grabs the mouse; it doesn't cast
-        if (!locked() && lockPointer()) return;
         if (this.view === 'third') { this.view = 'first'; return; }
         this.mouse.down = true; this.mouse.pressed = true;
       }
