@@ -3,6 +3,8 @@ import { LOCATIONS, LOCATION_ORDER } from './locations.js';
 import { SPECIES, SPECIES_BY_ID, MORPHS, CATALOG_SIZE } from './species.js';
 import { catalogCount } from './save.js';
 import { wellSlots } from './livewell.js';
+import { freezeSaves, writeSave } from './save.js';
+import { listSlots, putSlot, deleteSlot, summarize, fmtPlayed, fmtWhen, parseFile, downloadFile, pickFile, installAsLive, diskBackup } from './saveSlots.js';
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => '$' + Math.round(n).toLocaleString();
@@ -227,12 +229,82 @@ export class UI {
 
   // Esc menu: everything that used to sit on screen as buttons, plus today's goals
   renderPause() {
-    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ['events', 'Tournaments', 'E'], ['chart', 'Chart', 'C'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
-    const list = items.map(([id, label, key]) => `<button data-act="${id === 'resume' ? 'close' : 'go'}" data-id="${id}">${label}<kbd>${key}</kbd></button>`).join('');
+    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ['events', 'Tournaments', 'E'], ['chart', 'Chart', 'C'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['saves', 'Save / Load', ''], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
+    const list = items.map(([id, label, key]) => `<button data-act="${id === 'resume' ? 'close' : 'go'}" data-id="${id}">${label}${key ? `<kbd>${key}</kbd>` : ''}</button>`).join('');
     const ch = this.g.save.challenges;
     const goals = ch ? ch.list.map((c) => `<div class="ch ${c.done ? 'done' : ''}"><span>${esc(c.text)}<div class="prog">${c.done ? 'Done' : `${Math.min(c.have, c.need)} of ${c.need}`}</div></span><b>${money(c.reward)}</b></div>`).join('') : '';
     return `<div><div class="pause-title">${esc(this.g.loc.name)} · Day ${this.g.save.day || 1}</div><div class="pause-list">${list}</div></div>
       <div class="pause-side"><h5>Today's challenges</h5>${goals}</div>`;
+  }
+
+  // ---- Save / Load screen ----
+  saveSay(text, bad = false) { this.sv = { ...(this.sv || {}), msg: text, bad, armed: null }; if (this.panel === 'saves') this.render(); }
+
+  renderSaves() {
+    const sv = this.sv || (this.sv = {});
+    if (!sv.diskAsked) { sv.diskAsked = true; diskBackup().then((b) => { sv.disk = b; if (this.panel === 'saves') this.render(); }); }
+    const row = (title, when, data, btns, cls = '') => {
+      const x = data && summarize(data);
+      const body = x ? `<div class="sv-main"><b>${esc(x.location)}</b><span>${money(x.cash)} · Day ${x.day} · ${esc(x.places)} · ${esc(x.catalog)}</span></div><div class="sv-time"><span>${fmtPlayed(x.played)} played</span><span>${esc(when)}</span></div>`
+        : `<div class="sv-main"><span class="empty">Empty</span></div><div class="sv-time"></div>`;
+      return `<div class="sv-row ${cls}"><div class="sv-name">${title}</div>${body}<div class="sv-btns">${btns}</div></div>`;
+    };
+    const arm = (label, act, n, armedLabel) => `<button class="btn ${sv.armed === `${act}:${n}` ? 'gold' : ''}" data-act="${act}" data-n="${n}">${sv.armed === `${act}:${n}` ? armedLabel : label}</button>`;
+    const rows = listSlots().map(({ n, entry }) => row(`Slot ${n}`, entry ? fmtWhen(entry.savedAt) : '', entry && entry.data,
+      (entry ? arm('Save', 'sv-save', n, 'Overwrite?') + arm('Load', 'sv-load', n, 'Load it?') + `<button class="btn" data-act="sv-export" data-n="${n}">Export</button>` : `<button class="btn" data-act="sv-save" data-n="${n}">Save</button>`)
+      + `<button class="btn" data-act="sv-import" data-n="${n}">Import</button>` + (entry ? arm('Delete', 'sv-del', n, 'Really delete?') : ''))).join('');
+    const disk = sv.disk ? row('Disk backup', fmtWhen(sv.disk.savedAt), sv.disk.data, arm('Restore', 'sv-load', 'disk', 'Load it?'), 'dim') : '';
+    return this.head('Save / Load', '') + `<div class="sv">
+      ${row('Autosave', 'saving as you play', this.g.save, `<button class="btn" data-act="sv-export" data-n="live">Export</button>`, 'live')}
+      ${rows}${disk}
+      <div class="sv-msg ${sv.bad ? 'bad' : ''}">${sv.msg ? esc(sv.msg) : '&nbsp;'}</div>
+    </div>
+    <p class="tips">Autosave keeps the game you are in. A slot is a snapshot you can come back to. Export writes a <b>.reelworld</b> file you can keep as a backup or open in another browser. A copy also goes to <b>%LOCALAPPDATA%\\ReelWorld\\saves</b>.</p>
+    <div class="actions"><button class="btn primary" data-act="close">Back</button></div>`;
+  }
+
+  // the data behind a row id: 'live', a slot number or 'disk'
+  saveData(n) {
+    if (n === 'live') return this.g.save;
+    if (n === 'disk') return this.sv?.disk?.data;
+    return listSlots().find((s) => s.n === +n)?.entry?.data;
+  }
+
+  async saveAction(act, n) {
+    const sv = this.sv || (this.sv = {});
+    const key = `${act}:${n}`;
+    const needsConfirm = act === 'sv-del' || act === 'sv-load' || (act === 'sv-save' && this.saveData(n));
+    if (needsConfirm && sv.armed !== key) { sv.armed = key; this.render(); return; }
+    sv.armed = null;
+    if (act === 'sv-save') {
+      writeSave(this.g.save);
+      if (putSlot(n, this.g.save)) this.saveSay(`Saved to slot ${n}.`); else this.saveSay('Could not save: browser storage is full or blocked.', true);
+    } else if (act === 'sv-del') {
+      deleteSlot(+n);
+      this.saveSay(`Slot ${n} deleted.`);
+    } else if (act === 'sv-export') {
+      const data = this.saveData(n);
+      if (!data) return;
+      const name = downloadFile(data, n === 'live' ? 'autosave' : `slot${n}`);
+      this.saveSay(`Exported ${name} (see your Downloads folder).`);
+    } else if (act === 'sv-import') {
+      try {
+        const text = await pickFile();
+        if (text === null) return;
+        const data = parseFile(text);
+        putSlot(+n, data);
+        this.saveSay(`Imported into slot ${n}. Press Load on it to play it.`);
+      } catch (err) {
+        this.saveSay(err.message || 'Could not import that file.', true);
+      }
+    } else if (act === 'sv-load') {
+      const data = this.saveData(n);
+      if (!data) return;
+      freezeSaves();
+      installAsLive(data);
+      this.saveSay('Loading...');
+      location.href = location.pathname;
+    }
   }
 
   close() {
@@ -246,7 +318,7 @@ export class UI {
 
   render() {
     const card = $('modalCard');
-    const fn = { shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, livewell: this.renderLivewell }[this.panel];
+    const fn = { shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell }[this.panel];
     if (fn) card.innerHTML = fn.call(this);
     if (this.panel === 'chart') this.g.chart.mount();
   }
@@ -333,7 +405,7 @@ export class UI {
   }
 
   renderHelp() {
-    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', 'Mouse wheel / [ ]'], ['Steer rod against the fish', 'A / D'], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Throttle / steer boat', 'W S / A D'], ['Step onto a dock or the bank / back aboard', 'G'], ['Livewell & market (sell at any dock)', 'L'], ['Walk (on foot)', 'W A S D, Shift to hurry'], ['First / third person', 'V'], ['Deploy / haul net (net boats)', 'N'], ['Trolling spread (salt water)', 'R'], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', 'T / B / Y'], ['Chart: local map with docks, shops, market', 'C'], ['Travel / Journal', 'M / J'], ['Skip ahead 1 hour', 'K'], ['Underwater camera (lure / fish)', 'U'], ['Photo mode', 'P'], ['Show / hide fish finder', 'F'], ['Drop a waypoint here (shows on the compass)', 'Z'], ['Clear all waypoints on this water', 'Shift + Z'], ['Set / remove a waypoint on the chart', 'Click the chart'],['Put the rod away / take it out', 'X'], ['Tournaments', 'E'], ['Settings', 'O'], ['Close menus', 'Esc']];
+    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', 'Mouse wheel / [ ]'], ['Steer rod against the fish', 'A / D'], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Throttle / steer boat', 'W S / A D'], ['Step onto a dock or the bank / back aboard', 'G'], ['Livewell & market (sell at any dock)', 'L'], ['Walk (on foot)', 'W A S D, Shift to hurry'], ['First / third person', 'V'], ['Deploy / haul net (net boats)', 'N'], ['Trolling spread (salt water)', 'R'], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', 'T / B / Y'], ['Chart: local map with docks, shops, market', 'C'], ['Travel / Journal', 'M / J'], ['Skip ahead 1 hour', 'K'], ['Underwater camera (lure / fish)', 'U'], ['Photo mode', 'P'], ['Show / hide fish finder', 'F'], ['Drop a waypoint here (shows on the compass)', 'Z'], ['Clear all waypoints on this water', 'Shift + Z'], ['Set / remove a waypoint on the chart', 'Click the chart'],['Put the rod away / take it out', 'X'], ['Tournaments', 'E'], ['Settings', 'O'], ['Save / Load, export / import (autosave is always on)', 'Esc menu'], ['Close menus', 'Esc']];
     return this.head('How to fish') + `<div class="help-grid">${k.map(([a, b]) => `<div><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div>
       <p class="tips"><b>Fighting:</b> reel while the fish rests or turns, and STOP reeling when it runs - cranking against a running fish twists the line until it snaps. When it runs, line peels off at your drag setting. If tension goes past the line's breaking strength it snaps, so keep drag below it. Reel when the fish rests, pull the rod the opposite way to the fish (A/D) to tire it faster, and don't give it slack or it can throw the hook. When it jumps, ease off the drag. Get a tired fish next to the boat to land it.</p>
       <p class="tips"><b>Finding fish:</b> diving gulls and bait balls mark hotspots; dawn and dusk bite best. Match the lure to what the fish eats and to its depth. Active lures need to be moving (reel or troll).</p>
@@ -428,6 +500,7 @@ export class UI {
       case 'releaseone': g.releaseFish(d.id); this.render(); break;
       case 'sellhaul': this.forceClose(); g.sellHaul(this.haul); break;
       case 'go': this.open(d.id); break;
+      case 'sv-save': case 'sv-load': case 'sv-del': case 'sv-export': case 'sv-import': this.saveAction(act, d.n); break;
       case 'enter': g.enterTournament(d.id); this.forceClose(); break;
       case 'reset': {
         // two clicks: the first arms it

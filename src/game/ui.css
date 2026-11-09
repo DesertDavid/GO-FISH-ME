@@ -227,3 +227,19 @@ table.well td.b .btn { padding: 4px 10px; font-size: 12px; margin-left: 4px; }
 .chart-side .legend .k { display: inline-block; width: 10px; height: 10px; margin-right: 5px; background: var(--text); clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%); }
 .chart-side .legend .k.you { background: var(--amber); clip-path: circle(50%); }
 @media (max-width: 760px) { .chart { grid-template-columns: 1fr; } }
+
+/* ---- save / load */
+.sv { max-width: 900px; }
+.sv-row { display: grid; grid-template-columns: 96px 1fr 150px auto; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.sv-name { font: 700 13px var(--font); color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+.sv-row.live .sv-name { color: var(--accent); }
+.sv-row.dim { opacity: 0.8; }
+.sv-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sv-main b { font: 600 17px var(--font); }
+.sv-main span { color: var(--dim); font-size: 13px; }
+.sv-main .empty { color: var(--faint); font-size: 15px; }
+.sv-time { display: flex; flex-direction: column; text-align: right; color: var(--dim); font-size: 13px; }
+.sv-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.sv-btns .btn { padding: 5px 11px; font-size: 13px; min-width: 56px; }
+.sv-msg { min-height: 22px; margin-top: 12px; color: var(--accent); font-size: 14px; font-weight: 600; }
+.sv-msg.bad { color: #ff8a7a; }

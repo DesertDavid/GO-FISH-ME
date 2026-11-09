@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { LOC } from './current.js';
 import { findStart, LOCATIONS } from './locations.js';
-import { loadSave, writeSave, logCatch, resetSave } from './save.js';
+import { loadSave, writeSave, logCatch, resetSave, readRaw } from './save.js';
+import { autoBackup, diskBackup, migrateSaves } from './saveSlots.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 import { PlayerBoat } from './boats.js';
@@ -38,6 +39,8 @@ export class Game {
   constructor(engine) {
     this.e = engine;
     this.loc = LOC;
+    this.freshStart = readRaw() === null;
+    migrateSaves();
     this.save = loadSave();
     this.save = { ...this.save, location: LOC.id };
     if (!this.save.unlocked.includes(LOC.id)) this.save = { ...this.save, unlocked: [...this.save.unlocked, LOC.id] };
@@ -106,6 +109,7 @@ export class Game {
     progress(1, 'Ready');
     this.ui.ready();
     this.ui.lookHint(this.settings.mouseLock);
+    if (this.freshStart) diskBackup().then((b) => { if (b) this.ui.toast('A backup of earlier progress was found on disk - Esc > Save / Load to restore it.', 'info'); });
     if (!this.save.seenHelp) { this.ui.open('help'); this.commit({ seenHelp: true }); }
     this.ensureChallenges();
     this.ui.toast(`Welcome to ${this.loc.name}`, 'good');
@@ -377,6 +381,7 @@ export class Game {
       this.ui.toast('Midnight - new challenges are posted.', 'good');
     }
     this.save.hour = hour;
+    this.save.played = (this.save.played || 0) + dt;
     for (const k of ageWell(this.save.livewell, dt / 60)) {
       this.ui.toast(`The ${SPECIES_BY_ID[k.sp].name.toLowerCase()} in your livewell died. Sell soon - it's worth less now.`, 'bad');
     }
@@ -386,7 +391,7 @@ export class Game {
     if (this.sunTimer > (nearHorizon ? 2 : 15)) this.applySun();
     if (Math.floor(this.time) !== Math.floor(this.time - dt)) {
       this.ui.hud();
-      if (Math.floor(this.time) % 10 === 0) writeSave(this.save);
+      if (Math.floor(this.time) % 10 === 0) { writeSave(this.save); autoBackup(this.save); }
     }
     const showSonar = !this.foot && this.settings.sonar;
     this.sonar.c.style.display = showSonar ? '' : 'none';

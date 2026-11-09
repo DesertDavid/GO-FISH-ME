@@ -38,7 +38,7 @@ The user wants it to look great and never generic/"AI-made" (minimal marine-elec
   - `blender -b --factory-startup --python tools/blender/build_boats.py` -> `public/models/boats/`
   - `blender -b --factory-startup --python tools/blender/build_hands.py [-- --preview DIR]`
     -> `public/models/hands.glb`
-- Saves: localStorage `reelworld-save-v1`, settings `reelworld-settings-v1`.
+- Saves: localStorage `reelworld-save-v1` (the live autosave), `reelworld-slots-v1` (named slots), settings `reelworld-settings-v1`. `?loc=<id>` pages never write the autosave (`save.js` frozen flag).
 
 ## Git
 Repo DesertDavid/GO-FISH-ME, branch `main`, repo-local identity already set (keeps the
@@ -94,11 +94,12 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   gated in `ui.open`; toast says which dock and how far). Water with no docks (offshore) keeps the
   buyer boat and everything is available. Tackle box (T) stays available anywhere.
 - Compass bar (`game/compass.js`, canvas `#compass`, top centre): heading tape read from the camera (0 = north = -z, same north as the Chart), 5 deg ticks, N/NE/... labels, numeric readout + cardinal. Waypoints are per location in `save.waypoints[locId]` (max 12): `Z` drops one at your position, `Shift+Z` clears all, clicking the Chart sets one (on a dock marker = named after the dock) or removes one you click; the Chart side panel lists them. On the tape they show as amber diamonds with name + distance, edge-clamped arrows with distance when off the tape. Settings checkbox `compass` hides the bar.
+- Save / Load (Esc menu, `game/saveSlots.js` + `renderSaves` in ui.js): autosave row + 4 named slots, each showing place, money, day, waters, journal, play time (`save.played`, seconds) and last-saved time. Save (asks to overwrite), Load (asks, then freezes writes, installs the snapshot as `reelworld-save-v1` and reloads), Delete (asks), Export/Import of a versioned `.reelworld` JSON file (`{format:'reelworld-save',version:1,save}`, validated in `parseFile`/`sanitizeSave`, friendly error on a bad file; imports go into the chosen slot, then Load it). First run copies an existing autosave into slot 1 (autosave itself untouched). Disk backup: dev-server middleware in `vite.config.js` (`/__reelworld/backup/<autosave|slot-N>`, localhost only, fixed names) writes `%LOCALAPPDATA%\ReelWorld\saves` (other ports: `saves-<port>`, or `REELWORLD_SAVES_DIR`); autosave copy once a minute; a fresh browser profile shows a "Disk backup" Restore row and a toast. No key; Controls help mentions the Esc menu entry.
 
 ## Known gaps / ideas
 - No angler body when walking in third person.
 - Net hauls still sell instantly (not through the livewell).
-- Saves from Firefox don't carry into the new Edge app window (could add export/import).
+- Saves from Firefox don't carry into the Edge app window automatically: use Esc > Save / Load > Export, then Import in the other browser.
 - `public/models/hands.glb` is ~2.9 MB (could be Draco/meshopt compressed).
 
 ## Next (proposed)

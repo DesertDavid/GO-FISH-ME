@@ -21,6 +21,7 @@ export const DEFAULT_SAVE = Object.freeze({
   livewell: [],      // kept fish: { id, sp, morph, lb, health, iced }
   waypoints: {},     // { locationId: [{ id, x, z, name }] }
   market: null,     // { day, loc, sold: { speciesId: count } }
+  played: 0,        // seconds of play time
 });
 
 export function loadSave() {
@@ -35,7 +36,18 @@ export function loadSave() {
   }
 }
 
+// frozen = never write the autosave: while loading another save, and on ?loc=<id> preview pages
+let frozen = typeof location !== 'undefined' && new URLSearchParams(location.search).has('loc');
+export function freezeSaves() { frozen = true; }
+export function writeRaw(save) {
+  try { localStorage.setItem(KEY, JSON.stringify(save)); return true; } catch { return false; }
+}
+export function readRaw() {
+  try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+
 export function writeSave(save) {
+  if (frozen) return;
   try {
     localStorage.setItem(KEY, JSON.stringify(save));
   } catch (err) {
