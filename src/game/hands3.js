@@ -8,7 +8,8 @@ import { loadJelly, Jelly, rodHandTargets } from './jelly.js';
 const FP_SCALE = 1.0;           // same size as the model; shoulders are far apart and low so the arms come up from the bottom corners
 const SHOULDER_DROP = 0.30;     // shoulders sit this far under the eye (camera space)
 const SHOULDER_BACK = -0.06;
-const CLOSER_R = 0.022, CLOSER_L = 0.016;
+const SIDE_R = 0.044, CLOSER_L = 0.028;
+const _ax = new THREE.Vector3(), _cq2 = new THREE.Quaternion();
 const _cq = new THREE.Quaternion(), _rq = new THREE.Quaternion(), _y = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 const _v = new THREE.Vector3(), _R = new THREE.Vector3(), _L = new THREE.Vector3(), _po = new THREE.Vector3();
 
@@ -55,8 +56,11 @@ export class Hands3 {
     J.root.position.copy(_v).addScaledVector(_po.set(0, 1.15 * FP_SCALE, 0).applyQuaternion(_rq), -1);
     J.root.updateMatrixWorld(true);
     rodHandTargets(rod, _R, _L);
-    // gloves sit a little toward the eye so the grip and the knob pass through the near side of each ball instead of hiding it
-    _R.addScaledVector(_v.copy(camera.position).sub(_R).normalize(), CLOSER_R);
+    // the balls press against the grip and the knob from the eye's side (not centred on them), so the rod no longer runs through the glove:
+    // the right ball sits beside the grip with the grip slightly dented into it, the left just off the crank knob
+    _ax.set(0, 0, 1).applyQuaternion(rod.handle.getWorldQuaternion(_cq2));
+    _v.copy(camera.position).sub(_R); _v.addScaledVector(_ax, -_v.dot(_ax)).normalize();
+    _R.addScaledVector(_v, SIDE_R);
     _L.addScaledVector(_v.copy(camera.position).sub(_L).normalize(), CLOSER_L);
     // elbows bend outward and down (camera space)
     J.solveArm('R', _R, _po.set(0.55, -1, 0.35).applyQuaternion(_cq));
