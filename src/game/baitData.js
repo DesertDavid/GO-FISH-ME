@@ -89,6 +89,11 @@ export const BODY_KIND = {
   parrot: { dough: 1.3, live: 0.6, jig: 0.5, crank: 0.2, popper: 0.2, skirt: 0.1 },
   cobia: { live: 1.6, jig: 1.4, swimbait: 1.3, bucktail: 1.3, strip: 1.1, popper: 1.0, skirt: 1.0, crank: 0.6, dough: 0.1 },
   swordfish: { strip: 1.6, live: 1.4, skirt: 0.9, cut: 0.6, jig: 0.2, crank: 0.1, popper: 0.05 },
+  wrasse: { cut: 1.5, live: 1.3, jig: 1.1, strip: 1.1, diamond: 0.8, crank: 0.3, spinner: 0.2, popper: 0.2, dough: 0.2, skirt: 0.2 },
+  knife: { live: 1.5, popper: 1.1, swimbait: 1.2, spinner: 1.0, crank: 0.9, fly: 0.8, cut: 0.9, dough: 0.1 },
+  elephant: { worm: 1.6, live: 1.1, dough: 0.9, cut: 0.9, crank: 0.15, spinner: 0.2, popper: 0.1, fly: 0.2, skirt: 0.1 },
+  sucker: { worm: 1.6, dough: 1.4, live: 1.2, cut: 0.7, crank: 0.2, spinner: 0.25, popper: 0.1, fly: 0.4, skirt: 0.1, jig: 0.5 },
+  ray: { cut: 1.6, live: 1.3, strip: 1.2, jig: 1.0, bucktail: 0.9, crank: 0.15, spinner: 0.1, popper: 0.1, fly: 0.1, skirt: 0.1, dough: 0.05 },
 };
 
 // time-of-day weights [dawn, day, dusk, night] per body family (default: flat-ish)
@@ -99,11 +104,11 @@ export const BODY_TIME = {
   tuna: [0.9, 1, 0.8, 0.25], billfish: [0.8, 1, 0.8, 0.2], mahi: [0.8, 1, 0.8, 0.2], mackerel: [1, 1, 0.8, 0.25], jack: [1, 0.9, 1, 0.35],
   barracuda: [0.9, 1, 0.8, 0.3], tarpon: [0.85, 0.75, 1, 0.85], snook: [0.9, 0.55, 1, 0.95], drum: [0.9, 0.6, 1, 0.8],
   snapper: [0.8, 0.55, 1, 0.9], grouper: [0.8, 0.8, 1, 0.8], flat: [0.8, 0.55, 0.9, 0.9], cod: [0.8, 0.9, 0.8, 0.7], bonefish: [0.8, 1, 0.8, 0.15],
-  herring: [0.9, 1, 0.9, 0.5], piranha: [0.8, 1, 0.8, 0.4], arowana: [0.9, 0.7, 1, 0.5], swordfish: [0.2, 0.15, 0.7, 1],
+  herring: [0.9, 1, 0.9, 0.5], wrasse: [0.8, 1, 0.9, 0.3], sucker: [0.7, 0.7, 1, 0.8], knife: [0.5, 0.4, 0.9, 1], ray: [0.8, 0.8, 0.9, 0.9], elephant: [0.6, 0.5, 0.9, 1], piranha: [0.8, 1, 0.8, 0.4], arowana: [0.9, 0.7, 1, 0.5], swordfish: [0.2, 0.15, 0.7, 1],
 };
 export const TIME_DEFAULT = [0.9, 0.8, 0.9, 0.5];
 // species that feed mostly after dark (forced to this time profile on top of the family value)
-export const NIGHT_FEEDERS = ['channelcat', 'bluecat', 'flathead', 'walleye', 'sauger', 'burbot', 'redtail', 'piraiba', 'snook', 'tarpon', 'mangrovesnapper', 'swordfish', 'lemonshark', 'blacktip', 'nurseshark', 'tigershark', 'ling', 'wolffish', 'sablefish', 'pacifichalibut', 'barramundi', 'mangrovejack', 'trairao'];
+export const NIGHT_FEEDERS = ['channelcat', 'bluecat', 'flathead', 'walleye', 'sauger', 'burbot', 'redtail', 'piraiba', 'snook', 'tarpon', 'mangrovesnapper', 'swordfish', 'lemonshark', 'blacktip', 'nurseshark', 'tigershark', 'ling', 'wolffish', 'sablefish', 'pacifichalibut', 'barramundi', 'mangrovejack', 'trairao', 'surubim', 'wallago', 'featherback', 'greenland', 'americaneel', 'bottlenose', 'tautog', 'hogfish'];
 export const NIGHT_PROFILE = [0.6, 0.35, 0.9, 1];
 
 // weather weights [clear, partly, overcast, rain, storm] per body family (storm is bad for nearly everyone)
@@ -168,4 +173,26 @@ export const OVERRIDES = {
   tigerfish: { kind: { spinner: 1.5, spoon: 1.4, crank: 1.3 } },
   yellowtail: { kind: { diamond: 1.5, popper: 1.3, live: 1.4 } },
   atlsalmon: { kind: { fly: 1.6, spinner: 1.3 } },
+  pink: { kind: { spoon: 1.6, spinner: 1.5, fly: 1.2 }, dep: [0.5, 4] },
+  bulltrout: { kind: { spoon: 1.5, swimbait: 1.4, jig: 1.2 }, dep: [3, 9] },
+  dollyvarden: { kind: { fly: 1.5, spinner: 1.5, spoon: 1.3 } },
+  lingcod: { kind: { jig: 1.7, swimbait: 1.4, live: 1.4 } },
+  yelloweye: { kind: { jig: 1.6, cut: 1.3, diamond: 1.4 } },
+  greenland: { kind: { cut: 2.0, strip: 1.2 }, wx: [1, 1, 1, 0.9, 0.5] },
+  tusk: { kind: { jig: 1.4, cut: 1.5, strip: 1.3 } },
+  triggerfish: { kind: { cut: 1.4, live: 1.3, jig: 1.0 } },
+  bonito: { kind: { spoon: 1.7, diamond: 1.5, skirt: 1.3, popper: 1.1 }, dep: [0.3, 3] },
+  maori: { kind: { cut: 1.6, live: 1.4 } },
+  longtail: { kind: { skirt: 1.9, popper: 1.4, diamond: 1.3 }, dep: [0.3, 3] },
+  tautog: { kind: { cut: 1.8, live: 1.4, jig: 1.2 } },
+  weakfish: { kind: { jig: 1.5, live: 1.4, spoon: 1.2, swimbait: 1.2 } },
+  ladyfish: { kind: { fly: 1.6, spinner: 1.5, spoon: 1.3, popper: 1.2 }, dep: [0.2, 2] },
+  hogfish: { kind: { cut: 1.7, live: 1.3 } },
+  tambaqui: { kind: { dough: 1.7, live: 0.9, worm: 0.8, crank: 0.3 } },
+  surubim: { kind: { live: 1.7, cut: 1.5, swimbait: 1.0 } },
+  oscar: { kind: { worm: 1.4, spinner: 1.3, fly: 1.2, jig: 1.2, crank: 1.1 } },
+  hampala: { kind: { spinner: 1.5, crank: 1.4, spoon: 1.3, swimbait: 1.2 } },
+  giantsalmoncarp: { kind: { swimbait: 1.5, spoon: 1.4, spinner: 1.3 }, dep: [0.3, 2.5] },
+  silvercarp: { kind: { dough: 1.3, worm: 0.7, live: 0.5 } },
+  nkupe: { kind: { dough: 1.6, worm: 1.0 } },
 };

@@ -45,7 +45,7 @@ export const LOCATIONS = {
       const land = sm(-40, 60, coast);
       return h + (0.8 + coast * 0.004 + 1.2 * fbm(x * 0.02, z * 0.02, 3, 4) - h) * land;
     },
-    pool: { largemouth: 30, bluegill: 22, redear: 10, blackcrappie: 10, channelcat: 8, bluecat: 3, flathead: 2, bowfin: 5, longnosegar: 4, tilapia: 6, pickerel: 3, pumpkinseed: 5, spotted: 2, carp: 2, alligatorgar: 0.5 },
+    pool: { largemouth: 30, bluegill: 22, redear: 10, blackcrappie: 10, channelcat: 8, bluecat: 3, flathead: 2, bowfin: 5, longnosegar: 4, tilapia: 6, pickerel: 3, pumpkinseed: 5, spotted: 2, carp: 2, alligatorgar: 0.5, warmouth: 5, floridagar: 5, oscar: 3, americaneel: 1.5 },
     net: null,
   },
   woods: {
@@ -60,7 +60,7 @@ export const LOCATIONS = {
       if (n < 0.08) return -1.2 - 15 * sm(0.07, -0.3, n);
       return 0.4 + Math.min(14, (n - 0.08) * 70) + 3 * ridged(x * 0.02, z * 0.02, 3, 6) * sm(0.1, 0.25, n);
     },
-    pool: { walleye: 25, pike: 18, smallmouth: 14, yellowperch: 18, muskie: 3, blackcrappie: 7, lakesturgeon: 2, whitefish: 6, burbot: 3, laketrout: 2 },
+    pool: { walleye: 25, pike: 18, smallmouth: 14, yellowperch: 18, muskie: 3, blackcrappie: 7, lakesturgeon: 2, whitefish: 6, burbot: 3, laketrout: 2, redhorse: 6, rockbass: 7, cisco: 6 },
     net: null,
   },
   tahoe: {
@@ -76,7 +76,7 @@ export const LOCATIONS = {
       const m = sm(R + 60, R + 1000, r);
       return 0.5 + (r - R) * 0.12 + m * 520 * (0.55 + 0.7 * ridged(x * 0.0022, z * 0.0022, 5, 9));
     },
-    pool: { laketrout: 25, rainbow: 20, brown: 15, kokanee: 20, cutthroat: 6, smallmouth: 8, whitefish: 6 },
+    pool: { laketrout: 25, rainbow: 20, brown: 15, kokanee: 20, cutthroat: 6, smallmouth: 8, whitefish: 6, tahoesucker: 6 },
     net: null,
   },
   columbia: {
@@ -90,7 +90,7 @@ export const LOCATIONS = {
       if (d < W) return -1 - 15 * (1 - (d / W) ** 2) + 1.5 * fbm(x * 0.03, z * 0.03, 2, 2);
       return (d - W) * 0.1 + 260 * sm(W + 120, W + 650, d) * (0.6 + 0.6 * ridged(x * 0.003, z * 0.003, 5, 2));
     },
-    pool: { chinook: 18, coho: 12, steelhead: 14, whitesturgeon: 6, shad: 14, walleye: 10, smallmouth: 12, channelcat: 4, sockeye: 6 },
+    pool: { chinook: 18, coho: 12, steelhead: 14, whitesturgeon: 6, shad: 14, walleye: 10, smallmouth: 12, channelcat: 4, sockeye: 6, pink: 8, bulltrout: 3, pikeminnow: 9, redhorse: 4 },
     net: null,
   },
   amazon: {
@@ -104,7 +104,7 @@ export const LOCATIONS = {
       if (d < W) return -1 - 11 * (1 - (d / W) ** 2);
       return 1.2 + (d - W) * 0.012 + 2.2 * fbm(x * 0.01, z * 0.01, 3, 5);
     },
-    pool: { peacock: 22, piranha: 22, pacu: 8, payara: 6, redtail: 8, piraiba: 2, arowana: 10, arapaima: 4, trairao: 10 },
+    pool: { peacock: 22, piranha: 22, pacu: 8, payara: 6, redtail: 8, piraiba: 2, arowana: 10, arapaima: 4, trairao: 10, tambaqui: 8, surubim: 6, oscar: 8 },
     net: null,
   },
   keys: {
@@ -120,7 +120,7 @@ export const LOCATIONS = {
       const isl = sm(0.2, 0.3, m) * sm(150, 300, Math.hypot(x, z));
       return h + (0.5 + (m - 0.2) * 8 - h) * isl;
     },
-    pool: { bonefish: 14, tarpon: 8, permit: 5, redfish: 12, snook: 10, seatrout: 12, barracuda: 10, crevalle: 8, mangrovesnapper: 10, muttonsnapper: 4, sheepshead: 6, lemonshark: 3, blacktip: 3, nurseshark: 2, cobia: 2, flounder: 4 },
+    pool: { bonefish: 14, tarpon: 8, permit: 5, redfish: 12, snook: 10, seatrout: 12, barracuda: 10, crevalle: 8, mangrovesnapper: 10, muttonsnapper: 4, sheepshead: 6, lemonshark: 3, blacktip: 3, nurseshark: 2, cobia: 2, flounder: 4, ladyfish: 8, hogfish: 4, southernray: 5, angelfish: 3, triggerfish: 4 },
     net: { menhaden: 50, sardine: 25, anchovy: 20, mangrovesnapper: 3, seatrout: 2 },
   },
   gulf: {
@@ -128,7 +128,7 @@ export const LOCATIONS = {
     blurb: 'Blue water around the oil rigs: tuna, mahi, wahoo and blue marlin.',
     wind: 8, fetch: 300, swell: 0.5, waterLook: WATER.deepBlue, sky: { turbidity: 2.2, clouds: 0.35 }, fog: 1 / 30000, rig: true,
     height: () => -300,
-    pool: { yellowfin: 12, blackfin: 12, mahi: 16, wahoo: 7, kingmackerel: 12, redsnapper: 12, amberjack: 8, gag: 6, redgrouper: 6, sailfish: 4, bluemarlin: 1.5, whitemarlin: 2, swordfish: 1.5, mako: 1.5, hammerhead: 1, tigershark: 1, skipjack: 10, cobia: 4, goliath: 1, bluefin: 0.4 },
+    pool: { yellowfin: 12, blackfin: 12, mahi: 16, wahoo: 7, kingmackerel: 12, redsnapper: 12, amberjack: 8, gag: 6, redgrouper: 6, sailfish: 4, bluemarlin: 1.5, whitemarlin: 2, swordfish: 1.5, mako: 1.5, hammerhead: 1, tigershark: 1, skipjack: 10, cobia: 4, goliath: 1, bluefin: 0.4, triggerfish: 8, redporgy: 8, angelfish: 3 },
     net: { menhaden: 45, sardine: 20, anchovy: 20, skipjack: 8, redsnapper: 4, kingmackerel: 3 },
   },
   reef: {
@@ -138,8 +138,8 @@ export const LOCATIONS = {
     trees: [['palm', 700, 1.5, 40]],
     height: tropicalIsland,
     start: { x: 520, z: -420, yaw: 2.4 },
-    pool: { coraltrout: 14, gt: 8, redemperor: 10, sweetlips: 10, barramundi: 6, mangrovejack: 8, queenfish: 8, dogtooth: 3, parrotfish: 10, spangled: 10, spanishmackerel: 8, blackmarlin_r: 1.5, blacktip: 4, tigershark: 1, mahi: 4 },
-    net: { sardine: 50, anchovy: 35, spanishmackerel: 5, queenfish: 5 },
+    pool: { coraltrout: 14, gt: 8, redemperor: 10, sweetlips: 10, barramundi: 6, mangrovejack: 8, queenfish: 8, dogtooth: 3, parrotfish: 10, spangled: 10, spanishmackerel: 8, blackmarlin_r: 1.5, blacktip: 4, tigershark: 1, mahi: 4, maori: 1.5, longtail: 6 },
+    net: { sardine: 50, anchovy: 35, spanishmackerel: 5, queenfish: 5, longtail: 3 },
   },
   fjord: {
     ...base, id: 'fjord', name: 'Lofoten Fjords', region: 'Nordland, Norway', water: 'offshore', price: 12000, size: 4400,
@@ -152,7 +152,7 @@ export const LOCATIONS = {
       if (d < W) return -6 - 80 * (1 - (d / W) ** 1.6);
       return (d - W) * 0.9 + 560 * sm(W + 40, W + 600, d) * (0.55 + 0.75 * ridged(x * 0.0025, z * 0.0025, 5, 13));
     },
-    pool: { cod: 28, saithe: 20, haddock: 14, halibut: 4, ling: 8, wolffish: 6, atlsalmon: 5, mackerel: 14, monkfish: 4, porbeagle: 1, goldenredfish: 6 },
+    pool: { cod: 28, saithe: 20, haddock: 14, halibut: 4, ling: 8, wolffish: 6, atlsalmon: 5, mackerel: 14, monkfish: 4, porbeagle: 1, goldenredfish: 6, greenland: 1.2, tusk: 6 },
     net: { herring: 40, mackerel: 25, cod: 15, saithe: 10, haddock: 10, capelin: 15 },
   },
   bering: {
@@ -160,7 +160,7 @@ export const LOCATIONS = {
     blurb: 'Big seas, cold spray and the richest fishing grounds on Earth.',
     wind: 12, fetch: 600, swell: 1.2, swellDir: 40, chop: 1, waterLook: WATER.northSea, sky: { turbidity: 3.5, clouds: 0.88 }, fog: 1 / 8000,
     height: () => -200,
-    pool: { pacificcod: 25, pacifichalibut: 12, sablefish: 10, chum: 10, alaskapollock: 20, chinook: 6, coho: 6, pacificherring: 6 },
+    pool: { pacificcod: 25, pacifichalibut: 12, sablefish: 10, chum: 10, alaskapollock: 20, chinook: 6, coho: 6, pacificherring: 6, dollyvarden: 6, lingcod: 6, yelloweye: 4, pink: 5 },
     net: { alaskapollock: 40, pacificherring: 25, pacificcod: 15, capelin: 15, sablefish: 5, chum: 5 },
   },
   chesapeake: {
@@ -184,8 +184,8 @@ export const LOCATIONS = {
       const r = Math.hypot(x - 380, z + 700) * (1 + 0.4 * fbm(x * 0.008, z * 0.008, 2, 9));
       return h + (0.6 + 1.5 * sm(130, 40, r) - h) * sm(240, 130, r);
     },
-    pool: { stripedbass: 24, bluefish: 14, croaker: 16, spotcroaker: 12, whiteperch: 14, seatrout: 8, summerflounder: 8, blackdrum: 5, redfish: 5, cobia: 2, bluecat: 3, channelcat: 3 },
-    net: { menhaden: 55, spotcroaker: 15, croaker: 12, shad: 10, bluefish: 4, stripedbass: 2 },
+    pool: { stripedbass: 24, bluefish: 14, croaker: 16, spotcroaker: 12, whiteperch: 14, seatrout: 8, summerflounder: 8, blackdrum: 5, redfish: 5, cobia: 2, bluecat: 3, channelcat: 3, scup: 10, tautog: 6, americaneel: 4, weakfish: 8 },
+    net: { menhaden: 55, spotcroaker: 15, croaker: 12, shad: 10, bluefish: 4, stripedbass: 2, scup: 6 },
   },
   mekong: {
     ...base, id: 'mekong', name: 'Mekong River', region: 'Si Phan Don, Laos', water: 'river', price: 8000, size: 3600,
@@ -203,7 +203,7 @@ export const LOCATIONS = {
       }
       return 1.1 + (d - W) * 0.012 + 2.2 * fbm(x * 0.01, z * 0.01, 3, 5);
     },
-    pool: { stripedcatfish: 18, giantsnakehead: 12, soldierbarb: 16, giantgourami: 10, julliensbarb: 8, siamesecarp: 4, mekongcat: 1.5, tilapia: 8 },
+    pool: { stripedcatfish: 18, giantsnakehead: 12, soldierbarb: 16, giantgourami: 10, julliensbarb: 8, siamesecarp: 4, mekongcat: 1.5, tilapia: 8, wallago: 6, featherback: 5, hampala: 8, giantsalmoncarp: 1, silvercarp: 5 },
     net: null,
   },
   kariba: {
@@ -218,7 +218,7 @@ export const LOCATIONS = {
       if (n < 0.1) return -0.6 - 30 * sm(0.1, -0.4, n) ** 1.3;
       return 0.6 + (n - 0.1) * 45 + 110 * sm(0.16, 0.5, n) * (0.45 + 0.7 * ridged(x * 0.004, z * 0.004, 4, 3));
     },
-    pool: { tigerfish: 22, threespot: 16, karibatilapia: 14, sharptooth: 12, nembwe: 10, vundu: 5 },
+    pool: { tigerfish: 22, threespot: 16, karibatilapia: 14, sharptooth: 12, nembwe: 10, vundu: 5, nkupe: 8, bottlenose: 6, kapenta: 4 },
     net: null,
   },
   cabo: {
@@ -244,8 +244,8 @@ export const LOCATIONS = {
       }
       return h;
     },
-    pool: { stripedmarlin: 6, bluemarlin: 1, blackmarlin: 0.8, sailfish: 3, mahi: 14, yellowfin: 10, wahoo: 6, skipjack: 8, roosterfish: 8, sierra: 12, yellowtail: 10, pargo: 8, cabrilla: 8, mako: 1 },
-    net: { sardine: 50, anchovy: 28, skipjack: 10, sierra: 6, yellowtail: 3 },
+    pool: { stripedmarlin: 6, bluemarlin: 1, blackmarlin: 0.8, sailfish: 3, mahi: 14, yellowfin: 10, wahoo: 6, skipjack: 8, roosterfish: 8, sierra: 12, yellowtail: 10, pargo: 8, cabrilla: 8, mako: 1, bonito: 10 },
+    net: { sardine: 50, anchovy: 28, skipjack: 10, sierra: 6, yellowtail: 3, bonito: 6 },
   },
 };
 

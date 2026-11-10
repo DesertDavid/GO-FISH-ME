@@ -328,3 +328,5 @@ table.well td.b .btn { padding: 4px 10px; font-size: 12px; margin-left: 4px; }
 .pill.on { background: var(--amber); color: #1a1408; }
 .yard-side .actions { margin-top: 6px; }
 @media (max-width: 860px) { .yard { grid-template-columns: 1fr; } }
+.sp-row .sp-note { grid-column: 1 / -1; margin-top: 6px; font-size: 12px; line-height: 1.45; color: var(--dim); }
+.sp-row .sp-note i { color: var(--faint); }

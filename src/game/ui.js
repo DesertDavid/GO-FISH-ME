@@ -684,7 +684,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     const rows = ids.map((id) => {
       const sp = SPECIES_BY_ID[id], e = s.journal[id];
       const chips = MORPHS.map((m) => `<span class="chip" title="${m.name}" style="background:${e?.morphs[m.id] ? MORPH_COLORS[m.id] : 'rgba(255,255,255,0.05)'}"></span>`).join('');
-      return `<div class="sp-row ${e ? '' : 'unknown'}"><span class="nm">${e ? esc(sp.name) : '???'}</span><span class="meta">${e ? `${e.caught} caught · best ${lbs(e.best)}` : `record ${lbs(sp.lb[2])}`}</span><div class="chips">${chips}</div>${e ? this.hintHtml(sp, e) : ''}</div>`;
+      return `<div class="sp-row ${e ? '' : 'unknown'}"><span class="nm">${e ? esc(sp.name) : '???'}</span><span class="meta">${e ? `${e.caught} caught · best ${lbs(e.best)}` : `record ${lbs(sp.lb[2])}`}</span><div class="chips">${chips}</div>${e ? this.hintHtml(sp, e) : ''}${e && sp.note ? `<div class="sp-note"><i>${esc(sp.sci)}</i> · ${esc(sp.fam)}<br>${esc(sp.note)}</div>` : ''}</div>`;
     }).join('');
     const species = Object.keys(s.journal).length;
     const tabs = [[this.g.loc.id, 'Here'], ...LOCATION_ORDER.filter((l) => l !== this.g.loc.id).map((l) => [l, LOCATIONS[l].name]), ['all', 'All species']];

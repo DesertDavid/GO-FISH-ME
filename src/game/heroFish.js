@@ -7,11 +7,16 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 // tools/assets/manifest.json; credits live in public/credits.md. buildFish() uses a hero model when it is
 // loaded and falls back to the procedural body otherwise, so nothing waits on the download.
 export const HERO_MODELS = {
-  tuna: { file: 'fish/tuna.glb', species: ['yellowfin', 'blackfin', 'bluefin', 'skipjack', 'dogtooth'], tint: 0.18, tints: { bluefin: 0.8, blackfin: 0.65, skipjack: 0.7, dogtooth: 0.7 } },
+  tuna: { file: 'fish/tuna.glb', species: ['yellowfin', 'blackfin', 'bluefin', 'skipjack', 'dogtooth', 'longtail'], tint: 0.18, tints: { bluefin: 0.8, blackfin: 0.65, skipjack: 0.7, dogtooth: 0.7, longtail: 0.7 } },
   swordfish: { file: 'fish/swordfish.glb', species: ['swordfish'], tint: 0.12 },
   shark: { file: 'fish/shark.glb', species: ['mako', 'porbeagle', 'blacktip', 'lemonshark'], tint: 0.6 },
   tigershark: { file: 'fish/tigershark.glb', species: ['tigershark'], tint: 0 },
   carp: { file: 'fish/carp.glb', species: ['carp', 'siamesecarp', 'grasscarp'], tint: 0.08, tints: { grasscarp: 0.55, siamesecarp: 0.4 } },
+  bream: { file: 'fish/bream.glb', species: ['redporgy'], tint: 0.3 },
+  redhorse: { file: 'fish/redhorse.glb', species: ['redhorse'], tint: 0.1 },
+  silvercarp: { file: 'fish/silverfish.glb', species: ['silvercarp'], tint: 0.1 },
+  angelfish: { file: 'fish/coralfish.glb', species: ['angelfish'], tint: 0 },
+  ray: { file: 'fish/ray.glb', species: ['southernray'], tint: 0.5 },
   barramundi: { file: 'fish/barramundi.glb', species: ['barramundi'], tint: 0.1 },
   tilapia: { file: 'fish/tilapia.glb', species: ['tilapia', 'threespot', 'karibatilapia'], tint: 0.3, tints: { tilapia: 0.7, karibatilapia: 0.5 } },
   perch: { file: 'fish/bass.glb', species: ['yellowperch', 'sauger'], tint: 0.1 },

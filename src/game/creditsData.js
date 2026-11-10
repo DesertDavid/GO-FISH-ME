@@ -188,5 +188,33 @@ export const MODEL_CREDITS = [
     "url": "https://sketchfab.com/3d-models/eastern-blue-bird-c646531de6a3494faeaf2d3ce91b9dd2",
     "license": "CC-BY-4.0",
     "category": "wildlife"
+  },
+  {
+    "title": "Bream Fish ( Dorade Royale)",
+    "author": "BlueMesh",
+    "url": "https://sketchfab.com/3d-models/bream-fish-dorade-royale-a3d0e1a597794a9bb74739a13cfc8b77",
+    "license": "CC-BY-4.0",
+    "category": "fish"
+  },
+  {
+    "title": "Smallmouth Red Horse Fish",
+    "author": "rkaundinya",
+    "url": "https://sketchfab.com/3d-models/smallmouth-red-horse-fish-09b4c42be7f148c7996bc68347f719c3",
+    "license": "CC-BY-4.0",
+    "category": "fish"
+  },
+  {
+    "title": "Silver Fish",
+    "author": "Šimon Ustal",
+    "url": "https://sketchfab.com/3d-models/silver-fish-6da1c8fa1b574f6c8a531ef829dd7740",
+    "license": "CC-BY-4.0",
+    "category": "fish"
+  },
+  {
+    "title": "coral fish",
+    "author": "polyplant3d",
+    "url": "https://sketchfab.com/3d-models/coral-fish-ea8d002da75a4dd09658b962722279c5",
+    "license": "CC-BY-4.0",
+    "category": "fish"
   }
 ];

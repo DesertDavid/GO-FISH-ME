@@ -37,6 +37,11 @@ export const BODIES = {
   eel: { H: 0.12, hp: 0.3, W: 0.09, blunt: 0.6, stalk: 0.45, tail: ['round', 0.12], dorsal: [[0.3, 0.97, 0.05, 'long']], anal: [[0.5, 0.97, 0.04, 'long']], pect: 0.06, cond: 0.0002, mouth: 0.09 },
   herring: { H: 0.2, hp: 0.4, W: 0.1, blunt: 0.72, stalk: 0.3, tail: ['fork', 0.26], dorsal: [[0.42, 0.55, 0.12, 'tri']], anal: [[0.75, 0.85, 0.05, 'tri']], pect: 0.07, cond: 0.0006, mouth: 0.06 },
   parrot: { H: 0.38, hp: 0.38, W: 0.15, blunt: 0.35, stalk: 0.35, tail: ['truncate', 0.22], dorsal: [[0.25, 0.75, 0.08, 'long']], anal: [[0.6, 0.78, 0.07, 'round']], pect: 0.11, cond: 0.0009, mouth: 0.04 },
+  wrasse: { H: 0.3, hp: 0.4, W: 0.14, blunt: 0.45, stalk: 0.3, tail: ['truncate', 0.2], dorsal: [[0.2, 0.75, 0.1, 'long']], anal: [[0.55, 0.75, 0.08, 'long']], pect: 0.12, cond: 0.0009, mouth: 0.1 },
+  knife: { H: 0.26, hp: 0.28, W: 0.08, blunt: 0.7, stalk: 0.04, tail: ['round', 0.05], dorsal: [[0.3, 0.38, 0.05, 'round']], anal: [[0.18, 0.97, 0.1, 'long']], pect: 0.07, cond: 0.0003, mouth: 0.08 },
+  elephant: { H: 0.2, hp: 0.38, W: 0.1, blunt: 0.5, stalk: 0.14, snout: 0.1, tail: ['fork', 0.22], dorsal: [[0.62, 0.8, 0.1, 'tri']], anal: [[0.52, 0.76, 0.1, 'tri']], pect: 0.07, cond: 0.0004, mouth: 0.03 },
+  sucker: { H: 0.2, hp: 0.4, W: 0.12, blunt: 0.7, stalk: 0.35, tail: ['fork', 0.24], dorsal: [[0.4, 0.55, 0.12, 'tri']], anal: [[0.72, 0.8, 0.07, 'tri']], pect: 0.09, cond: 0.0006, mouth: 0.04 },
+  ray: { H: 0.1, hp: 0.4, W: 0.5, blunt: 0.7, stalk: 0.2, tail: ['round', 0.05], dorsal: [], anal: [], pect: 0.06, cond: 0.0009, mouth: 0.04 },
   cobia: { H: 0.17, hp: 0.3, W: 0.16, blunt: 0.9, snout: 0.03, stalk: 0.3, tail: ['fork', 0.28], dorsal: [[0.25, 0.3, 0.04, 'spiny'], [0.4, 0.7, 0.1, 'sickle']], anal: [[0.55, 0.75, 0.08, 'sickle']], pect: 0.12, cond: 0.0004, mouth: 0.1, flatHead: 1 },
 };
 

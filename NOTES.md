@@ -197,6 +197,13 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   white-tailed deer (Okeechobee, Woods, Tahoe, Columbia, Chesapeake; posed idle loop, does not walk), eastern bluebird (Woods, Tahoe, Chesapeake). 1.8 MB. Rejected (non-commercial): hybrid duck, bird (deiby),
   dead monkey, deer NC, alpaca, love birds, tokay gecko, otter, moose demo, sheep; share-alike (not used, ask the user): polar bear, rigged hand. Unused for now: bream, silver fish, red horse, koi, school of fish,
   coral/tropical/red-finned fish, whales (Titom, b3s), whip snake, taipan, monkey, snapping turtle, great white pelican, dodo, the five spare 'Fish' packs and six fishing rods (no matching species or too heavy).
+- Species batch 3 (+38, now 183): see the `// ---- batch 3` block in `species.js` (each has `sci`, `fam`, `note`; the journal row shows them once caught). Added per water:
+  Columbia pink salmon, bull trout, pikeminnow, redhorse; Bering Dolly Varden, lingcod, yelloweye rockfish, pink salmon; Lofoten Greenland shark, tusk; Gulf gray triggerfish, red porgy, blue angelfish;
+  Keys ladyfish, hogfish, southern stingray, triggerfish, angelfish; Cabo Pacific bonito (net); Reef humphead wrasse, longtail tuna (net); Chesapeake scup (net), tautog, American eel, weakfish;
+  Tahoe Tahoe sucker; Woods redhorse, rock bass, cisco; Okeechobee warmouth, Florida gar, oscar, eel; Amazon tambaqui, surubim, oscar; Mekong wallago, giant featherback, hampala barb,
+  giant salmon carp, silver carp; Kariba nkupe, bottlenose mormyrid, kapenta. New bodies in `fishBodies.js`: wrasse, knife, elephant, sucker, ray (ray, red porgy, redhorse, silver carp, angelfish use real models).
+  Bait data: `BODY_KIND`/`BODY_TIME`/`OVERRIDES`/`NIGHT_FEEDERS` in `baitData.js`. Contact sheet: `docs/new-species-contact-sheet.png`. Not added: taimen (not a Mekong fish; Siberian), koi, surgeonfish and
+  red-finned fish models (broken pose / alpha-card fins), dolphins/whales as catchable (rule still undecided).
 
 ## Known gaps / ideas
 - Sea turtles / hermit crabs requested by the user (Sketchfab links), not done: needs the GLBs downloaded by the user or a procedural/Blender build.
