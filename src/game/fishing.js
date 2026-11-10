@@ -173,14 +173,17 @@ export class Fishing {
     }
   }
 
+  // metres of line a reel can still pay out straight down (its spool, minus what is already out sideways)
+  spoolRoom() { return Math.max(2, this.gear.reel.cap * 0.95 - this.lineOut); }
+
   targetDepth() {
     const c = this.ctx, { lure } = this.gear;
     const bottom = Math.max(0.3, -c.heightAt(this.lure.x, this.lure.z));
     if (lure.depth === 's') return 0.04;
-    if (lure.depth === 'b') return bottom - 0.15;
+    if (lure.depth === 'b') return Math.min(bottom - 0.15, this.spoolRoom());
     const base = Math.min(bottom * 0.65, lure.bobber ? 1.8 : 2.6 + (this.moving ? 1.2 : 0));
     // let it sink: a mid-water lure that is paused falls toward deeper fish (reel or move to bring it up)
-    return lure.bobber ? base : Math.min(Math.max(base, bottom - 0.3), base + Math.min(BAIT.sink.max, this.sinkT * BAIT.sink.rate));
+    return lure.bobber ? base : Math.min(Math.max(base, bottom - 0.3), base + Math.min(BAIT.sink.max, this.sinkT * BAIT.sink.rate), this.spoolRoom());
   }
 
   updateWater(dt, input) {
@@ -467,7 +470,8 @@ export class Fishing {
     const tired = f.stamina < 0.3 && f.behavior !== 'dive' && f.behavior !== 'sound';
     const thrash = tired || f.behavior === 'thrash';
     const wantDepth = f.behavior === 'dive' ? bottom * 0.85 : f.behavior === 'sound' ? bottom * FEEL.sound.depthFrac : thrash ? 0.12 : f.behavior === 'jump' ? 0.4 : Math.min(bottom * 0.6, 1.5 + f.lb * 0.02);
-    f.depth += THREE.MathUtils.clamp(wantDepth - f.depth, -2 * dt, 1.5 * dt);
+    // a fish can only go as deep as the spool allows (the line pays out sideways and down)
+    f.depth += THREE.MathUtils.clamp(Math.min(wantDepth, this.spoolRoom()) - f.depth, -2.5 * dt - f.depth * 0.02 * dt, 1.5 * dt);
     f.thrashT = (f.thrashT ?? 1) - dt;
     if (thrash && f.depth < 0.4 && f.thrashT <= 0) {
       const [lo, hi] = FEEL.thrash.splashEvery;
