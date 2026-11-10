@@ -1019,7 +1019,7 @@ export class Game {
     if (at && at.dock.profile.services.includes('boats')) return true;
     if (!quiet) {
       const sh = this.docks.list.find((d) => d.profile.services.includes('boats'));
-      this.ui.toast(sh ? 'The trophy room is beside the marina office. Press C for the chart.' : 'There is no trophy room on this water.', 'info');
+      this.ui.toast(sh ? (this.hall ? 'The trophy room is beside the marina office. Press C for the chart.' : 'The trophy room is at the marina office or dock. Press C for the chart.') : 'There is no trophy room on this water.', 'info');
     }
     return false;
   }
@@ -1377,9 +1377,10 @@ export class Game {
     if (this.fishing.busy()) { this.ui.toast('Reel in first.', 'info'); return; }
     if (this.net.state !== 'stowed') { this.ui.toast('Haul the net first.', 'info'); return; }
     const p = this.boat.position.clone(), yaw = this.boat.heading();
-    this.boat.dispose(this.e.floaters);
     this.commit({ boat: id });
+    const old = this.boat;   // build the new hull before the old one goes: frames keep running while it loads and must never see a boat without a body
     this.boat = await new PlayerBoat(id).create(this.e.floaters, this.patchProp, p, yaw, this.boatCust(id));
+    old.dispose(this.e.floaters);
     this.look.yaw = BOATS[id].face || 0;
     this.foot = null; this.moor = null;
     this.ui.toast(`Now running the ${BOATS[id].name}`, 'good');
