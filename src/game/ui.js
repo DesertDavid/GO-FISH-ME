@@ -200,13 +200,48 @@ export class UI {
     if (on) $('fpFish').textContent = 'Fish on';
   }
 
+  // line-tension instrument: a half-circle scale in tens of percent of the line's rating, needle, a red
+  // mark at the breaking strength and a small pointer where the drag is set (slip starts there)
+  drawDial(s) {
+    const cv = $('fpDial'), g = cv.getContext('2d'), W = cv.width, H = cv.height;
+    const cx = W / 2, cy = H - 14, R = H - 38, max = 1.25;
+    g.clearRect(0, 0, W, H);
+    const ang = (f) => Math.PI + Math.PI * Math.min(1, Math.max(0, f / max));
+    const load = s.tension / s.test;
+    const col = load > 1 ? '#ef6b57' : s.warn ? '#e9b25b' : '#f2efe8';
+    g.lineCap = 'butt';
+    // scale: 5% ticks, a long tick every 25%
+    for (let i = 0; i <= 25; i++) {
+      const f = i * 0.05, a = ang(f), long = i % 5 === 0, red = Math.abs(f - 1) < 0.01;
+      g.strokeStyle = red ? '#ef6b57' : f <= load ? col : 'rgba(242,239,232,0.7)';
+      g.lineWidth = red ? 5 : long ? 3 : 2;
+      const r0 = R - (long || red ? 16 : 9);
+      g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); g.stroke();
+    }
+    // the load, as a thin arc inside the ticks
+    g.strokeStyle = col; g.lineWidth = 3;
+    g.beginPath(); g.arc(cx, cy, R - 24, Math.PI, ang(load)); g.stroke();
+    // drag pointer (outside the scale)
+    const da = ang(s.drag / s.test), d0 = R + 4, d1 = R + 16;
+    g.fillStyle = s.slip > 0 ? '#e9b25b' : 'rgba(242,239,232,0.75)';
+    g.beginPath(); g.moveTo(cx + Math.cos(da) * d0, cy + Math.sin(da) * d0);
+    g.lineTo(cx + Math.cos(da - 0.045) * d1, cy + Math.sin(da - 0.045) * d1); g.lineTo(cx + Math.cos(da + 0.045) * d1, cy + Math.sin(da + 0.045) * d1); g.fill();
+    // needle
+    const na = ang(load);
+    g.strokeStyle = col; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(cx + Math.cos(na) * (R - 40), cy + Math.sin(na) * (R - 40)); g.lineTo(cx + Math.cos(na) * (R - 4), cy + Math.sin(na) * (R - 4)); g.stroke();
+    // scale labels in the line's own units: half and full rating
+    g.fillStyle = 'rgba(242,239,232,0.8)'; g.font = '20px "B612 Mono", monospace'; g.textAlign = 'center';
+    for (const f of [0, 0.5, 1]) { const a = ang(f), r = R - 36; g.fillText(U.forceN(s.test * f, 0), cx + Math.cos(a) * r, cy + Math.sin(a) * r + (f === 0.5 ? 2 : -2)); }
+  }
+
   fightTick(s) {
-    const tPct = Math.min(1, s.tension / (s.test * 1.25));
-    const bar = $('fpTension');
-    bar.style.width = `${tPct * 100}%`;
-    bar.style.background = s.tension > s.test ? 'var(--bad)' : s.tension > s.test * 0.8 ? 'var(--amber)' : 'var(--text)';
-    $('fpTest').style.left = `${(1 / 1.25) * 100}%`;
-    $('fpTensionTxt').textContent = `${U.forceN(s.tension)} / ${U.forceN(s.test, 0)} ${U.forceUnit()}`;
+    this.drawDial(s);
+    $('fpTen').textContent = U.forceN(s.tension);
+    $('fpUnit').textContent = U.forceUnit();
+    $('fpSlip').classList.toggle('on', s.slip > 0);
+    $('fpWarn').classList.toggle('on', !!s.warn);
+    $('fpDial').parentElement.classList.toggle('warn', !!s.warn);
     $('fpStamina').style.width = `${s.stamina * 100}%`;
     $('fpStaminaTxt').textContent = `${Math.round(s.stamina * 100)}%`;
     $('fpDrag').textContent = `${U.forceN(s.drag)} / ${U.forceN(s.maxDrag, 0)} ${U.forceUnit()}`;
@@ -215,8 +250,8 @@ export class UI {
     $('fpLine').textContent = `${U.depthN(s.lineOut)} / ${U.depthN(s.cap)} ${U.distUnit()}`;
     $('fpLeft').classList.toggle('on', s.fishSide > 0);
     $('fpRight').classList.toggle('on', s.fishSide < 0);
-    $('fpHint').textContent = s.runWarn ? 'It\'s running, stop reeling' : s.overload > 0.4 ? 'Line\'s about to go, ease the drag' : s.lineOut > s.cap * 0.85 ? 'Running out of line' : s.stamina < 0.32 ? 'It\'s tired, bring it in' : '';
-    $('fpHint').style.color = s.runWarn || s.overload > 0.4 ? 'var(--bad)' : '';
+    $('fpHint').textContent = s.runWarn ? 'It\'s running, stop reeling' : s.overload > 0.4 ? 'Line\'s about to go, ease the drag' : s.warn ? 'Line near its limit' : s.lineOut > s.cap * 0.85 ? 'Running out of line' : s.stamina < 0.32 ? 'It\'s tired, bring it in' : '';
+    $('fpHint').style.color = s.runWarn || s.overload > 0.4 ? 'var(--red)' : s.warn ? 'var(--amber)' : '';
   }
 
   netTick(state, total, cap, type, turned) {

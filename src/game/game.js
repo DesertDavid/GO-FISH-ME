@@ -6,6 +6,7 @@ import { autoBackup, diskBackup, migrateSaves } from './saveSlots.js';
 import { loadSettings, saveSettings, sanitize, detectPreset, PRESETS, GFX_KEYS } from './settings.js';
 import { resolveBinds, keyName, keyLabel } from './keys.js';
 import { GFX } from './gfx.js';
+import { FEEL } from './fightFeel.js';
 import { setUnits, dist as fmtDist } from './units.js';
 import { TUNE as FISH_TUNE } from './fishTune.js';
 import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
@@ -37,7 +38,7 @@ import { Obstacles } from './obstacles.js';
 import { Buildings } from './buildings.js';
 import { Keepers } from './keepers.js';
 import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
-import { SPECIES_BY_ID } from './species.js';
+import { SPECIES_BY_ID, rollMorph } from './species.js';
 import { catchXp, challengeXp, tournamentXp, levelOf, levelInfo, unlocksAt, gateLevel, meets, hasPermit, permitLeft, permitPrice, PERMIT_OPTIONS, absHours, respoolCost, SHARPEN_COST, restockCost, WEAR_DEFAULT, effectiveTest } from './progress.js';
 
 const TABLES = { rods: RODS, reels: REELS, lines: LINES, lures: LURES };
@@ -434,6 +435,16 @@ export class Game {
     this.mouse.pressed = false;
     // a screaming trolling rod: the click grabs it instead of casting
     if (this.troll.pending && input.pressed) { this.troll.take(); input.pressed = false; }
+    // landing: tip the view down toward the water where the fish is being brought in
+    if (this.fishing.state === 'landing') {
+      const sp = this.fishing.landing.spot, k = Math.min(1, dt * 3);
+      if (this.look.pitch > -0.55) this.look.pitch += (-0.55 - this.look.pitch) * k;
+      if (sp && this.view === 'first') {
+        const psi = Math.atan2(-(sp.x - this.camera.position.x), -(sp.z - this.camera.position.z));
+        const want = this.foot ? psi : psi - (this.boat.heading() - Math.PI / 2);
+        this.look.yaw += Math.atan2(Math.sin(want - this.look.yaw), Math.cos(want - this.look.yaw)) * k;
+      }
+    }
     this.fishing.update(dt, input);
     // the over-the-shoulder fill lights a fish held up to the camera; the rest of the time it
     // would wash out the hands and rod right beside it
@@ -543,7 +554,19 @@ export class Game {
       cam.position.y = Math.max(cam.position.y, (this.water[0] || 0) + 1.5);
       cam.lookAt(target);
     }
+    this.fightShake(dt);
     cam.updateMatrixWorld();
+  }
+
+  // a heavy fish on the line (and landing jolts) shake the view a little; Reduce motion turns it off
+  fightShake(dt) {
+    const F = this.fishing;
+    if (GFX.reduceMotion || this.view !== 'first') return;
+    const a = (F.state === 'fight' ? F.camShake : 0) + F.kickV;
+    if (a < 0.005) return;
+    this.shakeT = (this.shakeT || 0) + dt * FEEL.cam.freq;
+    const k = FEEL.cam.shake * a, t = this.shakeT;
+    this.camera.quaternion.multiply(_q.setFromEuler(_e.set(Math.sin(t * 1.7) * k, Math.sin(t * 2.3 + 1) * k * 0.8, Math.sin(t * 1.1 + 2) * k * 0.6, 'YXZ')));
   }
 
   // follow the lure (or the hooked fish) under the surface; orbit with right-drag
@@ -873,10 +896,10 @@ export class Game {
       this.ui.toast(p.kept.iced ? 'On ice in the fish box.' : `In the livewell (${livewell.length}/${wellSlots(this.save.boat, this.save)}).`, 'info');
     } else {
       stats.released += 1;
+      p.f.released = true;
       this.fishing.luckUntil = performance.now() + 180000;
       this.ui.toast('Released! Rare-variant luck boosted for 3 minutes.', 'good');
       const at = this.foot ? this.fishing.lure : this.boat.position;
-      this.splash(at.x, at.z, 0.05, 0.5);
     }
     this.save = { ...p.res.save, cash, stats, livewell, market };
     let xpGain = catchXp(p.f.sp, p.f.morph, p.f.lb, p.res).xp;
@@ -1021,6 +1044,21 @@ export class Game {
   }
 
   // fish on the trolling spread: fight it on the boat's tackle, from the cockpit
+  // dev hook (tests, screenshots): hook a species right now, e.g. game.devFight('largemouth', 6)
+  devFight(id, lb) {
+    const f = this.fishing, sp = SPECIES_BY_ID[id];
+    if (!sp) return false;
+    if (f.busy()) f.reset();
+    this.holstered = false;
+    this.view = 'first';
+    const fwd = this.angler.getWorldDirection(new THREE.Vector3()).setY(0).normalize(), tip = this.rod.tip;
+    f.lure.set(tip.x + fwd.x * 14, this.water[1] ?? 0, tip.z + fwd.z * 14);
+    f.lineOut = 15; f.depth = 1.5; f.state = 'water';
+    f.bite = { sp, morph: rollMorph(() => 1), lb: lb || sp.lb[1] };
+    f.hook();
+    return true;
+  }
+
   startTrollFight(p, lure) {
     const f = this.fishing;
     this.view = 'first';
@@ -1136,7 +1174,6 @@ export class Game {
     this.permitHad = permitLeft(this.save, this.loc.id);
     this.ui.hud();
   }
-
 
   buy(kind, id) {
     const it = TABLES[kind][id];

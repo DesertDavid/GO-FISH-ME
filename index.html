@@ -41,7 +41,9 @@
     <div id="strike" hidden>Strike</div>
     <div id="fightPanel" hidden>
       <div class="fp-head"><span id="fpFish">Fish on</span><span id="fpHint"></span></div>
-      <div class="meter"><label>Line</label><div class="bar tension"><i id="fpTension"></i><b id="fpTest"></b></div><span id="fpTensionTxt"></span></div>
+      <div class="fp-gauge"><canvas id="fpDial" width="640" height="210"></canvas>
+        <div class="fp-num"><b id="fpTen">0.0</b><small id="fpUnit">lb</small></div>
+        <span class="fp-lamp" id="fpSlip">slip</span><span class="fp-lamp" id="fpWarn">load</span></div>
       <div class="meter"><label>Fish</label><div class="bar stamina"><i id="fpStamina"></i></div><span id="fpStaminaTxt"></span></div>
       <div class="fp-row"><span>Drag <b id="fpDrag"></b></span><span id="fpLeft">pull left</span><span id="fpRight">pull right</span><span>Out <b id="fpLine"></b></span></div>
     </div>

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { FEEL } from './fightFeel.js';
 
 // First-person hands, modelled in Blender (tools/blender/build_hands.py). The model is built in
 // the rod handle's frame (+z along the rod toward the tip, +y up, +x to the angler's left):
@@ -78,8 +79,14 @@ export class Hands {
     rod.handle.updateMatrixWorld(true);
     rod.knob.getWorldPosition(this.knob);
     const spin = rod.reelSpin || 0;
+    // under load the crank hand is dragged down and toward the tip, trembling a little
+    const ld = rod.load || 0, H = FEEL.hand;
     this.left.position.copy(this.knob);
-    this.left.quaternion.copy(hq).multiply(_q.setFromEuler(_eu.set(0.22 * Math.sin(spin), 0.08 * Math.cos(spin), 0.1 * Math.cos(spin))));
+    if (ld > 0.01) {
+      const tr = (Math.sin(spin * 2.3) + Math.sin(spin * 5.1)) * 0.5 * ld;
+      this.left.position.addScaledVector(_v.set(0, -1, 0.6).applyQuaternion(hq), H.pull * ld).addScaledVector(_w.set(1, 0, 0).applyQuaternion(hq), tr * 0.004);
+    }
+    this.left.quaternion.copy(hq).multiply(_q.setFromEuler(_eu.set((0.22 + 0.12 * ld) * Math.sin(spin), 0.08 * Math.cos(spin), (0.1 + 0.1 * ld) * Math.cos(spin))));
     if (!this.wrist) return;
     this.left.updateMatrixWorld(true);
     const wrist = this.left.localToWorld(_w.copy(this.wrist));

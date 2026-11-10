@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { Hands } from './hands.js';
+import { RODS } from './gear.js';
+import { FEEL } from './fightFeel.js';
 
 // First-person rod (overlay scene, drawn over the world with its own depth) + fishing line
 // and terminal tackle (main scene). The blank is a tapered tube rebuilt every frame along a
@@ -20,6 +22,13 @@ export class Rod {
     this.twitch = 0;
     this.castAnim = 0;
     this.holster = 0;   // 0 held .. 1 lowered out of view (set by the game)
+    // bend spring (see fightFeel.js): x = how far the blank is loaded, v = its speed
+    this.bendX = 0;
+    this.bendV = 0;
+    this.flex = FEEL.rodDefault;
+    this.load = 0;       // 0..1 line load, read by the hands (crank resistance)
+    this.shake = new THREE.Vector3();   // hand tremor offset in camera space (m)
+    this.shakeT = 0;
 
     // blank
     const g = new THREE.BufferGeometry();
@@ -113,7 +122,12 @@ export class Rod {
     this.lureMat.color.setHex(lure.color);
     this.length = rod.len;
     this.power = rod.power;
+    const id = Object.keys(RODS).find((k) => RODS[k] === rod);
+    this.flex = FEEL.rods[id] || FEEL.rodDefault;
   }
+
+  // a snap or a hook coming out: the rod loses its load at once and whips past straight
+  kick(amount) { this.bendV -= amount * 6; }
 
   // pose: { side -1..1, lift 0..1, tension lb, target (Vector3|null), reeling bool }
   update(dt, camera, pose) {
@@ -123,18 +137,33 @@ export class Rod {
     // butt in the right hand, low; rod raised and swung by pose
     const h = this.holster;
     this.butt.set(0.15 + pose.side * 0.08 - h * 0.1, -0.22 - h * 0.85, -0.4 + h * 0.15).applyMatrix4(camera.matrixWorld);
+    if (pose.shakeAmp) {
+      this.shakeT += dt * FEEL.cam.freq;
+      const a = pose.shakeAmp;
+      this.shake.set(Math.sin(this.shakeT * 1.3) * a, Math.sin(this.shakeT * 1.9 + 1) * a * 0.7, Math.sin(this.shakeT * 0.9 + 2) * a * 0.5);
+      this.butt.add(_d.copy(this.shake).applyQuaternion(camera.quaternion));
+    } else this.shake.set(0, 0, 0);
     const back = pose.charge || 0;
     const local = _a.set(0.12 + pose.side * 0.7, 0.42 + pose.lift * 0.75 + back * 1.6 - this.castAnim * 0.4 - this.twitch - h * 1.5, -1).normalize();
     this.dir.copy(local).transformDirection(camera.matrixWorld);
-    // bend toward the line
-    const bend = Math.min(1.25, (pose.tension || 0) / Math.max(1, this.power) * 0.9 + this.twitch * 0.6);
+    // bend toward the line: a damped spring on the load. Tip-loaded (act), stiffer per rod tier, and it
+    // overshoots (whips) when the load goes away
+    const fx = this.flex, B = FEEL.bend;
+    const target = Math.min(B.max, ((pose.tension || 0) / Math.max(1, this.power)) * B.gain * fx.soft + this.twitch * 0.6);
+    const w = fx.hz * 2 * Math.PI / Math.sqrt(Math.max(0.6, L / 1.9)), z2 = 2 * fx.zeta * w;
+    for (let n = Math.max(1, Math.ceil(dt / 0.008)), i = 0, h = dt / n; i < n; i++) {
+      this.bendV += (w * w * (target - this.bendX) - z2 * this.bendV) * h;
+      this.bendX += this.bendV * h;
+    }
+    this.bendX = Math.max(-B.whip, Math.min(B.max + 0.2, this.bendX));
+    const bend = this.bendX;
     const toLine = pose.target ? _b.subVectors(pose.target, this.butt).normalize() : _b.copy(this.dir).setY(this.dir.y - 0.6).normalize();
     const p = this.points;
     p[0].copy(this.butt).addScaledVector(this.dir, 0.24);
     const seg = (L - 0.24) / N;
     for (let i = 1; i <= N; i++) {
       const s = i / N;
-      const k = Math.min(1, bend * s * s * 1.1);
+      const k = Math.max(-0.7, Math.min(0.97, bend * Math.pow(s, fx.act) * 1.15));
       _c.copy(this.dir).lerp(toLine, k).normalize();
       // gravity sag on long soft tips
       _c.y -= 0.04 * s * s;
@@ -148,7 +177,8 @@ export class Rod {
     _m.makeBasis(x, y, z);
     this.handle.quaternion.setFromRotationMatrix(_m);
     this.handle.position.copy(this.butt);
-    if (pose.reeling) this.reelSpin += dt * 14;
+    this.load = pose.load || 0;
+    if (pose.reeling) this.reelSpin += dt * 14 * (pose.reelRate ?? 1);
     this.crank.rotation.x = this.reelSpin;
     this.spool.rotation.z = pose.lineOut ? -this.reelSpin * 0.3 : 0;
 

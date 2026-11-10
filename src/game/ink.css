@@ -108,3 +108,16 @@ body::before { content: '0'; position: fixed; left: -99px; top: 0; visibility: h
 #loading::after { content: 'N'; position: absolute; left: -99px; font-family: 'IBM Plex Sans'; font-weight: 700; visibility: hidden; }
 .chart-side .svc .d { color: var(--dim); font-weight: 400; }
 .chart-side .svc.here b { color: var(--text); }
+
+/* ---- fight: line-tension instrument (canvas dial drawn in ui.js drawDial) */
+.fp-gauge { position: relative; width: 360px; max-width: 100%; margin: 2px auto 4px; }
+.fp-gauge canvas { display: block; width: 360px; height: 118px; max-width: 100%; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 6px rgba(0, 0, 0, 0.5)); }
+.fp-num { text-shadow: 0 0 4px rgba(0, 0, 0, 0.9); position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-family: var(--mono); line-height: 1; }
+.fp-num b { font-size: 26px; font-weight: 700; }
+.fp-num small { font-size: 11px; color: var(--dim); margin-left: 4px; letter-spacing: 0.08em; }
+.fp-lamp { position: absolute; bottom: 2px; font: 700 10px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: rgba(242, 239, 232, 0.22); }
+#fpSlip { left: 8px; } #fpWarn { right: 8px; }
+.fp-lamp.on { color: var(--amber); }
+.fp-gauge.warn #fpWarn.on { animation: fpBlink 0.45s steps(2, jump-none) infinite; }
+@keyframes fpBlink { 50% { opacity: 0.25; } }
+.fp-gauge.warn .fp-num b { color: var(--amber); }
