@@ -37,7 +37,7 @@ export const SPEC = {
 // what each quality preset sets (High is the look the game always had)
 export const GFX_KEYS = ['resolution', 'reflections', 'reflectionRes', 'msaa', 'shadows', 'fft', 'meshDetail', 'bloom', 'droplets', 'drawDistance', 'vegetation', 'buildings', 'wildlife', 'fishCount', 'weatherFx'];
 export const PRESETS = {
-  low: { resolution: 0.7, reflections: false, reflectionRes: 0.35, msaa: 0, shadows: 1024, fft: 128, meshDetail: 256, bloom: 0, droplets: false, drawDistance: 0.6, vegetation: 0.4, buildings: 0.5, wildlife: 0.5, fishCount: 0.4, weatherFx: 0.5 },
+  low: { resolution: 0.7, reflections: false, reflectionRes: 0.35, msaa: 2, shadows: 1024, fft: 128, meshDetail: 256, bloom: 0, droplets: false, drawDistance: 0.6, vegetation: 0.4, buildings: 0.5, wildlife: 0.5, fishCount: 0.4, weatherFx: 0.5 },
   medium: { resolution: 0.85, reflections: true, reflectionRes: 0.35, msaa: 2, shadows: 2048, fft: 256, meshDetail: 320, bloom: 0.03, droplets: true, drawDistance: 0.8, vegetation: 0.7, buildings: 0.75, wildlife: 0.75, fishCount: 0.7, weatherFx: 0.75 },
   high: { resolution: 1, reflections: true, reflectionRes: 0.5, msaa: 4, shadows: 4096, fft: 256, meshDetail: 384, bloom: 0.05, droplets: true, drawDistance: 1, vegetation: 1, buildings: 1, wildlife: 1, fishCount: 1, weatherFx: 1 },
   ultra: { resolution: 1.25, reflections: true, reflectionRes: 0.75, msaa: 8, shadows: 4096, fft: 512, meshDetail: 512, bloom: 0.06, droplets: true, drawDistance: 1.5, vegetation: 1, buildings: 1, wildlife: 1, fishCount: 1, weatherFx: 1 },

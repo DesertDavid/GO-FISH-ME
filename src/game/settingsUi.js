@@ -24,7 +24,7 @@ const OPTS = {
     { k: 'preset', t: 'seg', label: 'Quality preset', desc: 'Sets everything below at once. Changing any single option switches this to Custom. High is the original look.', opts: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['ultra', 'Ultra'], ['custom', 'Custom']], preset: true },
     { h: 'Image' },
     { k: 'resolution', t: 'slider', label: 'Render scale', desc: 'Resolution the 3D view is drawn at. Lower is faster; above 100% sharpens by supersampling.', min: 0.5, max: 1.5, step: 0.05, fmt: pct },
-    { k: 'msaa', t: 'seg', label: 'Edge smoothing (MSAA)', desc: 'Anti-aliasing samples. Higher removes jagged edges but costs GPU time.', opts: [[0, 'Off'], [2, '2x'], [4, '4x'], [8, '8x']] },
+    { k: 'msaa', t: 'seg', label: 'Edge smoothing (MSAA)', desc: 'Anti-aliasing samples. Higher removes jagged edges but costs GPU time.', opts: [[2, '2x'], [4, '4x'], [8, '8x']] },
     { k: 'fov', t: 'slider', label: 'Field of view', desc: 'How wide the camera sees. The rod and hands keep their own fixed view.', min: 45, max: 100, step: 1, fmt: (v) => `${Math.round(v)}°` },
     { k: 'shadows', t: 'seg', label: 'Shadow detail', desc: 'Sharpness of shadows from the sun and moon.', opts: [[1024, 'Low'], [2048, 'Medium'], [4096, 'High']] },
     { k: 'bloom', t: 'slider', label: 'Bloom', desc: 'Soft glow around bright lights, the sun and lightning.', min: 0, max: 0.15, step: 0.01, fmt: (v) => (v < 0.005 ? 'Off' : `${Math.round(v / 0.05 * 100)}%`) },

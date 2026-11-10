@@ -238,7 +238,8 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     setQuality: (q) => {
       const base = mobile ? 0.6 : 1;
       const res = THREE.MathUtils.clamp(base * (q.resolution ?? 1), 0.3, 1.5);
-      const msaa = Math.min(q.msaa ?? 4, mobile ? 2 : 8, renderer.capabilities.maxSamples || 4);
+      // never 0: the water samples the scene target while drawing into it, which only works when MSAA resolves into a separate texture (samples 0 = WebGL feedback loop, black/frozen frame)
+      const msaa = Math.max(2, Math.min(q.msaa ?? 4, mobile ? 2 : 8, renderer.capabilities.maxSamples || 4));
       const rs = q.reflectionRes ?? 0.5;
       const changed = Math.abs(res - quality.resolution) > 1e-3 || msaa !== quality.msaa || Math.abs(rs - quality.reflectionScale) > 1e-3;
       quality.resolution = res;
