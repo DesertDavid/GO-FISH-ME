@@ -163,6 +163,7 @@ export function buildScenery(loc, heightAt, patchProp) {
   const half = loc.size / 2 - 20;
   const colliders = [];
   group.userData.colliders = colliders;
+  const veg = group.userData.veg = [];   // instanced plants the vegetation-density setting thins out
   for (const [type, count, minH, maxH] of loc.trees || []) {
     const variants = [0, 1, 2].map(() => TREE_BUILDERS[type](rand));
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: type === 'palm' || type === 'reed' ? THREE.DoubleSide : THREE.FrontSide });
@@ -193,6 +194,7 @@ export function buildScenery(loc, heightAt, patchProp) {
       mesh.layers.enable(1);
       mesh.castShadow = true;
       group.add(mesh);
+      if (!['snag', 'cabin', 'stilt'].includes(type)) veg.push({ mesh, n: mine.length });
     });
   }
   if (loc.rig) {

@@ -3,6 +3,7 @@ import { Mesher, rng, house } from './bldMesh.js';
 import { dwelling, townhouse, barn, siloKind, block, plant, church, wat, hjell, fishPlant, lerp } from './bldKinds.js';
 import { lighthouse, bridge, levee, dam, platform, turbine, pier } from './bldLandmarks.js';
 import { STYLES, pick } from './bldStyles.js';
+import { GFX } from './gfx.js';
 
 // Background buildings, placed from the real heightfield: villages that face the water, farms,
 // industry, hotels, lighthouses, bridges, a dam, a levee, offshore platforms. Each cluster is baked
@@ -201,10 +202,13 @@ class Scatter {
     this.cullT -= dt;
     if (this.cullT > 0) return;
     this.cullT = 0.4;
+    // Settings > Graphics: draw distance scales the two ranges, building density hides a spread of whole villages
+    let ci = 0;
     for (const cl of this.clusters) {
+      const keep = ((ci++ * 0.618034) % 1) < GFX.buildings;
       if (cl.dead) continue;
       const d = Math.hypot(cl.cx - pos.x, cl.cz - pos.z) - cl.r;
-      const vis = d < FAR, det = d < DETAIL_DIST;
+      const vis = d < FAR * GFX.drawDistance && keep, det = d < DETAIL_DIST * GFX.drawDistance;
       for (const m of cl.meshes) m.visible = vis && (det || !m.userData.detail);
     }
   }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FullscreenQuad, rawPass } from '../engine/fullscreen.js';
+import { BOOT } from '../engine/gfxBoot.js';
 
 // Tessendorf FFT ocean: 4 cascades of 256² stacked in one 256×1024 atlas so every
 // IFFT stage is a single draw. Output per cascade (RGBA16F, mipmapped, repeat):
@@ -7,8 +8,9 @@ import { FullscreenQuad, rawPass } from '../engine/fullscreen.js';
 // Slopes are divided out at full resolution so their mips give mean + second moment
 // (slope variance -> roughness, LEAN style).
 
-export const N = 256;
-const LOG_N = 8;
+// FFT size per cascade: 256 by default; Settings > Graphics can pick 128 or 512 (needs a reload)
+export const N = BOOT.fft;
+const LOG_N = Math.round(Math.log2(N));
 // last cascade is the gravity-capillary detail layer; 12/2.1 is non-integer so tiles don't align
 export const CASCADE_LENGTHS = [600, 85, 12, 2.1];
 const G = 9.81;

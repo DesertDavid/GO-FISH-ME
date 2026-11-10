@@ -11,13 +11,17 @@ import { levelInfo, gateLevel, meets, unlocksAt, MAX_LEVEL, xpAt, GATES, reelSmo
 import { freezeSaves, writeSave } from './save.js';
 import { TIERS } from './dialogue.js';
 import { listSlots, putSlot, deleteSlot, summarize, fmtPlayed, fmtWhen, parseFile, downloadFile, pickFile, installAsLive, diskBackup } from './saveSlots.js';
+import { MODEL_CREDITS } from './creditsData.js';
+import { SettingsPanel } from './settingsUi.js';
+import { ACTION_IDS, ACTION, keyLabel, rewriteKeys } from './keys.js';
+import * as U from './units.js';
 
 const $ = (id) => document.getElementById(id);
 const DEAL_ACTS = new Set(['buy', 'buyboat', 'permit', 'service', 'sellone', 'sellall', 'unlock']);
 const money = (n) => '$' + Math.round(n).toLocaleString();
 const money2 = (n) => '$' + n.toFixed(2);
-const lbs = (lb) => (lb < 1 ? `${Math.round(lb * 16)} oz` : lb < 100 ? `${lb.toFixed(2)} lb` : `${Math.round(lb).toLocaleString()} lb`);
-const inches = (i) => (i < 48 ? `${i.toFixed(1)}"` : `${Math.floor(i / 12)}' ${Math.round(i % 12)}"`);
+const lbs = (lb) => U.weight(lb);       // fish weight in the player's units (Settings > Display)
+const inches = (i) => U.length(i);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const MORPH_COLORS = { normal: '#9fb4bd', golden: '#f0c040', albino: '#fff2ee', leucistic: '#e8eef0', melanistic: '#222', piebald: 'linear-gradient(90deg,#fff 50%,#556 50%)', calico: 'linear-gradient(90deg,#e86a18 33%,#111 33% 66%,#fff 66%)', blue: '#4a7ac0', ghost: 'rgba(230,240,245,0.5)', copper: '#c87a40', tiger: 'repeating-linear-gradient(90deg,#8a7 0 3px,#222 3px 5px)', spotted: 'radial-gradient(#111 30%,#c8a050 32%)', rose: '#f08aa8', emerald: '#1a9a5a', chrome: 'linear-gradient(135deg,#fff,#8a929a)', sunset: 'linear-gradient(#5a1a6a,#f06020,#ffd040)' };
 
@@ -27,6 +31,7 @@ export class UI {
     this.panel = null;
     this.tab = {};
     this.catchInfo = null;
+    this.settingsPanel = new SettingsPanel(this);
     document.querySelectorAll('#topRight [data-open]').forEach((b) => b.addEventListener('click', () => this.open(b.dataset.open)));
     $('modal').addEventListener('click', (e) => {
       const t = e.target.closest('[data-act]');
@@ -44,33 +49,13 @@ export class UI {
         this.yardButtons();
         return;
       }
-      const t = e.target.closest('[data-set]');
-      if (!t) return;
-      const v = t.type === 'checkbox' ? t.checked : +t.value;
-      this.g.applySettings({ [t.dataset.set]: v });
-      const out = t.parentElement.querySelector('output');
-      if (out) out.textContent = t.type === 'checkbox' ? '' : `${Math.round(v * 100)}%`;
+      this.settingsPanel.onInput(e);
     });
   }
 
-  renderSettings() {
-    const s = this.g.settings;
-    const slider = (key, label, min, max, step) => `<label class="set-row"><span>${label}</span><input type="range" data-set="${key}" min="${min}" max="${max}" step="${step}" value="${s[key]}"><output>${Math.round(s[key] * 100)}%</output></label>`;
-    const toggle = (key, label) => `<label class="set-row"><span>${label}</span><input type="checkbox" data-set="${key}" ${s[key] ? 'checked' : ''}><output></output></label>`;
-    return this.head('Settings') + `<div class="settings">
-      ${slider('volume', 'Volume', 0, 1, 0.05)}
-      ${slider('resolution', 'Render resolution (lower = faster)', 0.5, 1, 0.05)}
-      ${toggle('reflections', 'Water reflections')}
-      ${slider('lookSpeed', 'Look speed', 0.3, 2.5, 0.05)}
-      ${toggle('invertY', 'Invert look up/down')}
-      ${toggle('severeWeather', 'Severe weather (squalls and lightning)')}
-      ${toggle('sonar', 'Fish finder panel (F)')}
-      ${toggle('biteQuality', 'Bite quality ticks on the lure marker (how well lure, depth and time suit the fish)')}
-      ${toggle('compass', 'Compass bar and waypoints (Z drops a waypoint)')}
-      ${toggle('mouseLock', 'Mouse look (click to lock the mouse; off = right-drag)')}
-    </div>
-    <div class="actions"><button class="btn primary" data-act="close">Done</button><button class="btn" data-act="reset">Reset all progress</button></div>`;
-  }
+  get capturing() { return this.settingsPanel.capturing; }
+
+  renderSettings() { return this.settingsPanel.render(); }
 
   isOpen() { return !!this.panel; }
 
@@ -87,7 +72,7 @@ export class UI {
   toast(msg, kind = 'info') {
     const el = document.createElement('div');
     el.className = 'toast ' + kind;
-    el.textContent = msg;
+    el.textContent = this.g.binds ? rewriteKeys(msg, this.g.binds.map) : msg;
     $('toasts').prepend(el);
     setTimeout(() => el.remove(), kind === 'bad' ? 3800 : 3000);
     while ($('toasts').children.length > 4) $('toasts').lastChild.remove();
@@ -95,8 +80,17 @@ export class UI {
 
   strike(on) { $('strike').hidden = !on; }
 
+  fpsShow(on) {
+    let el = $('fps');
+    if (!el && on) { el = document.createElement('div'); el.id = 'fps'; $('hud').appendChild(el); }
+    if (el) el.hidden = !on;
+  }
+
+  fpsText(t) { const el = $('fps'); if (el && el.textContent !== t) el.textContent = t; }
+
   lookHint(show) {
     let el = $('lookHint');
+    if (show && this.g.settings && !this.g.settings.hints) show = false;
     if (!el) {
       el = document.createElement('div');
       el.id = 'lookHint';
@@ -108,6 +102,7 @@ export class UI {
 
   // key prompts at the bottom of the screen: [[key, text], ...]
   shoreHint(hints) {
+    if (this.g.settings && !this.g.settings.hints) hints = [];   // Settings > Display > Hint prompts
     let el = $('shoreHint');
     if (!el) {
       el = document.createElement('div');
@@ -128,7 +123,7 @@ export class UI {
     const left = Math.max(0, Math.ceil(t.left));
     const rows = t.standings().slice(0, 6);
     const mine = t.standings().findIndex((r) => r.you) + 1;
-    const unit = (s) => (s ? `${s.toFixed(2)} lb` : '-');
+    const unit = (s) => (s ? U.force(s, 2) : '-');
     el.innerHTML = `<h5>${esc(t.def.name)}</h5><div class="lb-time">${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left · you're #${mine}</div>`
       + rows.map((r, i) => `<div class="lb-row ${r.you ? 'you' : ''}"><span>${i + 1}. ${esc(r.name)}</span><b>${unit(r.score)}</b></div>`).join('')
       + (mine > 6 ? `<div class="lb-row you"><span>${mine}. You</span><b>${unit(t.standings()[mine - 1].score)}</b></div>` : '');
@@ -148,7 +143,7 @@ export class UI {
   renderTourResult() {
     const r = this.g.tourResult;
     return `<div class="m-head"><h2>${esc(r.def.name)}: ${r.place}${['st', 'nd', 'rd'][r.place - 1] || 'th'} place</h2><span>${r.prize ? money(r.prize) : ''}</span></div>
-      <table class="haul"><tr><th>Angler</th><th>Score</th></tr>${r.rows.map((x, i) => `<tr${x.you ? ' style="color:var(--orange)"' : ''}><td>${i + 1}. ${esc(x.name)}</td><td>${x.score ? x.score.toFixed(2) + ' lb' : '-'}</td></tr>`).join('')}</table>
+      <table class="haul"><tr><th>Angler</th><th>Score</th></tr>${r.rows.map((x, i) => `<tr${x.you ? ' style="color:var(--orange)"' : ''}><td>${i + 1}. ${esc(x.name)}</td><td>${x.score ? U.force(x.score, 2) : '-'}</td></tr>`).join('')}</table>
       <p class="tips">${r.prize ? `Prize money: <b>${money(r.prize)}</b>` : 'No prize this time - top three get paid.'} <b>+${r.xp} xp</b></p>
       <div class="actions"><button class="btn primary" data-act="close">Back to fishing</button></div>`;
   }
@@ -211,11 +206,13 @@ export class UI {
     bar.style.width = `${tPct * 100}%`;
     bar.style.background = s.tension > s.test ? 'var(--bad)' : s.tension > s.test * 0.8 ? 'var(--amber)' : 'var(--text)';
     $('fpTest').style.left = `${(1 / 1.25) * 100}%`;
-    $('fpTensionTxt').textContent = `${s.tension.toFixed(1)} / ${s.test} lb`;
+    $('fpTensionTxt').textContent = `${U.forceN(s.tension)} / ${U.forceN(s.test, 0)} ${U.forceUnit()}`;
     $('fpStamina').style.width = `${s.stamina * 100}%`;
     $('fpStaminaTxt').textContent = `${Math.round(s.stamina * 100)}%`;
-    $('fpDrag').textContent = `${s.drag.toFixed(1)} / ${s.maxDrag} lb`;
-    $('fpLine').textContent = `${Math.round(s.lineOut)} / ${s.cap} m`;
+    $('fpDrag').textContent = `${U.forceN(s.drag)} / ${U.forceN(s.maxDrag, 0)} ${U.forceUnit()}`;
+    const showLine = this.g.settings.depthReadout !== false;   // Settings > Display > Depth and line readouts
+    $('fpLine').parentElement.hidden = !showLine;
+    $('fpLine').textContent = `${U.depthN(s.lineOut)} / ${U.depthN(s.cap)} ${U.distUnit()}`;
     $('fpLeft').classList.toggle('on', s.fishSide > 0);
     $('fpRight').classList.toggle('on', s.fishSide < 0);
     $('fpHint').textContent = s.runWarn ? 'It\'s running, stop reeling' : s.overload > 0.4 ? 'Line\'s about to go, ease the drag' : s.lineOut > s.cap * 0.85 ? 'Running out of line' : s.stamina < 0.32 ? 'It\'s tired, bring it in' : '';
@@ -266,9 +263,9 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     const permitTxt = pl > 0 ? ` · <span class="${pl < 3 ? 'warn' : ''}">permit ${permitText(pl)}</span>` : ' · <span class="warn">no permit</span>';
     const wearTxt = w.line >= 0.5 ? ` · <span class="${w.line >= 0.8 ? 'warn' : ''}">line ${wearWord(w.line).toLowerCase()}</span>` : '';
     $('gearLine').innerHTML = `<b>${esc(LURES[e.lure].name)}</b>${g.troll?.active ? ' · trolling spread out' : ''}${wellTxt}${wearTxt}${permitTxt}`;
-    const knots = Math.abs(g.boatSpeed()) * 1.944;
-    $('boatInfo').hidden = knots < 1;
-    $('boatInfo').innerHTML = `<b>${knots.toFixed(0)}</b>knots`;
+    const sp = U.speed(g.boatSpeed());
+    $('boatInfo').hidden = Math.abs(g.boatSpeed()) * 1.944 < 1;
+    $('boatInfo').innerHTML = `<b>${sp.v.toFixed(0)}</b>${sp.u}`;
   }
 
   open(panel) {
@@ -282,6 +279,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       this.g.keepers.open(k);
       this.talkExtra = null;
     }
+    if (panel === 'settings') this.settingsPanel.opened();
     if (panel === 'saves' && this.sv) { this.sv.armed = null; this.sv.msg = ''; }   // never come back to a half-armed Overwrite/Delete
     this.panel = panel;
     this.g.freePointer?.();   // menus need the cursor
@@ -338,12 +336,13 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   // Esc menu: everything that used to sit on screen as buttons, plus today's goals
   renderPause() {
-    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', 'T'], ['livewell', 'Livewell & market', 'L'], ['shop', 'Tackle shop', 'B'], ['marina', 'Marina', 'Y'], ...(this.g.serviceHere('boats') ? [['yard', 'Boat yard', '']] : []), ['events', 'Tournaments', 'E'], ['chart', 'Chart', 'C'], ['map', 'Travel', 'M'], ['journal', 'Journal', 'J'], ['angler', 'Angler log', ''], ['saves', 'Save / Load', ''], ['settings', 'Settings', 'O'], ['help', 'Controls', 'H']];
+    const KL = (a) => keyLabel(this.g.binds.map[a]);
+    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', KL('tackle')], ['livewell', 'Livewell & market', KL('livewell')], ['shop', 'Tackle shop', KL('shop')], ['marina', 'Marina', KL('marina')], ...(this.g.serviceHere('boats') ? [['yard', 'Boat yard', '']] : []), ['events', 'Tournaments', KL('events')], ['chart', 'Chart', KL('chart')], ['map', 'Travel', KL('map')], ['journal', 'Journal', KL('journal')], ['angler', 'Angler log', ''], ['saves', 'Save / Load', ''], ['settings', 'Settings', KL('settings')], ['help', 'Controls', KL('help')]];
     const list = items.map(([id, label, key]) => `<button data-act="${id === 'resume' ? 'close' : 'go'}" data-id="${id}">${label}${key ? `<kbd>${key}</kbd>` : ''}</button>`).join('');
     const ch = this.g.save.challenges;
     const goals = ch ? ch.list.map((c) => `<div class="ch ${c.done ? 'done' : ''}"><span>${esc(c.text)}<div class="prog">${c.done ? 'Done' : `${Math.min(c.have, c.need)} of ${c.need}`}</div></span><b>${money(c.reward)}</b></div>`).join('') : '';
     return `<div><div class="pause-title">${esc(this.g.loc.name)} · Day ${this.g.save.day || 1}</div><div class="pause-list">${list}</div></div>
-      <div class="pause-side"><div class="lvl-line">Angler level <b>${levelInfo(this.g.save.xp || 0).level}</b><span>${this.xpText()}</span></div><h5>Today's challenges</h5>${goals}</div>`;
+      <div class="pause-side"><div class="lvl-line">Angler level <b>${levelInfo(this.g.save.xp || 0).level}</b><span>${this.xpText()}</span></div><h5>Today's challenges</h5>${goals}<div class="credits-line">3D models: ${MODEL_CREDITS.map((c) => `${esc(c.title)} by ${esc(c.author)} (${esc(c.license)})`).join(', ')}. Details in credits.md.</div></div>`;
   }
 
   // ---- Save / Load screen ----
@@ -416,16 +415,19 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     }
   }
 
-  close() {
+  // grab = take the mouse back for mouse-look. Not when closing with Esc/Tab: that's how
+  // players get their cursor out of the game, so it must leave the mouse free.
+  close(grab = true) {
     if (this.panel === 'catch' || this.panel === 'haul') return;
     if (this.panel === 'talk') this.leaveTalk();
+    this.settingsPanel.closed();
     this.yardStop();
     this.panel = null;
     $('modal').hidden = true;
-    this.g.grabPointer?.();   // back to mouse-look without an extra click
+    if (grab) this.g.grabPointer?.();   // back to mouse-look without an extra click
   }
 
-  forceClose() { this.yardStop(); this.panel = null; $('modal').hidden = true; this.g.grabPointer?.(); }
+  forceClose() { this.settingsPanel.closed(); this.yardStop(); this.panel = null; $('modal').hidden = true; this.g.grabPointer?.(); }
 
   render() {
     const card = $('modalCard');
@@ -477,10 +479,11 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     const cats = { rods: [RODS, 'rods', 'rod'], reels: [REELS, 'reels', 'reel'], lines: [LINES, 'lines', 'line'], lures: [LURES, 'lures', 'lure'] };
     const [table, owned] = cats[cur];
     const mine = table[s.equip[cats[cur][2]]];
-    const d = (v, k, unit = '') => { if (!mine) return ''; const x = v - mine[k]; return !x ? '' : ` <span class="dl ${x > 0 ? 'up' : 'dn'}">${x > 0 ? '+' : ''}${+x.toFixed(1)}${unit}</span>`; };
-    const stat = (id, it) => cur === 'rods' ? `Power <b>${it.power} lb</b>${d(it.power, 'power')} · cast <b>${it.cast} m</b>${d(it.cast, 'cast')} · sensitivity <b>${Math.round(it.sens * 100)}</b>` :
-      cur === 'reels' ? `Max drag <b>${it.drag} lb</b>${d(it.drag, 'drag')} · ratio <b>${it.ratio}:1</b> · holds <b>${it.cap} m</b>${d(it.cap, 'cap')} · smoothness <b>${Math.round(reelSmooth(id) * 100)}</b>` :
-        cur === 'lines' ? `Breaks at <b>${it.test} lb</b>${d(it.test, 'test')} · casts <b>${Math.round(lineCastMul(it.test) * 100)}%</b> · ${it.braid ? 'braid: no stretch, sensitive' : 'mono: stretch absorbs shock'}` :
+    const d = (v, k, unit = '', conv = (n) => n) => { if (!mine) return ''; const x = conv(v - mine[k]); return !x ? '' : ` <span class="dl ${x > 0 ? 'up' : 'dn'}">${x > 0 ? '+' : ''}${+x.toFixed(1)}${unit}</span>`; };
+    const fc = (n) => (U.units().weight === 'kg' ? n * 0.45359 : n), dc = (n) => (U.units().dist === 'ft' ? n * 3.28084 : n);
+    const stat = (id, it) => cur === 'rods' ? `Power <b>${U.force(it.power, 0)}</b>${d(it.power, 'power', '', fc)} · cast <b>${U.depth(it.cast, 0)}</b>${d(it.cast, 'cast', '', dc)} · sensitivity <b>${Math.round(it.sens * 100)}</b>` :
+      cur === 'reels' ? `Max drag <b>${U.force(it.drag, 0)}</b>${d(it.drag, 'drag', '', fc)} · ratio <b>${it.ratio}:1</b> · holds <b>${U.depth(it.cap, 0)}</b>${d(it.cap, 'cap', '', dc)} · smoothness <b>${Math.round(reelSmooth(id) * 100)}</b>` :
+        cur === 'lines' ? `Breaks at <b>${U.force(it.test, 0)}</b>${d(it.test, 'test', '', fc)} · casts <b>${Math.round(lineCastMul(it.test) * 100)}%</b> · ${it.braid ? 'braid: no stretch, sensitive' : 'mono: stretch absorbs shock'}` :
           `Targets: <b>${dietText(it.diet)}</b> · ${({ s: 'surface', m: 'mid-water', b: 'bottom' })[it.depth]} · ${it.active ? 'retrieve or troll it' : 'let it sit'}`;
     const items = Object.entries(table).map(([id, it]) => {
       const have = s.equip && s[owned].includes(id), need = cur === 'lures' ? 1 : gateLevel(cur, id), lock = !have && !meets(s, cur, id), out = cur === 'lures' && (s.wear?.lost || []).includes(id);
@@ -503,7 +506,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       <div class="grid">${permits}</div>
       <h5 class="board-h">Tackle service</h5>
       <div class="grid">
-        <div class="item"><h4>Respool: ${esc(lineDef.name)}</h4><div class="stats">${bar(w.line)} ${wearWord(w.line)} · breaks at <b>${Math.round(effectiveTest(lineDef.test, w.line))}</b> of ${lineDef.test} lb</div><div class="foot"><span class="price">${money(rc)}</span><button class="btn primary" data-act="service" data-id="line" ${w.line < 0.02 || s.cash < rc ? 'disabled' : ''}>Respool</button></div></div>
+        <div class="item"><h4>Respool: ${esc(lineDef.name)}</h4><div class="stats">${bar(w.line)} ${wearWord(w.line)} · breaks at <b>${U.forceN(effectiveTest(lineDef.test, w.line), 0)}</b> of ${U.force(lineDef.test, 0)}</div><div class="foot"><span class="price">${money(rc)}</span><button class="btn primary" data-act="service" data-id="line" ${w.line < 0.02 || s.cash < rc ? 'disabled' : ''}>Respool</button></div></div>
         <div class="item"><h4>Sharpen hooks</h4><div class="stats">${bar(w.hook)} ${wearWord(w.hook)} · sets ${Math.round((1 - 0.4 * w.hook) * 100)}% as well as new</div><div class="foot"><span class="price">${money(sharp)}</span><button class="btn primary" data-act="service" data-id="hook" ${w.hook < 0.02 || s.cash < sharp ? 'disabled' : ''}>Sharpen</button></div></div>
         ${lost}
       </div>
@@ -516,7 +519,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     const [table, owned] = cats[cur];
     const items = s[owned].map((id) => {
       const it = table[id], on = s.equip[cur] === id;
-      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(it.name)}</h4><div class="stats">${cur === 'lure' ? `${dietText(it.diet)} · ${({ s: 'surface', m: 'mid', b: 'bottom' })[it.depth]}` : cur === 'rod' ? `${it.power} lb power · ${it.cast} m cast` : cur === 'reel' ? `${it.drag} lb drag · ${it.cap} m` : `${it.test} lb test`}</div><div class="foot">${on ? '<span class="small" style="color:var(--accent)">Equipped</span>' : `<button class="btn primary" data-act="equip" data-kind="${cur}" data-id="${id}">Equip</button>`}</div></div>`;
+      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(it.name)}</h4><div class="stats">${cur === 'lure' ? `${dietText(it.diet)} · ${({ s: 'surface', m: 'mid', b: 'bottom' })[it.depth]}` : cur === 'rod' ? `${U.force(it.power, 0)} power · ${U.depth(it.cast, 0)} cast` : cur === 'reel' ? `${U.force(it.drag, 0)} drag · ${U.depth(it.cap, 0)}` : `${U.force(it.test, 0)} test`}</div><div class="foot">${on ? '<span class="small" style="color:var(--accent)">Equipped</span>' : `<button class="btn primary" data-act="equip" data-kind="${cur}" data-id="${id}">Equip</button>`}</div></div>`;
     }).join('');
     return this.head('Tackle Box') + this.tabs('tackle', [['rod', 'Rod'], ['reel', 'Reel'], ['line', 'Line'], ['lure', 'Lure']]) + `<div class="grid">${items}</div><p class="tips">Number keys 1-9 swap between your lures quickly while fishing.</p>`;
   }
@@ -605,7 +608,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       else if (have) btn = `<button class="btn primary" data-act="boat" data-id="${id}" ${canHere ? '' : 'disabled title="Can\'t run this boat here"'}>Take it out</button>`;
       else if (!meets(s, 'boats', id)) btn = `<span class="small">Reach level ${gateLevel('boats', id)}</span>`;
       else btn = `<button class="btn gold" data-act="buyboat" data-id="${id}" ${s.cash < b.price ? 'disabled' : ''}>Buy ${money(b.price)}</button>`;
-      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(b.name)}</h4><div class="stats">${esc(b.blurb)}</div><div class="stats">Top speed <b>${Math.round(b.speed * 1.944)} kn</b> · waters <b>${b.waters.join(', ')}</b>${b.net ? ` · <b>${b.net === 'trawl' ? 'trawl net' : 'purse seine'}</b> ${b.netCap.toLocaleString()} lb` : ''}</div><div class="foot"><span class="price">${b.price ? money(b.price) : 'Free'}${gateLevel('boats', id) > 1 ? ` <span class="lv">Lv ${gateLevel('boats', id)}</span>` : ''}</span><span>${cust} ${btn}</span></div></div>`;
+      return `<div class="item ${on ? 'equipped' : ''}"><h4>${esc(b.name)}</h4><div class="stats">${esc(b.blurb)}</div><div class="stats">Top speed <b>${Math.round(U.speed(b.speed).v)} ${U.speed(b.speed).u === 'knots' ? 'kn' : U.speed(b.speed).u}</b> · waters <b>${b.waters.join(', ')}</b>${b.net ? ` · <b>${b.net === 'trawl' ? 'trawl net' : 'purse seine'}</b> ${U.weight(b.netCap)}` : ''}</div><div class="foot"><span class="price">${b.price ? money(b.price) : 'Free'}${gateLevel('boats', id) > 1 ? ` <span class="lv">Lv ${gateLevel('boats', id)}</span>` : ''}</span><span>${cust} ${btn}</span></div></div>`;
     }).join('');
     return this.head('Marina', money(s.cash)) + `<div class="grid">${items}</div><p class="tips">Lakes and rivers need a small boat. Offshore locations need a seaworthy one (center console or bigger). Net boats fish commercially: look for diving gulls over bait schools.</p>`;
   }
@@ -659,7 +662,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       const fx = d.bottom ? W - 12 : Math.min(W - 10, d.c * sc + 2);
       let ticks = '';
       for (let m = 0; m <= 12; m += 3) ticks += `<line x1="${m * sc}" x2="${m * sc}" y1="15" y2="19" class="tick"/>`;
-      hint.push(`<svg class="hint-depth" viewBox="0 0 ${W} 22" width="${W}" height="22" role="img" aria-label="${d.bottom ? 'Near the bottom' : `Holds around ${d.lo.toFixed(0)} to ${d.hi.toFixed(0)} metres`}"><title>${d.bottom ? 'Hugs the bottom' : `Holds ${d.lo.toFixed(0)}-${d.hi.toFixed(0)} m down`}</title>${band}<path class="fish" d="M${fx - 6} 10 q3 -4 7 -1 l3 -3 v8 l-3 -3 q-4 3 -7 -1z"/>${ticks}</svg>`);
+      hint.push(`<svg class="hint-depth" viewBox="0 0 ${W} 22" width="${W}" height="22" role="img" aria-label="${d.bottom ? 'Near the bottom' : `Holds around ${U.depthN(d.lo)} to ${U.depthN(d.hi)} ${U.units().dist === 'ft' ? 'feet' : 'metres'}`}"><title>${d.bottom ? 'Hugs the bottom' : `Holds ${U.depthN(d.lo)}-${U.depthN(d.hi)} ${U.distUnit()} down`}</title>${band}<path class="fish" d="M${fx - 6} 10 q3 -4 7 -1 l3 -3 v8 l-3 -3 q-4 3 -7 -1z"/>${ticks}</svg>`);
     }
     if (n >= H.time) {
       const labels = ['dawn', 'day', 'dusk', 'night'];
@@ -673,10 +676,12 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     return parts.length ? `<div class="hint">${parts.join('')}</div>` : '';
   }
 
+  // every key here is read from the live bindings (Settings > Controls), so it never goes stale
   renderHelp() {
-    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', 'Mouse wheel / [ ]'], ['Steer rod against the fish', 'A / D'], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Throttle / steer boat', 'W S / A D'], ['Step onto a dock or the bank / back aboard', 'G'], ['Livewell & market (sell at any dock)', 'L'], ['Walk (on foot)', 'W A S D, Shift to hurry'], ['First / third person', 'V'], ['Deploy / haul net (net boats)', 'N'], ['Trolling spread (salt water)', 'R'], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', 'T / B / Y'], ['Talk to the shopkeeper at a shop door / listen to the locals', 'Q'], ['Chart: local map with docks, shops, market', 'C'], ['Travel / Journal', 'M / J'], ['Skip ahead 1 hour', 'K'], ['Underwater camera (lure / fish)', 'U'], ['Photo mode', 'P'], ['Show / hide fish finder', 'F'], ['Drop a waypoint here (shows on the compass)', 'Z'], ['Clear all waypoints on this water', 'Shift + Z'], ['Set / remove a waypoint on the chart', 'Click the chart'],['Put the rod away / take it out', 'X'], ['Tournaments', 'E'], ['Settings', 'O'], ['Save / Load, export / import (autosave is always on)', 'Esc menu'], ['Close menus', 'Esc']];
+    const B = this.g.binds.map, K = (...ids) => ids.map((i) => keyLabel(B[i])).join(' ');
+    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', `Mouse wheel / ${K('dragDown', 'dragUp')}`], ['Steer rod against the fish', `${K('left')} / ${K('right')}`], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Look around (keys)', K('lookLeft', 'lookRight', 'lookUp', 'lookDown')], ['Throttle / steer boat', `${K('forward', 'back')} / ${K('left', 'right')}`], ['Step onto a dock or the bank / back aboard', K('stepOff')], ['Livewell & market (sell at any dock)', K('livewell')], ['Walk (on foot)', `${K('forward', 'left', 'back', 'right')}, ${K('sprint')} to hurry`], ['First / third person', K('view')], ['Deploy / haul net (net boats)', K('net')], ['Trolling spread (salt water)', K('troll')], ['Drop / raise the anchor', K('anchor')], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', `${K('tackle')} / ${K('shop')} / ${K('marina')}`], ['Talk to the shopkeeper at a shop door / listen to the locals', K('talk')], ['Chart: local map with docks, shops, market', K('chart')], ['Travel / Journal', `${K('map')} / ${K('journal')}`], ['Skip ahead 1 hour', K('skip')], ['Underwater camera (lure / fish)', K('underwater')], ['Photo mode', K('photo')], ['Show / hide fish finder', K('sonar')], ['Drop a waypoint here (shows on the compass)', K('waypoint')], ['Clear all waypoints on this water', `Shift + ${K('waypoint')}`], ['Set / remove a waypoint on the chart', 'Click the chart'], ['Put the rod away / take it out', K('holster')], ['Tournaments', K('events')], ['Settings (rebind any key under Controls)', K('settings')], ['Controls (this page)', K('help')], ['Save / Load, export / import (autosave is always on)', 'Esc menu'], ['Close menus', 'Esc']];
     return this.head('How to fish') + `<div class="help-grid">${k.map(([a, b]) => `<div><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div>
-      <p class="tips"><b>Fighting:</b> reel while the fish rests or turns, and STOP reeling when it runs - cranking against a running fish twists the line until it snaps. When it runs, line peels off at your drag setting. If tension goes past the line's breaking strength it snaps, so keep drag below it. Reel when the fish rests, pull the rod the opposite way to the fish (A/D) to tire it faster, and don't give it slack or it can throw the hook. When it jumps, ease off the drag. Get a tired fish next to the boat to land it.</p>
+      <p class="tips"><b>Fighting:</b> reel while the fish rests or turns, and STOP reeling when it runs - cranking against a running fish twists the line until it snaps. When it runs, line peels off at your drag setting. If tension goes past the line's breaking strength it snaps, so keep drag below it. Reel when the fish rests, pull the rod the opposite way to the fish (${K('left')}/${K('right')}) to tire it faster, and don't give it slack or it can throw the hook. When it jumps, ease off the drag. Get a tired fish next to the boat to land it.</p>
       <p class="tips"><b>Finding fish:</b> diving gulls and bait balls mark hotspots; dawn and dusk bite best. Match the lure to what the fish eats and to its depth. Active lures need to be moving (reel or troll).</p>
       <div class="actions"><button class="btn primary" data-act="close">Let's fish</button></div>`;
   }
@@ -692,7 +697,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     return `<div class="morph">${c.morph.id === 'normal' ? 'Caught' : c.morph.name + ' variant'}</div><h2>${esc(c.sp.name)}</h2><div class="badges">${badges}</div>
       <div class="big"><div><b>${lbs(c.lb)}</b><span>weight</span></div><div><b>${inches(c.inches)}</b><span>length</span></div><div><b style="color:var(--accent-2)">${money(c.value)}</b><span>market value</span></div></div>
       <div class="stats small">World record about ${lbs(c.sp.lb[2])}. ${c.morph.id !== 'normal' ? `Rare variant: worth ${c.morph.value}x. ` : ''}${c.fishOfDay ? 'Fish of the day at the market. ' : ''}${c.buyer ? 'Buyer boat price (15% cut). ' : ''}<b style="color:var(--amber)">+${c.xp} xp</b></div>
-      ${c.isNewSpecies && c.how && LURES[c.how.lure] ? `<div class="stats small how">First of its kind: it took the <b>${esc(LURES[c.how.lure].name)}</b>${c.how.depth > 0.1 && !LURES[c.how.lure].bobber ? ` at ${c.how.depth} m` : ''} around ${hourText(c.how.hour)}. Logged in your journal.</div>` : ''}
+      ${c.isNewSpecies && c.how && LURES[c.how.lure] ? `<div class="stats small how">First of its kind: it took the <b>${esc(LURES[c.how.lure].name)}</b>${c.how.depth > 0.1 && !LURES[c.how.lure].bobber ? ` at ${U.depth(+c.how.depth, 1)}` : ''} around ${hourText(c.how.hour)}. Logged in your journal.</div>` : ''}
       <div class="actions">${this.catchButtons(c)}</div>`;
   }
 
@@ -745,7 +750,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   renderHaul() {
     const h = this.haul;
-    return `<div class="m-head"><h2>Haul in!</h2></div><table class="haul"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Value</th></tr>${h.rows.map((r) => `<tr><td>${esc(r.sp.name)}</td><td>~${r.count.toLocaleString()}</td><td>${Math.round(r.lb).toLocaleString()} lb</td><td>${money(r.value)}</td></tr>`).join('')}</table>
+    return `<div class="m-head"><h2>Haul in!</h2></div><table class="haul"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Value</th></tr>${h.rows.map((r) => `<tr><td>${esc(r.sp.name)}</td><td>~${r.count.toLocaleString()}</td><td>${lbs(r.lb)}</td><td>${money(r.value)}</td></tr>`).join('')}</table>
       ${h.morphs.length ? `<p class="tips">Rare fish spotted in the haul: ${h.morphs.map((m) => `<b>${m.morph.name} ${esc(m.sp.name)}</b>`).join(', ')} (logged in your journal)</p>` : ''}
       <div class="actions"><button class="btn gold" data-act="sellhaul">Sell the haul ${money(h.total)}</button></div>`;
   }
@@ -791,7 +796,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
         else g.resetProgress();
         break;
       }
-      default: break;
+      default: if (act.startsWith('st-')) this.settingsPanel.click(act, d); break;
     }
   }
 }

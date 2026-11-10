@@ -142,6 +142,7 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
   const ovFill = new THREE.PointLight(0xffffff, 3.5, 0, 2);
   overlay.add(ovSun, ovHemi, ovFill);
 
+  const opt = { droplets: true, flash: 1 };   // set by setQuality
   let hdrRT = null;
   function makeTargets() {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -232,13 +233,28 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
       terrain.uniforms.uFogBank.value = su.uFogBank.value = sky.background.material.uniforms.uFogBank.value = fogBank;
       su.uOptics.value.w = 1 / 18000 + fog;
     },
-    // graphics settings: render resolution scale and water reflections
-    setQuality: ({ resolution, reflections }) => {
+    // graphics settings (Settings > Graphics): render scale, reflections and their size, MSAA,
+    // shadow map size, bloom, lens droplets, flash strength and field of view; all live
+    setQuality: (q) => {
       const base = mobile ? 0.6 : 1;
-      const res = THREE.MathUtils.clamp(base * resolution, 0.3, 1);
-      const changed = Math.abs(res - quality.resolution) > 1e-3;
+      const res = THREE.MathUtils.clamp(base * (q.resolution ?? 1), 0.3, 1.5);
+      const msaa = Math.min(q.msaa ?? 4, mobile ? 2 : 8, renderer.capabilities.maxSamples || 4);
+      const rs = q.reflectionRes ?? 0.5;
+      const changed = Math.abs(res - quality.resolution) > 1e-3 || msaa !== quality.msaa || Math.abs(rs - quality.reflectionScale) > 1e-3;
       quality.resolution = res;
-      quality.reflections = reflections;
+      quality.msaa = msaa;
+      quality.reflectionScale = mobile ? Math.min(rs, 0.35) : rs;
+      quality.reflections = q.reflections;
+      if (q.shadows && sunLight.shadow.mapSize.x !== q.shadows) {
+        sunLight.shadow.mapSize.set(q.shadows, q.shadows);
+        sunLight.shadow.map?.dispose();
+        sunLight.shadow.map = null;   // three rebuilds it at the new size on the next shadow pass
+        renderer.shadowMap.needsUpdate = true;
+      }
+      post.params.bloomStrength = mobile ? 0 : (q.bloom ?? 0.05);
+      opt.droplets = q.droplets !== false;
+      opt.flash = q.reduceFlash ? 0.2 : 1;
+      if (q.fov && Math.abs(camera.fov - q.fov) > 1e-3) { camera.fov = q.fov; camera.updateProjectionMatrix(); }
       if (changed) resize();
     },
   };
@@ -278,9 +294,9 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     snow.update(camera, hdrRT.height, nearSurface);
     uwComp += ((submerged ? 0.55 : 1) - uwComp) * Math.min(1, dt * 3);
     // at night: hold exposure down (auto exposure would brighten it back to day) and drain colour
-    post.params.exposure = uwComp * THREE.MathUtils.lerp(1, 0.2, night) * (1 + flash * 1.6) * (1 - gloom);
+    post.params.exposure = uwComp * THREE.MathUtils.lerp(1, 0.2, night) * (1 + flash * 1.6 * opt.flash) * (1 - gloom);
     post.params.saturation = THREE.MathUtils.lerp(1.3, 0.55, night);
-    post.params.droplets = wasSubmerged && !submerged ? 1 : submerged ? 0 : Math.max(0, post.params.droplets - dt / 5);
+    post.params.droplets = !opt.droplets ? 0 : wasSubmerged && !submerged ? 1 : submerged ? 0 : Math.max(0, post.params.droplets - dt / 5);
     wasSubmerged = submerged;
 
     if (quality.reflections && !submerged) {

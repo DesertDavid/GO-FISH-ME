@@ -3,6 +3,7 @@
 // (north = -z, the same north-up as the chart), so it is right in every view and on foot.
 // Waypoints (per location, kept in the save) ride the tape at their bearing with the distance,
 // and clamp to the ends with an arrow when they are outside the view.
+import * as U from './units.js';
 const W = 640, H = 58;
 const PX_PER_DEG = 4.4;                 // tape scale: ~145 degrees in view
 
@@ -13,7 +14,7 @@ export const wrap360 = (d) => ((d % 360) + 360) % 360;
 export const wrap180 = (d) => ((d + 540) % 360) - 180;
 export const bearingTo = (from, x, z) => wrap360((Math.atan2(x - from.x, -(z - from.z)) * 180) / Math.PI);
 export const cardinal = (deg) => CARD[(Math.round(wrap360(deg) / 45) % 8) * 45];
-export const fmtDist = (m) => (m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km` : `${Math.round(m)} m`);
+export const fmtDist = (m) => U.dist(m);   // metres or feet, per Settings > Display
 
 // ---- waypoint store (save.waypoints = { [locationId]: [{ id, x, z, name }] })
 export function waypointsOf(save, loc) { return (save.waypoints && save.waypoints[loc]) || []; }

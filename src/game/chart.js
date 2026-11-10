@@ -172,7 +172,7 @@ export class Chart {
     ctx.fillStyle = 'rgba(8,16,24,0.72)'; ctx.fillRect(10, W - 34, bar + 20 + 52, 24);
     ctx.strokeStyle = '#e8e4d8'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(20, W - 18); ctx.lineTo(20 + bar, W - 18); ctx.moveTo(20, W - 22); ctx.lineTo(20, W - 14); ctx.moveTo(20 + bar, W - 22); ctx.lineTo(20 + bar, W - 14); ctx.stroke();
-    ctx.fillStyle = '#e8e4d8'; ctx.fillText(`${gridStep} m`, 28 + bar, W - 14);
+    ctx.fillStyle = '#e8e4d8'; ctx.fillText(fmtDist(gridStep), 28 + bar, W - 14);
     // north arrow
     ctx.fillStyle = 'rgba(8,16,24,0.72)'; ctx.fillRect(W - 44, 10, 34, 40);
     ctx.fillStyle = '#e8e4d8'; ctx.textAlign = 'center'; ctx.fillText('N', W - 27, 26);
@@ -288,7 +288,7 @@ export class Chart {
       const here = g.dockHere();
       html = '<h5>Services</h5>' + rows.map(({ p, dist, dir }) => {
         const on = here && here.dock === p.dock;
-        return `<div class="svc ${on ? 'here' : ''}"><b>${p.name}${on ? ' · you are here' : ''}</b><span class="small">${p.services.map((s) => SERVICE_INFO[s].label).join(' · ')}</span><span class="d">${Math.round(dist)} m ${dir}</span></div>`;
+        return `<div class="svc ${on ? 'here' : ''}"><b>${p.name}${on ? ' · you are here' : ''}</b><span class="small">${p.services.map((s) => SERVICE_INFO[s].label).join(' · ')}</span><span class="d">${fmtDist(dist)} ${dir}</span></div>`;
       }).join('');
     }
     const wps = g.compass.list(), me = this.playerPos();

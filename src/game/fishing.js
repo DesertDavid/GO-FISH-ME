@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as U from './units.js';
 import { rollMorph, rollWeight } from './species.js';
 import { poolFit, pickFrom } from './bait.js';
 import { TUNING as BAIT } from './baitData.js';
@@ -558,7 +559,7 @@ export class Fishing {
     }
     if (this.state === 'water' || this.state === 'bite') {
       const mode = striking ? 'strike' : this.state === 'bite' ? 'nibble' : 'idle';
-      c.ui.lureMarker(_w.set(this.lure.x, surf + 0.3, this.lure.z), c.camera, `${Math.round(horiz(c.rod.tip, this.lure))} m${lure.bobber ? '' : ` · ${this.depth.toFixed(1)} m deep`}${c.biteQuality && c.biteQuality() ? ' · ' + '▮'.repeat(this.matchInfo().ticks) + '▯'.repeat(3 - this.matchInfo().ticks) : ''}`, mode);
+      c.ui.lureMarker(_w.set(this.lure.x, surf + 0.3, this.lure.z), c.camera, [c.depthReadout() ? U.dist(horiz(c.rod.tip, this.lure)) + (lure.bobber ? '' : ` · ${U.depth(this.depth)} deep`) : '', c.biteQuality && c.biteQuality() ? '▮'.repeat(this.matchInfo().ticks) + '▯'.repeat(3 - this.matchInfo().ticks) : ''].filter(Boolean).join(' · '), mode);
     } else c.ui.lureMarker(null);
   }
 

@@ -3,7 +3,11 @@ import { LOC } from './current.js';
 import { findStart, LOCATIONS } from './locations.js';
 import { loadSave, writeSave, logCatch, resetSave, readRaw } from './save.js';
 import { autoBackup, diskBackup, migrateSaves } from './saveSlots.js';
-import { loadSettings, saveSettings } from './settings.js';
+import { loadSettings, saveSettings, sanitize, detectPreset, PRESETS, GFX_KEYS } from './settings.js';
+import { resolveBinds, keyName, keyLabel } from './keys.js';
+import { GFX } from './gfx.js';
+import { setUnits, dist as fmtDist } from './units.js';
+import { TUNE as FISH_TUNE } from './fishTune.js';
 import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 import { PlayerBoat } from './boats.js';
 import { customOf, mods as boatModsOf, upgradePrice, upgradeLevel, UPGRADES, paintCost, finalName } from './boatCustom.js';
@@ -73,9 +77,11 @@ export class Game {
     const e = this.e;
     this.ui = new UI(this);
     this.settings = loadSettings();
+    this.binds = resolveBinds(this.settings.binds);   // live key bindings: { map: action -> key, rev: key -> action }
     this.audio = new GameAudio();
     progress(0.75, 'Planting trees…');
     const scenery = buildScenery(this.loc, this.heightAt, this.patchProp);
+    this.scenery = scenery;
     this.scene.add(scenery);
     e.addTideGroup?.(scenery);
     this.start = findStart(this.loc);
@@ -152,6 +158,7 @@ export class Game {
       weatherBite: () => this.weather?.bite ?? 1,
       weatherId: () => (this.weather?.L > 0.3 ? 'storm' : this.weather?.id ?? 'partly'),
       biteQuality: () => this.settings.biteQuality,
+      depthReadout: () => this.settings.depthReadout,
       tideMul: (id) => this.weather?.tideMul(id) ?? 1,
       cloudCover: () => this.e.sky.params.cloudCoverage,
       fishingBusy: () => this.fishing.busy(),
@@ -183,12 +190,15 @@ export class Game {
     const el = this.e.renderer.domElement;
     addEventListener('keydown', (ev) => {
       this.audio.start();
+      if (this.ui.capturing) { this.ui.settingsPanel.capture(ev); return; }   // rebinding a key: it swallows everything
+      const k = keyName(ev);
+      // the Settings screen is keyboard-driven too (arrows, Enter); Esc/Tab fall through to close it
+      if (this.ui.panel === 'settings' && k !== 'escape' && k !== 'tab') { if (this.ui.settingsPanel.key(ev, k)) ev.preventDefault(); return; }
       if (ev.repeat) return;
-      const k = ev.key.toLowerCase();
       // Esc / Tab: close whatever is open, otherwise open the pause menu
       if (k === 'escape' || k === 'tab') {
         ev.preventDefault();
-        if (this.ui.isOpen()) this.ui.close();
+        if (this.ui.isOpen()) { this.ui.close(false); this.freePointer?.(); }   // Esc closes and leaves the mouse free
         else this.ui.open('pause');
         this.keys.clear();
         return;
@@ -198,32 +208,35 @@ export class Game {
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;   // browser shortcuts (Ctrl+C, Ctrl+R...) aren't game keys
       if (this.wantLock) this.grabPointer?.();   // last grab was refused: retry on this key
       this.keys.add(k);
-      const open = { t: 'tackle', b: 'shop', y: 'marina', m: 'map', c: 'chart', j: 'journal', h: 'help', o: 'settings', e: 'events' }[k];
+      const act = this.binds.rev[k];
+      const open = { tackle: 'tackle', shop: 'shop', marina: 'marina', map: 'map', chart: 'chart', journal: 'journal', help: 'help', settings: 'settings', events: 'events' }[act];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
-      if (k === 'v') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
-      if (k === 'g') this.toggleShore();
-      if (k === 'q') { this.ui.open('talk'); this.keys.clear(); return; }
-      if (k === 'l') { this.ui.open('livewell'); this.keys.clear(); return; }
-      if (k === 'n') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else if (this.net.state !== 'stowed' || this.permitOk()) this.net.toggle(); }
-      if (k === 'r') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else if (this.troll.active || this.permitOk()) this.troll.toggle(); }
-      if (k === 'x') this.toggleHolster();
-      if (k === 'i') this.toggleAnchor();
-      if (k === 'u') this.toggleUnderwater();
-      if (k === 'p') this.togglePhoto();
-      if (k === 'f') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
-      if (k === 'z') {
+      if (act === 'view') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
+      if (act === 'stepOff') this.toggleShore();
+      if (act === 'talk') { this.ui.open('talk'); this.keys.clear(); return; }
+      if (act === 'livewell') { this.ui.open('livewell'); this.keys.clear(); return; }
+      if (act === 'net') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else if (this.net.state !== 'stowed' || this.permitOk()) this.net.toggle(); }
+      if (act === 'troll') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else if (this.troll.active || this.permitOk()) this.troll.toggle(); }
+      if (act === 'holster') this.toggleHolster();
+      if (act === 'anchor') this.toggleAnchor();
+      if (act === 'underwater') this.toggleUnderwater();
+      if (act === 'photo') this.togglePhoto();
+      if (act === 'sonar') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
+      if (act === 'waypoint') {
         if (ev.shiftKey) { if (this.compass.list().length) { this.compass.clear(); this.ui.toast('Waypoints cleared', 'info'); } }
         else this.compass.here();
       }
-      if (k === 'k') { this.commit({ hour: this.save.hour + 1 }); this.applySun(true); this.tourTick(60); this.ui.toast('An hour passes…', 'info'); }
-      if (k === '[' || k === ']') this.dragNudge(k === ']' ? 1 : -1);
+      if (act === 'skip') { this.commit({ hour: this.save.hour + 1 }); this.applySun(true); this.tourTick(60); this.ui.toast('An hour passes…', 'info'); }
+      if (act === 'dragUp' || act === 'dragDown') this.dragNudge(act === 'dragUp' ? 1 : -1);
       if (/^[1-9]$/.test(k) && !this.fishing.busy()) {
         const id = this.save.lures[+k - 1];
         if (id) { this.equip('lure', id); this.ui.toast(`Tied on: ${LURES[id].name}`, 'info'); }
       }
     });
-    addEventListener('keyup', (ev) => this.keys.delete(ev.key.toLowerCase()));
-    addEventListener('blur', () => { this.keys.clear(); this.mouse.down = false; });
+    addEventListener('keyup', (ev) => this.keys.delete(keyName(ev)));
+    addEventListener('blur', () => { this.keys.clear(); this.mouse.down = false; this.audio.setFocus(false, this.settings.muteBlur); });
+    addEventListener('focus', () => this.audio.setFocus(true, this.settings.muteBlur));
+    document.addEventListener('visibilitychange', () => this.audio.setFocus(!document.hidden, this.settings.muteBlur));
     // no browser right-click menu anywhere in the game (releasing a right-drag over a panel
     // used to pop it up)
     addEventListener('contextmenu', (ev) => ev.preventDefault());
@@ -307,16 +320,40 @@ export class Game {
     }, { passive: false });
   }
 
+  // every setting goes through here: merge, keep the graphics preset label honest, save at once,
+  // then push each value to the system that uses it (all live except the two ocean build sizes)
   applySettings(patch = {}) {
-    this.settings = { ...this.settings, ...patch };
+    let next = { ...this.settings, ...patch };
+    if (patch.preset && PRESETS[patch.preset]) next = { ...next, ...PRESETS[patch.preset] };
+    else if (!('preset' in patch) && GFX_KEYS.some((k) => k in patch)) next.preset = detectPreset(next);
+    this.settings = sanitize(next);
     saveSettings(this.settings);
-    this.audio.setVolume(this.settings.volume);
-    if (this.weather) this.weather.severe = this.settings.severeWeather !== false;
-    this.e.setQuality({ resolution: this.settings.resolution, reflections: this.settings.reflections });
+    const s = this.settings;
+    this.binds = resolveBinds(s.binds);
+    this.audio.setVolumes({ master: s.volume, sfx: s.sfxVol, amb: s.ambVol, ui: s.uiVol });
+    this.audio.setFocus(!document.hidden && document.hasFocus(), s.muteBlur);
+    Object.assign(GFX, { drawDistance: s.drawDistance, vegetation: s.vegetation, buildings: s.buildings, wildlife: s.wildlife, fishCount: s.fishCount, weatherFx: s.weatherFx, reduceMotion: s.reduceMotion, reduceFlash: s.reduceFlash });
+    setUnits(s.unitDist, s.unitWeight, s.unitSpeed);
+    this.applyDensity();
+    if (this.weather) this.weather.severe = s.severeWeather !== false;
+    this.e.setQuality(s);
+    const root = document.documentElement;
+    root.style.setProperty('--hud-scale', String(s.hudScale * (s.bigText ? 1.2 : 1)));
+    root.style.setProperty('--hud-opacity', String(s.hudOpacity));
+    root.style.setProperty('--ui-scale', String(s.bigText ? 1.18 : 1));
+    root.classList.toggle('safe-colors', s.safeColors);
+    this.ui.fpsShow?.(s.fps);
     if ('mouseLock' in patch) {
       if (!this.settings.mouseLock) this.freePointer?.();
       this.ui.lookHint(this.settings.mouseLock && document.pointerLockElement !== this.e.renderer.domElement);
     }
+  }
+
+  // vegetation and fish-count settings that act on objects already built
+  applyDensity() {
+    for (const v of this.scenery?.userData.veg || []) v.mesh.count = Math.round(v.n * GFX.vegetation);
+    FISH_TUNE.maxActors = Math.max(1, Math.round(10 * GFX.fishCount));
+    if (this.ambient) this.ambient.max = Math.max(1, Math.round(7 * GFX.fishCount));
   }
 
   resetProgress() {
@@ -359,19 +396,19 @@ export class Game {
   // ---------------------------------------------------------------- loop
   update(dt) {
     this.time += dt;
+    this.perfTick(dt);
     const fighting = this.fishing.state === 'fight';
-    const k = (key) => this.keys.has(key);
+    const k = (act) => this.keys.has(this.binds.map[act]);   // is this action's key held
     // boat controls (A/D steer the rod during a fight)
-
     const c = this.boat.control;
-    const throttleTarget = (k('w') ? 1 : 0) - (k('s') ? 1 : 0);
+    const throttleTarget = (k('forward') ? 1 : 0) - (k('back') ? 1 : 0);
     c.throttle += ((this.foot ? 0 : throttleTarget) - c.throttle) * Math.min(1, dt * 3);
-    c.steer = fighting || this.foot ? 0 : (k('d') ? 1 : 0) - (k('a') ? 1 : 0);
+    c.steer = fighting || this.foot ? 0 : (k('right') ? 1 : 0) - (k('left') ? 1 : 0);
     if (this.foot) this.walk(dt, k, fighting);
-    if (k('arrowleft')) this.look.yaw += dt * 1.6;
-    if (k('arrowright')) this.look.yaw -= dt * 1.6;
-    if (k('arrowup')) this.look.pitch = Math.min(1.1, this.look.pitch + dt * 1.2);
-    if (k('arrowdown')) this.look.pitch = Math.max(-1.2, this.look.pitch - dt * 1.2);
+    if (k('lookLeft')) this.look.yaw += dt * 1.6;
+    if (k('lookRight')) this.look.yaw -= dt * 1.6;
+    if (k('lookUp')) this.look.pitch = Math.min(1.1, this.look.pitch + dt * 1.2);
+    if (k('lookDown')) this.look.pitch = Math.max(-1.2, this.look.pitch - dt * 1.2);
     this.boat.update(dt, this.e.floaters, this.loc.current);
     if (this.boat.body) {
       const hit = this.obstacles.resolve(this.boat.body, this.boat.hull.length, this.boat.hull.beam);
@@ -392,7 +429,7 @@ export class Game {
     const input = {
       down: this.mouse.down && !this.ui.isOpen() && canAct,
       pressed: this.mouse.pressed && !this.ui.isOpen() && canAct,
-      steer: fighting ? (k('d') ? 1 : 0) - (k('a') ? 1 : 0) : 0,
+      steer: fighting ? (k('right') ? 1 : 0) - (k('left') ? 1 : 0) : 0,
     };
     this.mouse.pressed = false;
     // a screaming trolling rod: the click grabs it instead of casting
@@ -452,7 +489,23 @@ export class Game {
     const showSonar = !this.foot && this.settings.sonar;
     this.sonar.c.style.display = showSonar ? '' : 'none';
     this.compass.update();
-    if (showSonar) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, this.boatMods().sonarRange), this.hotspots.near(bp.x, bp.z, 60), ['SONAR', 'CHIRP', 'CHIRP SI'][(this.save.custom?.[this.save.boat]?.up?.sonar) || 0]);
+    if (showSonar) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, this.boatMods().sonarRange), this.hotspots.near(bp.x, bp.z, 60), ['SONAR', 'CHIRP', 'CHIRP SI'][(this.save.custom?.[this.save.boat]?.up?.sonar) || 0], this.settings.depthReadout);
+  }
+
+  // frame-rate counter (Settings > Display) and a one-time hint when the game runs slowly
+  perfTick(dt) {
+    const f = this.perf || (this.perf = { t: 0, n: 0, ms: 0, slowT: 0, warned: false });
+    f.t += dt; f.n++; f.ms = Math.max(f.ms, dt * 1000);
+    if (f.t < 0.5) return;
+    const fps = f.n / f.t;
+    if (this.settings.fps) this.ui.fpsText(`${Math.round(fps)} fps  ${(1000 / Math.max(fps, 1)).toFixed(1)} ms`);
+    // never changes anything on its own: only suggests a lower preset after 20 s under 24 fps
+    f.slowT = fps < 24 ? f.slowT + f.t : 0;
+    if (f.slowT > 20 && !f.warned && this.settings.preset !== 'low') {
+      f.warned = true;
+      this.ui.toast('Running slowly? Settings > Graphics has Low and Medium presets.', 'info');
+    }
+    f.t = 0; f.n = 0; f.ms = 0;
   }
 
   updateCamera(dt) {
@@ -469,7 +522,7 @@ export class Game {
     // world-space tilt = boat rotation with its heading taken out
     _q.setFromAxisAngle(UP, heading);
     const tilt = _q2.copy(b.quat).multiply(_q.invert());
-    tilt.slerp(new THREE.Quaternion(), 0.55);
+    tilt.slerp(new THREE.Quaternion(), GFX.reduceMotion ? 1 : 0.55);   // reduce motion: the horizon stays level
     _e.set(al.pitch, heading - Math.PI / 2 + al.yaw, 0, 'YXZ');
     A.quaternion.setFromEuler(_e).premultiply(tilt);
     // green water over the deck: keep the eye above the wave crest rolling past
@@ -532,9 +585,9 @@ export class Game {
     }
     f.speed = 0;
     if (fighting || this.fishing.state === 'charging' || this.ui.isOpen() || this.view !== 'first') return;
-    const fwd = (k('w') ? 1 : 0) - (k('s') ? 1 : 0), side = (k('d') ? 1 : 0) - (k('a') ? 1 : 0);
+    const fwd = (k('forward') ? 1 : 0) - (k('back') ? 1 : 0), side = (k('right') ? 1 : 0) - (k('left') ? 1 : 0);
     if (!fwd && !side) return;
-    const yaw = this.look.yaw, run = k('shift') ? 3.6 : 1.7;
+    const yaw = this.look.yaw, run = k('sprint') ? 3.6 : 1.7;
     let mx = -Math.sin(yaw) * fwd + Math.cos(yaw) * side, mz = -Math.cos(yaw) * fwd - Math.sin(yaw) * side;
     const l = Math.hypot(mx, mz); mx /= l; mz /= l;
     const step = run * dt, nx = f.x + mx * step, nz = f.z + mz * step;
@@ -549,7 +602,7 @@ export class Game {
     const f = this.foot, A = this.angler, cam = this.camera;
     const g = this.groundAt(f.x, f.z), surf = this.water[0] || 0;
     f.bob = (f.bob || 0) + dt * f.speed * 2.2;
-    const eye = Math.max(g, surf - 1.1) + 1.68 + Math.sin(f.bob * 2) * 0.022 * Math.min(1, f.speed);
+    const eye = Math.max(g, surf - 1.1) + 1.68 + Math.sin(f.bob * 2) * 0.022 * Math.min(1, f.speed) * (GFX.reduceMotion ? 0 : 1);
     f.y = f.y === undefined ? eye : f.y + (eye - f.y) * Math.min(1, dt * 10);
     A.position.set(f.x, f.y, f.z);
     _e.set(al.pitch, al.yaw, 0, 'YXZ');
@@ -599,7 +652,7 @@ export class Game {
     if (this.foot) {
       const bp = this.boat.position, d = Math.hypot(bp.x - this.foot.x, bp.z - this.foot.z);
       if (d > this.boat.hull.length / 2 + 4) {
-        this.ui.toast(`Your boat is ${Math.round(d)} m away, ${this.bearing(bp.x, bp.z, this.foot, this.look.yaw + Math.PI / 2)}. Walk back to it.`, 'info');
+        this.ui.toast(`Your boat is ${fmtDist(d)} away, ${this.bearing(bp.x, bp.z, this.foot, this.look.yaw + Math.PI / 2)}. Walk back to it.`, 'info');
         return;
       }
       this.look.yaw -= this.boat.heading() - Math.PI / 2;   // world yaw back to boat-relative
@@ -612,7 +665,7 @@ export class Game {
     const spot = this.shoreSpot();
     if (!spot) {
       const bp = this.boat.position, n = this.docks.nearest(bp.x, bp.z);
-      if (n) this.ui.toast(`Nearest dock: ${Math.round(n.centre)} m, ${this.bearing(n.dock.end.x, n.dock.end.z, bp, this.boat.heading())}. Pull up alongside and press G.`, 'info');
+      if (n) this.ui.toast(`Nearest dock: ${fmtDist(n.centre)}, ${this.bearing(n.dock.end.x, n.dock.end.z, bp, this.boat.heading())}. Pull up alongside and press G.`, 'info');
       else if (this.heightAt(bp.x, bp.z) < -60) this.ui.toast('Open ocean - no shore to fish from out here.', 'info');
       else this.ui.toast('Get up close to the bank, then press G to go ashore.', 'info');
       return;
@@ -644,15 +697,16 @@ export class Game {
         }
       }
     }
-    const hints = text ? [['G', text]] : [];
-    if (this.view === 'first' && !this.fishing.busy() && !this.ui.isOpen() && this.save.livewell.length && this.marketAccess() === 'dock') hints.push(['L', 'sell your catch at the dock']);
+    const KL = (a) => keyLabel(this.binds.map[a]);
+    const hints = text ? [[KL('stepOff'), text]] : [];
+    if (this.view === 'first' && !this.fishing.busy() && !this.ui.isOpen() && this.save.livewell.length && this.marketAccess() === 'dock') hints.push([KL('livewell'), 'sell your catch at the dock']);
     // at a shop door on foot: what this building sells (B tackle & permits, Y boats)
     const door = this.foot && this.view === 'first' && !this.ui.isOpen() ? this.buildings?.doorNear(this.foot.x, this.foot.z) : null;
     if (door) {
-      if (door.services.includes('tackle')) hints.push(['B', `${door.title}: bait, tackle & permits`]);
-      if (door.services.includes('boats')) hints.push(['Y', 'boat dealer']);
+      if (door.services.includes('tackle')) hints.push([KL('shop'), `${door.title}: bait, tackle & permits`]);
+      if (door.services.includes('boats')) hints.push([KL('marina'), 'boat dealer']);
     }
-    if (!this.ui.isOpen() && this.view === 'first' && this.keepers?.who()) hints.push(['Q', `talk to ${this.keepers.who().d.name}`]);
+    if (!this.ui.isOpen() && this.view === 'first' && this.keepers?.who()) hints.push([KL('talk'), `talk to ${this.keepers.who().d.name}`]);
     this.ui.shoreHint(hints);
   }
 
@@ -764,10 +818,10 @@ export class Game {
     if (!m.anchorDepth) { this.ui.toast('No anchor winch on this boat - fit one at the marina (Y).', 'info'); return; }
     const depth = this.depthUnderBoat();
     if (depth < 0.8) { this.ui.toast('Too shallow here to set the anchor properly.', 'info'); return; }
-    if (depth > m.anchorDepth) { this.ui.toast(`Too deep for your anchor line (${m.anchorDepth} m, this is ${Math.round(depth)} m).`, 'info'); return; }
+    if (depth > m.anchorDepth) { this.ui.toast(`Too deep for your anchor line (${fmtDist(m.anchorDepth)}, this is ${fmtDist(depth)}).`, 'info'); return; }
     if (Math.abs(this.boatSpeed()) > 2.5) { this.ui.toast('Slow down to set the anchor.', 'info'); return; }
     b.dropAnchor(depth);
-    this.ui.toast(`Anchor down in ${Math.round(depth)} m`, 'good');
+    this.ui.toast(`Anchor down in ${fmtDist(depth)}`, 'good');
   }
   hour() { return this.save.hour; }
   depthUnderBoat() { const p = this.boat.position; return Math.max(0, -this.heightAt(p.x, p.z)); }
@@ -874,7 +928,7 @@ export class Game {
     const what = { tackle: 'The tackle shop', boats: 'The boat dealer', sell: 'The fish market' }[kind];
     if (d) {
       const dx = d.end.x - from.x, dz = d.end.z - from.z, dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
-      this.ui.toast(`${what} is at the ${d.profile.name} dock, ${Math.round(Math.hypot(dx, dz))} m ${dirs[Math.round(Math.atan2(dx, -dz) / (Math.PI / 4) + 8) % 8]}. Press C for the chart.`, 'info');
+      this.ui.toast(`${what} is at the ${d.profile.name} dock, ${fmtDist(Math.hypot(dx, dz))} ${dirs[Math.round(Math.atan2(dx, -dz) / (Math.PI / 4) + 8) % 8]}. Press C for the chart.`, 'info');
     } else this.ui.toast(`No ${what.toLowerCase().replace('the ', '')} on this water.`, 'info');
     return false;
   }
@@ -894,7 +948,7 @@ export class Game {
     const n = this.docks.nearest(from.x, from.z);
     if (!n) return '';
     const facing = this.foot ? this.look.yaw + Math.PI / 2 : this.boat.heading();
-    return `Nearest dock: ${Math.round(n.centre)} m, ${this.bearing(n.dock.end.x, n.dock.end.z, from, facing)}.`;
+    return `Nearest dock: ${fmtDist(n.centre)}, ${this.bearing(n.dock.end.x, n.dock.end.z, from, facing)}.`;
   }
 
   // sell kept fish by id (or every one); returns the total

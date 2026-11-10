@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { LightningBolt } from './lightning.js';
+import { GFX } from './gfx.js';
 
 // Weather: clouds, light, wind/waves, fog, rain, and how it changes the bite.
 // The base state changes every couple of game hours and eases in over ~20 s. On top of it run
@@ -321,7 +322,7 @@ export class Weather {
     this.bolt.opacity = env;
     const p = this.boltPow * env;
     this.e.setLightning?.(0.55 * p);
-    this.flash.style.opacity = String(0.22 * p * p);
+    this.flash.style.opacity = String(0.22 * p * p * (GFX.reduceFlash ? 0.2 : 1));
     for (let i = this.thunder.length - 1; i >= 0; i--) {
       this.thunder[i].t -= dt;
       if (this.thunder[i].t <= 0) { this.audio.thunder?.(this.thunder[i].dist); this.thunder.splice(i, 1); }
@@ -370,7 +371,7 @@ export class Weather {
     this.rain.visible = rain > 0.02;
     if (this.rain.visible) {
       const p = this.rain.geometry.attributes.position.array, d = this.drops, cp = camera.position;
-      const fall = 11 * dt * (1 + this.L * 0.6), n = Math.floor(DROPS * Math.min(1, rain + 0.2));
+      const fall = 11 * dt * (1 + this.L * 0.6), n = Math.floor(DROPS * Math.min(1, rain + 0.2) * GFX.weatherFx);
       const slant = 0.12 * this.cur.windMul + 0.5 * this.L;
       for (let i = 0; i < DROPS; i++) {
         d[i * 3 + 1] -= fall;

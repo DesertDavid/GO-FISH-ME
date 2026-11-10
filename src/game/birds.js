@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { rng, hashStr, paint, limb } from './shorelife.js';
+import { GFX } from './gfx.js';
 
 // Shore and sea birds. wildlife.js has no birds and scenery.js only has gulls circling the
 // bait hotspots, so this adds what was missing, per location:
@@ -103,7 +104,7 @@ export class Birds {
     m.root.traverse((o) => { if (o.isMesh) { o.material = this.mat; o.layers.enable(1); } });
     m.root.rotation.order = 'YZX';
     this.group.add(m.root);
-    const b = { m, kind, x, y, z, heading, pitch: 0, state: 'stand', t: 0, dur: 5, ph: this.rand() * 10, home: { x, y, z }, vis: true };
+    const b = { m, kind, x, y, z, heading, pitch: 0, state: 'stand', t: 0, dur: 5, ph: this.rand() * 10, home: { x, y, z }, vis: true, i: this.birds.length };
     fold(m);
     this.birds.push(b);
     return b;
@@ -173,9 +174,10 @@ export class Birds {
   update(dt, player, night, camPos) {
     this.time += dt;
     const t = this.time;
+    const keep = Math.ceil(this.birds.length * GFX.wildlife);   // Settings > Graphics: bird density
     for (const b of this.birds) {
       const d = Math.hypot(b.x - camPos.x, b.z - camPos.z);
-      const hide = d > (b.pelican ? 650 : 330) || (night > 0.75 && !b.pelican);
+      const hide = d > (b.pelican ? 650 : 330) * GFX.drawDistance || (night > 0.75 && !b.pelican) || b.i >= keep;
       if (hide !== !b.vis) { b.vis = !hide; b.m.root.visible = b.vis; }
       if (hide) { if (b.pelican && d > 650) this.recall(b, camPos); continue; }
       const pd = Math.hypot(b.x - player.x, b.z - player.z);

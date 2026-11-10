@@ -1,4 +1,5 @@
 // Fish finder: a scrolling sonar trace of the bottom and fish arches under the boat.
+import * as U from './units.js';
 export class Sonar {
   constructor(canvas) {
     this.c = canvas;
@@ -9,7 +10,7 @@ export class Sonar {
     this.ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  update(dt, depth, fishDepths, hot, tag = 'SONAR') {
+  update(dt, depth, fishDepths, hot, tag = 'SONAR', show = true) {
     this.t += dt;
     if (this.t < 0.08) return;
     this.t = 0;
@@ -44,7 +45,7 @@ export class Sonar {
     ctx.fillRect(0, 0, W, 18);
     ctx.fillStyle = '#e8e4d8';
     ctx.font = '600 11px "IBM Plex Mono", monospace';
-    ctx.fillText(`${tag}  ${depth.toFixed(1)} m`, 8, 13);
+    ctx.fillText(show ? `${tag}  ${U.depth(depth)}` : tag, 8, 13);
     if (hot > 0.05) { ctx.fillStyle = '#ff7a1a'; ctx.fillText('FISH', W - 40, 13); }
   }
 }
