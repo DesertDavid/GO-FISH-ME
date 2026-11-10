@@ -22,6 +22,7 @@ const OPTS = {
     { k: 'severeWeather', t: 'toggle', label: 'Severe weather', desc: 'Squalls with strong wind, big seas and lightning. Fog banks still roll in when this is off.' },
     { k: 'hands', t: 'seg', label: 'First-person hands', desc: 'Classic: the original modelled hands. Realistic: a textured hand with nails, knuckles and a rolled flannel sleeve (credit in the pause menu). Jellybean: the stylised angler with capsule arms and ball hands, the same figure you see in third person.', opts: [['1', 'Classic'], ['2', 'Realistic'], ['3', 'Jellybean']], reload: true },
     { k: 'biteQuality', t: 'toggle', label: 'Bite-quality ticks', desc: 'Three small ticks on the lure marker show how well the lure, depth and time of day suit the fish.' },
+    { k: 'devTools', t: 'toggle', label: 'Developer tools', desc: 'Turns on the developer panel and the free-fly camera (keys under Controls > Developer). Using either pauses saving until you reload, and nothing you do with them is ever saved. Also available as ?dev=1 in the address.' },
   ],
   graphics: [
     { k: 'preset', t: 'seg', label: 'Quality preset', desc: 'Sets everything below at once. Changing any single option switches this to Custom. High is the original look.', opts: [['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['ultra', 'Ultra'], ['custom', 'Custom']], preset: true },
@@ -77,7 +78,7 @@ const OPTS = {
 };
 const TABS = [['gameplay', 'Gameplay'], ['controls', 'Controls'], ['graphics', 'Graphics'], ['audio', 'Audio'], ['display', 'Display'], ['access', 'Accessibility']];
 const TAB_KEYS = {
-  gameplay: ['mouseLock', 'severeWeather', 'biteQuality'],
+  gameplay: ['mouseLock', 'severeWeather', 'biteQuality', 'devTools'],
   controls: ['lookSpeed', 'invertY', 'binds'],
   graphics: ['preset', ...GFX_KEYS, 'fov', 'fps'],
   audio: ['volume', 'sfxVol', 'ambVol', 'uiVol', 'sonarPing', 'muteBlur'],

@@ -1,7 +1,7 @@
 // Named save slots, file export/import and the optional on-disk backup.
 // The live game still autosaves to `reelworld-save-v1` (save.js); slots are snapshots of it.
 import { LOCATIONS, LOCATION_ORDER } from './locations.js';
-import { DEFAULT_SAVE, readRaw, writeRaw } from './save.js';
+import { DEFAULT_SAVE, readRaw, writeRaw, isFrozen } from './save.js';
 import { CATALOG_SIZE } from './species.js';
 import { BOATS, RODS, REELS, LINES, LURES } from './gear.js';
 import { upgradeSave, levelOf } from './progress.js';
@@ -23,6 +23,7 @@ function readSlots() {
 }
 
 function writeSlots(d) {
+  if (isFrozen()) return false;   // preview and developer sessions never write
   try { localStorage.setItem(SLOTS_KEY, JSON.stringify(d)); return true; } catch { return false; }
 }
 
@@ -174,12 +175,13 @@ export function installAsLive(data) {
 // ---- optional disk backup (dev server middleware in vite.config.js; silent if absent) ----
 let lastAuto = 0;
 export function backupToDisk(name, payload) {
+  if (isFrozen()) return;
   try {
     fetch(`/__reelworld/backup/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => {});
   } catch { /* no server support */ }
 }
 export function autoBackup(data) {
-  if (new URLSearchParams(location.search).has('loc')) return;   // preview pages never write
+  if (isFrozen()) return;   // preview pages and developer sessions never write
   const now = Date.now();
   if (now - lastAuto < 60000) return;
   lastAuto = now;

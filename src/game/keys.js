@@ -37,11 +37,13 @@ export const ACTIONS = [
   ['trophy', 'Trophy room (at the marina)', 'Menus', ';'],
   ['help', 'Controls help', 'Menus', 'h'],
   ['settings', 'Settings', 'Menus', 'o'],
+  ['dev', 'Developer panel (needs Developer tools)', 'Developer', '`'],
+  ['fly', 'Free-fly camera (needs Developer tools)', 'Developer', '\\'],
 ];
 export const ACTION_IDS = ACTIONS.map((a) => a[0]);
 export const ACTION = Object.fromEntries(ACTIONS.map(([id, label, group, def]) => [id, { id, label, group, def }]));
 export const DEFAULT_BINDS = Object.fromEntries(ACTIONS.map((a) => [a[0], a[3]]));
-export const GROUPS = ['Move', 'Look', 'Fishing', 'Navigation', 'Menus'];
+export const GROUPS = ['Move', 'Look', 'Fishing', 'Navigation', 'Menus', 'Developer'];
 
 // the name of a pressed key, matching what is stored
 export const keyName = (ev) => (ev.key === ' ' ? 'space' : String(ev.key).toLowerCase());

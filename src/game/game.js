@@ -27,6 +27,7 @@ import { Trolling, TROLL_GEAR } from './troll.js';
 import { Tournament, tournamentsFor } from './tournaments.js';
 import { TrophyHall } from './trophyHall.js';
 import { noteCatch, settleTournament, addBadge, mountCand, takeDown, mountFee, mountNote, SAY } from './trophyData.js';
+import { DevTools } from './dev.js';
 import { Sonar } from './sonar.js';
 import { Compass } from './compass.js';
 import { GameAudio } from './audio.js';
@@ -84,6 +85,8 @@ export class Game {
     this.ui = new UI(this);
     this.settings = loadSettings();
     this.binds = resolveBinds(this.settings.binds);   // live key bindings: { map: action -> key, rev: key -> action }
+    this.dev = new DevTools(this);   // developer tools (off unless enabled in Settings or ?dev=1; docs/dev-mode.md)
+    this.dev.boot();
     this.audio = new GameAudio();
     progress(0.75, 'Planting trees…');
     const scenery = buildScenery(this.loc, this.heightAt, this.patchProp);
@@ -109,7 +112,7 @@ export class Game {
     this.chart = new Chart(this);
     progress(0.85, 'Launching the boat…');
     let boatId = this.save.boat;
-    if (!BOATS[boatId].waters.includes(this.loc.water)) boatId = this.save.boats.find((b) => BOATS[b].waters.includes(this.loc.water)) || 'jon';
+    if (!this.dev.keepBoat && !BOATS[boatId].waters.includes(this.loc.water)) boatId = this.save.boats.find((b) => BOATS[b].waters.includes(this.loc.water)) || 'jon';
     this.save = { ...this.save, boat: boatId };
     this.boat = await new PlayerBoat(boatId).create(e.floaters, this.patchProp, this.start, this.start.yaw || 0, this.boatCust(boatId));
     this.look.yaw = BOATS[boatId].face || 0;
@@ -144,8 +147,9 @@ export class Game {
     this.ui.ready();
     this.ui.lookHint(this.settings.mouseLock);
     if (this.freshStart) diskBackup().then((b) => { if (b) this.ui.toast('A backup of earlier progress was found on disk - Esc > Save / Load to restore it.', 'info'); });
-    if (!this.save.seenHelp) { this.ui.open('help'); this.commit({ seenHelp: true }); }
+    if (!this.save.seenHelp && !this.dev.url) { this.ui.open('help'); this.commit({ seenHelp: true }); }
     this.ensureChallenges();
+    this.dev.ready();
     this.ui.toast(`${this.loc.name}.`, 'good');
     if (!hasPermit(this.save, this.loc.id)) this.ui.toast('Fishing here needs a permit: buy one at the tackle shop (Chart: C).', 'info');
   }
@@ -217,6 +221,7 @@ export class Game {
       if (this.wantLock) this.grabPointer?.();   // last grab was refused: retry on this key
       this.keys.add(k);
       const act = this.binds.rev[k];
+      if (act === 'dev' || act === 'fly') { this.dev.hotkey(act); this.keys.clear(); return; }
       const open = { tackle: 'tackle', shop: 'shop', marina: 'marina', map: 'map', chart: 'chart', journal: 'journal', help: 'help', settings: 'settings', events: 'events', trophy: 'trophy' }[act];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
       if (act === 'view') {
@@ -314,6 +319,7 @@ export class Game {
       if (ev.button === 2) this.mouse.right = false;
     });
     const look = (dx, dy) => {
+      if (this.dev.fly) { this.dev.look(dx, dy); return; }
       const k = 0.0035 * this.settings.lookSpeed;
       this.look.yaw -= dx * k;
       this.look.pitch = THREE.MathUtils.clamp(this.look.pitch - dy * k * (this.settings.invertY ? -1 : 1), -1.2, 1.1);
@@ -328,6 +334,7 @@ export class Game {
     this.grabPointer = () => lockPointer(true);
     el.addEventListener('wheel', (ev) => {
       ev.preventDefault();
+      if (this.dev.fly) { this.dev.wheel(ev.deltaY); return; }
       if (this.view === 'third') this.look.dist = THREE.MathUtils.clamp(this.look.dist + Math.sign(ev.deltaY) * 3, -10, 60);
       else this.dragNudge(-Math.sign(ev.deltaY));
     }, { passive: false });
@@ -355,7 +362,8 @@ export class Game {
     root.style.setProperty('--hud-opacity', String(s.hudOpacity));
     root.style.setProperty('--ui-scale', String(s.bigText ? 1.18 : 1));
     root.classList.toggle('safe-colors', s.safeColors);
-    this.ui.fpsShow?.(s.fps);
+    this.ui.fpsShow?.(s.fps || this.dev?.fps);
+    this.dev?.sync();
     if ('mouseLock' in patch) {
       if (!this.settings.mouseLock) this.freePointer?.();
       this.ui.lookHint(this.settings.mouseLock && document.pointerLockElement !== this.e.renderer.domElement);
@@ -411,7 +419,7 @@ export class Game {
     this.time += dt;
     this.perfTick(dt);
     const fighting = this.fishing.state === 'fight';
-    const k = (act) => this.keys.has(this.binds.map[act]);   // is this action's key held
+    const k = (act) => !this.dev.fly && this.keys.has(this.binds.map[act]);   // is this action's key held (none while the dev camera flies)
     // boat controls (A/D steer the rod during a fight)
     const c = this.boat.control;
     const throttleTarget = (k('forward') ? 1 : 0) - (k('back') ? 1 : 0);
@@ -430,6 +438,7 @@ export class Game {
     }
     this.audio.engine(c.throttle, this.boatSpeed());
     this.updateCamera(dt);
+    this.dev.update(dt);   // the free-fly camera takes over here when it is on
 
     // the underwater camera hands back to the angler when there's nothing left to watch
     if (this.view === 'under' && !['water', 'bite', 'fight'].includes(this.fishing.state)) { this.view = 'first'; this.restoreLook(); }
@@ -438,7 +447,7 @@ export class Game {
     if (this.holstered && this.rod.holster > 0.995) this.rod.holster = 1;
     // a screaming trolling rod: take the rod back out so the click can grab it
     if (this.holstered && this.troll.pending) { this.holstered = false; this.ui.toast('Rod out.', 'info'); }
-    const canAct = (this.view === 'first' || this.view === 'under') && !this.holstered;
+    const canAct = (this.view === 'first' || this.view === 'under') && !this.holstered && !this.dev.fly;
     const input = {
       down: this.mouse.down && !this.ui.isOpen() && canAct,
       pressed: this.mouse.pressed && !this.ui.isOpen() && canAct,
@@ -465,11 +474,11 @@ export class Game {
     const tpOn = this.view === 'first' && this.tp;
     this.rod.setSpace(tpOn);
     this.fishing.lctx.camera = tpOn ? this.angler : this.camera;
-    this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo && this.rod.holster < 1);
-    this.body.update(dt, tpOn);
+    this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo && this.rod.holster < 1 && !this.dev.fly);
+    this.body.update(dt, tpOn || this.dev.fly);
     this.ui.power(this.fishing.state === 'charging' ? this.fishing.power : null);
     this.net.update(dt);
-    const bp = this.foot ? this.footPos : this.boat.position;
+    const bp = this.dev.fly ? this.dev.focus : this.foot ? this.footPos : this.boat.position;   // the dev camera streams the world around itself
     this.docks.update(this.nightLevel(), bp);
     this.buildings.update(dt, this.nightLevel(), bp);
     this.hall?.update(dt, bp);
@@ -486,13 +495,14 @@ export class Game {
     this.audio.update(dt, REELS[this.save.equip.reel].ratio, this);
 
     // clock: one real second = one game minute; nights are skipped
-    this.weather.update(dt, dt / 60, this.camera, { hour: this.save.hour, day: this.save.day || 1 });
+    const tick = this.dev.paused ? 0 : dt / 60;   // dev panel: clock paused
+    this.weather.update(dt, tick, this.camera, { hour: this.save.hour, day: this.save.day || 1 });
     this.docks.yOff = -this.e.getTide();   // docks ride the tide with the land
     this.boat.rough = this.weather.rough;
     this.boat.gust = this.weather.gust;
     this.tourTick(dt);
     this.save.weather = this.weather.id;
-    let hour = this.save.hour + dt / 60;
+    let hour = this.save.hour + tick;
     // full 24-hour clock; a new day (and new challenges) at midnight
     if (hour >= 24) {
       hour -= 24;
@@ -517,7 +527,7 @@ export class Game {
       this.ui.hud();
       if (Math.floor(this.time) % 10 === 0) { writeSave(this.save); autoBackup(this.save); }
     }
-    const showSonar = !this.foot && this.settings.sonar;
+    const showSonar = !this.foot && (this.dev.sonar ?? this.settings.sonar);
     this.sonar.c.style.display = showSonar ? '' : 'none';
     this.compass.update();
     if (showSonar) this.sonar.update(dt, this.depthUnderBoat(), this.ambient.near(bp.x, bp.z, this.boatMods().sonarRange), this.hotspots.near(bp.x, bp.z, 60), ['SONAR', 'CHIRP', 'CHIRP SI'][(this.save.custom?.[this.save.boat]?.up?.sonar) || 0], this.settings.depthReadout);
@@ -529,7 +539,7 @@ export class Game {
     f.t += dt; f.n++; f.ms = Math.max(f.ms, dt * 1000);
     if (f.t < 0.5) return;
     const fps = f.n / f.t;
-    if (this.settings.fps) this.ui.fpsText(`${Math.round(fps)} fps  ${(1000 / Math.max(fps, 1)).toFixed(1)} ms`);
+    if (this.settings.fps || this.dev.fps) this.ui.fpsText(`${Math.round(fps)} fps  ${(1000 / Math.max(fps, 1)).toFixed(1)} ms`);
     // never changes anything on its own: only suggests a lower preset after 20 s under 24 fps
     f.slowT = fps < 24 ? f.slowT + f.t : 0;
     if (f.slowT > 20 && !f.warned && this.settings.preset !== 'low') {
@@ -1373,6 +1383,7 @@ export class Game {
   }
 
   travel(id) {
+    if (this.dev.engaged) { location.href = this.dev.href({ loc: id }); return; }   // a developer session never touches the save
     const l = LOCATIONS[id];
     const boat = this.save.boats.includes(this.save.boat) && BOATS[this.save.boat].waters.includes(l.water) ? this.save.boat : this.save.boats.find((b) => BOATS[b].waters.includes(l.water));
     this.commit({ location: id, boat: boat || this.save.boat, hour: Math.max(6, Math.min(this.save.hour, 15)) });

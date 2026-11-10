@@ -12,7 +12,7 @@ const one = (def, list) => ({ def, list });
 
 export const SPEC = {
   // gameplay
-  mouseLock: bool(true), severeWeather: bool(true), biteQuality: bool(false), hands: one('1', ['1', '2', '3']),
+  mouseLock: bool(true), severeWeather: bool(true), biteQuality: bool(false), hands: one('1', ['1', '2', '3']), devTools: bool(false),
   // controls
   lookSpeed: num(1, 0.3, 2.5), invertY: bool(false),
   // graphics

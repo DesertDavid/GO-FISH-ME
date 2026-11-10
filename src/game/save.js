@@ -61,8 +61,10 @@ export function loadSave() {
 }
 
 // frozen = never write the autosave: while loading another save, and on ?loc=<id> preview pages
-let frozen = typeof location !== 'undefined' && new URLSearchParams(location.search).has('loc');
+// (a ?dev=1 session is frozen from the start; the developer tools freeze it the first time they are used: dev.js)
+let frozen = typeof location !== 'undefined' && ['loc', 'dev'].some((k) => new URLSearchParams(location.search).has(k));
 export function freezeSaves() { frozen = true; }
+export const isFrozen = () => frozen;
 export function writeRaw(save) {
   try { localStorage.setItem(KEY, JSON.stringify(save)); return true; } catch { return false; }
 }

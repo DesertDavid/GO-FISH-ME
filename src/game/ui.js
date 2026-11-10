@@ -8,7 +8,7 @@ import { wellSlots, holdCap, holdLb, holdCount, holdCondition, holdTone, holdVal
 import { PALETTES, SLOTS, SLOT_LABEL, SLOT_LABEL_BOAT, WEAR_NAMES, UPGRADES, upgradesFor, upgradePrice, upgradeLevel, paintCost, customOf, cleanName, makeReg, NAME_MAX } from './boatCustom.js';
 import { BoatPreview } from './boatPreview.js';
 import { levelInfo, gateLevel, meets, unlocksAt, MAX_LEVEL, xpAt, GATES, reelSmooth, lineCastMul, permitLeft, permitText, permitPrice, PERMIT_OPTIONS, respoolCost, SHARPEN_COST, restockCost, wearWord, effectiveTest, WEAR_DEFAULT } from './progress.js';
-import { freezeSaves, writeSave } from './save.js';
+import { freezeSaves, writeSave, isFrozen } from './save.js';
 import { TIERS } from './dialogue.js';
 import { listSlots, putSlot, deleteSlot, summarize, fmtPlayed, fmtWhen, parseFile, downloadFile, pickFile, installAsLive, diskBackup } from './saveSlots.js';
 import { MODEL_CREDITS } from './creditsData.js';
@@ -57,6 +57,8 @@ export class UI {
   get capturing() { return this.settingsPanel.capturing; }
 
   renderSettings() { return this.settingsPanel.render(); }
+
+  renderDev() { return this.g.dev.render(); }
 
   isOpen() { return !!this.panel; }
 
@@ -309,6 +311,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     if (this.g.fishing.state === 'caught' && panel !== 'catch') return;
     // the shop and the marina are at the docks (the chart shows where)
     if ((panel === 'shop' && !this.g.serviceHere('tackle')) || ((panel === 'marina' || panel === 'yard') && !this.g.serviceHere('boats'))) { if (this.panel) this.close(); return; }
+    if (panel === 'dev') { if (!this.g.dev?.enabled) return; this.g.dev.engage(); }
     if (panel === 'trophy' && !this.g.trophyAccess()) { if (this.panel) this.close(); return; }
     if (panel === 'trophy') this.tro = { arm: null, rep: null, ...(this.tro || {}), arm: null };
     if (panel === 'yard') this.yardInit();
@@ -327,6 +330,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     $('modalCard').classList.toggle('catch', panel === 'catch');
     $('modal').classList.toggle('pauseMode', panel === 'pause');
     $('modalCard').classList.toggle('pause', panel === 'pause');
+    $('modalCard').classList.toggle('dev', panel === 'dev');
     this.render();
   }
 
@@ -377,7 +381,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   // Esc menu: everything that used to sit on screen as buttons, plus today's goals
   renderPause() {
     const KL = (a) => keyLabel(this.g.binds.map[a]);
-    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', KL('tackle')], ['livewell', 'Livewell & market', KL('livewell')], ['shop', 'Tackle shop', KL('shop')], ['marina', 'Marina', KL('marina')], ...(this.g.serviceHere('boats') ? [['yard', 'Boat yard', '']] : []), ['events', 'Tournaments', KL('events')], ['chart', 'Chart', KL('chart')], ['map', 'Travel', KL('map')], ['journal', 'Journal', KL('journal')], ['angler', 'Angler log', ''], ['saves', 'Save / Load', ''], ['settings', 'Settings', KL('settings')], ['help', 'Controls', KL('help')]];
+    const items = [['resume', 'Resume', 'Esc'], ['tackle', 'Tackle box', KL('tackle')], ['livewell', 'Livewell & market', KL('livewell')], ['shop', 'Tackle shop', KL('shop')], ['marina', 'Marina', KL('marina')], ...(this.g.serviceHere('boats') ? [['yard', 'Boat yard', '']] : []), ['events', 'Tournaments', KL('events')], ['chart', 'Chart', KL('chart')], ['map', 'Travel', KL('map')], ['journal', 'Journal', KL('journal')], ['angler', 'Angler log', ''], ['saves', 'Save / Load', ''], ['settings', 'Settings', KL('settings')], ['help', 'Controls', KL('help')], ...(this.g.dev?.enabled ? [['dev', 'Developer tools', KL('dev')]] : [])];
     const list = items.map(([id, label, key]) => `<button data-act="${id === 'resume' ? 'close' : 'go'}" data-id="${id}">${label}${key ? `<kbd>${key}</kbd>` : ''}</button>`).join('');
     const ch = this.g.save.challenges;
     const goals = ch ? ch.list.map((c) => `<div class="ch ${c.done ? 'done' : ''}"><span>${esc(c.text)}<div class="prog">${c.done ? 'Done' : `${Math.min(c.have, c.need)} of ${c.need}`}</div></span><b>${money(c.reward)}</b></div>`).join('') : '';
@@ -421,6 +425,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   async saveAction(act, n) {
     const sv = this.sv || (this.sv = {});
     const key = `${act}:${n}`;
+    if (isFrozen() && (act === 'sv-save' || act === 'sv-del' || act === 'sv-import')) { this.saveSay('Saving is paused in this session (developer tools or a preview page). Reload the game to save again.', true); return; }
     const needsConfirm = act === 'sv-del' || act === 'sv-load' || (act === 'sv-save' && this.saveData(n));
     if (needsConfirm && sv.armed !== key) { sv.armed = key; this.render(); return; }
     sv.armed = null;
@@ -471,7 +476,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   render() {
     const card = $('modalCard');
-    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, trophy: this.renderTrophy, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell, talk: this.renderTalk, yard: this.renderYard }[this.panel];
+    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, trophy: this.renderTrophy, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell, talk: this.renderTalk, yard: this.renderYard, dev: this.renderDev }[this.panel];
     if (fn) card.innerHTML = fn.call(this);
     if (this.panel === 'yard') this.yardMount();
     if (this.panel === 'chart') this.g.chart.mount();
@@ -756,7 +761,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   // every key here is read from the live bindings (Settings > Controls), so it never goes stale
   renderHelp() {
     const B = this.g.binds.map, K = (...ids) => ids.map((i) => keyLabel(B[i])).join(' ');
-    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', `Mouse wheel / ${K('dragDown', 'dragUp')}`], ['Steer rod against the fish', `${K('left')} / ${K('right')}`], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Look around (keys)', K('lookLeft', 'lookRight', 'lookUp', 'lookDown')], ['Throttle / steer boat', `${K('forward', 'back')} / ${K('left', 'right')}`], ['Step onto a dock or the bank / back aboard', K('stepOff')], ['Livewell & market (sell at any dock)', K('livewell')], ['Walk (on foot)', `${K('forward', 'left', 'back', 'right')}, ${K('sprint')} to hurry`], ['View: first person / over the shoulder / boat overview', K('view')], ['Deploy / haul net (net boats)', K('net')], ['Trolling spread (salt water)', K('troll')], ['Drop / raise the anchor', K('anchor')], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', `${K('tackle')} / ${K('shop')} / ${K('marina')}`], ['Talk to the shopkeeper at a shop door / listen to the locals', K('talk')], ['Chart: local map with docks, shops, market', K('chart')], ['Travel / Journal', `${K('map')} / ${K('journal')}`], ['Trophy room (mounted catches, records)', K('trophy')], ['Skip ahead 1 hour', K('skip')], ['Underwater camera (lure / fish)', K('underwater')], ['Photo mode', K('photo')], ['Show / hide fish finder', K('sonar')], ['Drop a waypoint here (shows on the compass)', K('waypoint')], ['Clear all waypoints on this water', `Shift + ${K('waypoint')}`], ['Set / remove a waypoint on the chart', 'Click the chart'], ['Put the rod away / take it out', K('holster')], ['Tournaments', K('events')], ['Settings (rebind any key under Controls)', K('settings')], ['Controls (this page)', K('help')], ['Save / Load, export / import (autosave is always on)', 'Esc menu'], ['Close menus', 'Esc']];
+    const k = [['Cast (hold to power, release)', 'Left mouse'], ['Reel in', 'Hold left mouse'], ['Set the hook on STRIKE!', 'Click or keep reeling'], ['Drag setting', `Mouse wheel / ${K('dragDown', 'dragUp')}`], ['Steer rod against the fish', `${K('left')} / ${K('right')}`], ['Look around', 'Move the mouse (click once to lock it; Esc frees it) or right-drag'], ['Look around (keys)', K('lookLeft', 'lookRight', 'lookUp', 'lookDown')], ['Throttle / steer boat', `${K('forward', 'back')} / ${K('left', 'right')}`], ['Step onto a dock or the bank / back aboard', K('stepOff')], ['Livewell & market (sell at any dock)', K('livewell')], ['Walk (on foot)', `${K('forward', 'left', 'back', 'right')}, ${K('sprint')} to hurry`], ['View: first person / over the shoulder / boat overview', K('view')], ['Deploy / haul net (net boats)', K('net')], ['Trolling spread (salt water)', K('troll')], ['Drop / raise the anchor', K('anchor')], ['Quick lure swap', '1 - 9'], ['Tackle box / Shop / Marina (shop and marina are at the docks)', `${K('tackle')} / ${K('shop')} / ${K('marina')}`], ['Talk to the shopkeeper at a shop door / listen to the locals', K('talk')], ['Chart: local map with docks, shops, market', K('chart')], ['Travel / Journal', `${K('map')} / ${K('journal')}`], ['Trophy room (mounted catches, records)', K('trophy')], ['Developer panel / free-fly camera (Settings > Gameplay > Developer tools, or ?dev=1)', `${K('dev')} / ${K('fly')}`], ['Skip ahead 1 hour', K('skip')], ['Underwater camera (lure / fish)', K('underwater')], ['Photo mode', K('photo')], ['Show / hide fish finder', K('sonar')], ['Drop a waypoint here (shows on the compass)', K('waypoint')], ['Clear all waypoints on this water', `Shift + ${K('waypoint')}`], ['Set / remove a waypoint on the chart', 'Click the chart'], ['Put the rod away / take it out', K('holster')], ['Tournaments', K('events')], ['Settings (rebind any key under Controls)', K('settings')], ['Controls (this page)', K('help')], ['Save / Load, export / import (autosave is always on)', 'Esc menu'], ['Close menus', 'Esc']];
     return this.head('How to fish') + `<div class="help-grid">${k.map(([a, b]) => `<div><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div>
       <p class="tips"><b>Fighting:</b> reel while the fish rests or turns, and STOP reeling when it runs - cranking against a running fish twists the line until it snaps. When it runs, line peels off at your drag setting. If tension goes past the line's breaking strength it snaps, so keep drag below it. Reel when the fish rests, pull the rod the opposite way to the fish (${K('left')}/${K('right')}) to tire it faster, and don't give it slack or it can throw the hook. When it jumps, ease off the drag. Get a tired fish next to the boat to land it.</p>
       <p class="tips"><b>Finding fish:</b> diving gulls and bait balls mark hotspots; dawn and dusk bite best. Match the lure to what the fish eats and to its depth. Active lures need to be moving (reel or troll).</p>
@@ -903,7 +908,10 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
         else g.resetProgress();
         break;
       }
-      default: if (act.startsWith('st-')) this.settingsPanel.click(act, d); break;
+      default:
+        if (act.startsWith('st-')) this.settingsPanel.click(act, d);
+        else if (act.startsWith('dev-')) g.dev?.click(act, d);
+        break;
     }
   }
 }

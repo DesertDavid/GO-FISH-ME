@@ -1,0 +1,32 @@
+/* Developer tools: the DEV marker, the stats overlay and the panel's own rows (everything else reuses the game's styles). */
+#devMark { position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 9; display: flex; align-items: center; gap: 10px; padding: 3px 10px 3px 4px; pointer-events: none; font: 600 11px "IBM Plex Mono", monospace; letter-spacing: 0.04em; color: var(--dim); background: rgba(9, 11, 13, 0.72); border: 1px solid rgba(233, 178, 91, 0.55); border-radius: 2px; text-shadow: none; }
+#devMark b { padding: 1px 7px; background: var(--amber); color: #1a1408; letter-spacing: 0.12em; }
+#devStats { position: fixed; left: 22px; bottom: 150px; z-index: 9; margin: 0; padding: 6px 10px; pointer-events: none; font: 600 11px/1.5 "IBM Plex Mono", monospace; color: var(--text); background: rgba(9, 11, 13, 0.66); border-left: 2px solid var(--amber); white-space: pre; text-shadow: none; }
+
+#modalCard.dev { width: min(800px, 94vw); }
+.dv { margin-bottom: 10px; }
+.dv-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 330px); align-items: center; gap: 20px; padding: 9px 4px; border-bottom: 1px solid var(--rule); }
+.dv-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dv-t b { font: 600 15px var(--font); }
+.dv-t span { font-size: 12px; color: var(--dim); line-height: 1.35; }
+.dv-c { display: flex; justify-content: flex-end; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dv-c .seg { flex-wrap: wrap; }
+.dv-sl { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 10px; width: 100%; }
+.dv-sl output, .dv-c output { text-align: right; font: 600 13px "IBM Plex Mono", monospace; color: var(--amber); }
+.dv input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; margin: 0; }
+.dv input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: rgba(242, 239, 232, 0.28); }
+.dv input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 18px; margin-top: -8px; border-radius: 1px; background: var(--amber); border: 0; }
+.dv select { max-width: 100%; font: 600 13px var(--font); color: var(--text); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--rule); border-radius: 2px; padding: 5px 8px; outline: none; }
+.dv select option, .dv select optgroup { background: #14181c; color: var(--text); }
+.dv-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.dv-chip { display: inline-flex; flex-direction: column; align-items: flex-start; font: 600 13px var(--font); color: var(--dim); background: none; border: 1px solid var(--rule); border-radius: 2px; padding: 5px 10px; cursor: pointer; }
+.dv-chip small { font: 500 10px "IBM Plex Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+.dv-chip:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.dv-chip.on { color: #1a1408; background: var(--amber); border-color: var(--amber); }
+.dv-chip.on small { color: rgba(26, 20, 8, 0.7); }
+.dv-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin: 6px 0 4px; }
+.dv-card { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 2px; }
+.dv-card.on { border-color: var(--amber); }
+.dv-card b { font: 600 14px var(--font); }
+.dv-card span { font-size: 12px; color: var(--dim); }
+.dv-card .btn { margin-top: 6px; align-self: flex-start; padding: 4px 12px; font-size: 13px; }

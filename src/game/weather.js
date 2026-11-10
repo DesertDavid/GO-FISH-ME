@@ -216,7 +216,8 @@ export class Weather {
       }
     } else {
       const ev = this.ev;
-      if (ev.fading) ev.ft += gh; else ev.t += gh;
+      if (this.devLevel != null && !ev.fading) ev.t = ev.kind === 'squall' ? ev.warn + ev.rise * 0.5 : ev.rise + 0.01;   // dev panel: hold the event at devLevel
+      else if (ev.fading) ev.ft += gh; else ev.t += gh;
       const done = ev.fading ? ev.ft >= ev.fdur : ev.t >= ev.warn + ev.rise + ev.hold + ev.fade;
       if (done) {
         if (ev.kind === 'squall') { this.afterT = 1.5; this.ui.toast('The squall has passed - skies clearing.', 'good'); }
@@ -226,7 +227,7 @@ export class Weather {
       }
     }
     const ev = this.ev;
-    const lv = ev ? this.eventLevel(ev) : 0;
+    const lv = ev ? (this.devLevel != null && !ev.fading ? this.devLevel : this.eventLevel(ev)) : 0;
     this.L = ev?.kind === 'squall' ? lv : 0;
     this.F = ev?.kind === 'fog' ? lv : 0;
     if (ev?.kind === 'squall') {
@@ -277,6 +278,7 @@ export class Weather {
   }
 
   tideText() {
+    if (this.devTide != null) return `Tide ${this.devTide > 0 ? 'high' : 'low'} (held by the dev panel)`;
     const h = this.absHour(), rate = (a) => this.tideAt(a + 0.05) - this.tideAt(a - 0.05);
     const up = rate(h) > 0;
     let t = h;
@@ -286,8 +288,8 @@ export class Weather {
 
   updateTide() {
     if (!this.tideAmp) return;
-    const h = this.absHour(), lvl = this.tideAt(h);
-    this.tideRate = (this.tideAt(h + 0.05) - this.tideAt(h - 0.05)) / 0.1;   // m per game hour
+    const h = this.absHour(), lvl = this.devTide != null ? this.tideAmp * this.devTide : this.tideAt(h);   // devTide (dev panel): +1 high water, -1 low water, held
+    this.tideRate = this.devTide != null ? 0 : (this.tideAt(h + 0.05) - this.tideAt(h - 0.05)) / 0.1;   // m per game hour
     this.tideFlow = Math.min(1, Math.abs(this.tideRate) / (this.tideAmp * 1.2 * 2 * Math.PI / TIDE_PERIOD));
     if (Math.abs(lvl - this.tideApplied) > 0.008) { this.tideApplied = lvl; this.e.setTide(lvl); }
   }
@@ -363,7 +365,7 @@ export class Weather {
       if (this.hornT <= 0) { this.hornT = 22 + Math.random() * 25; this.audio.foghorn?.(0.35 + 0.3 * this.F); }
     }
     // rain: the base weather or a squall, eased so it builds and fades
-    const rainTarget = Math.max(this.cur.rain, this.L > 0.25 ? ss((this.L - 0.25) / 0.6) : 0) * (1 - 0.5 * this.F);
+    const rainTarget = this.devRain != null ? this.devRain : Math.max(this.cur.rain, this.L > 0.25 ? ss((this.L - 0.25) / 0.6) : 0) * (1 - 0.5 * this.F);
     this.rainLvl += (rainTarget - this.rainLvl) * Math.min(1, dt * 0.6);
     const rain = this.rainLvl;
     this.audio.setRain?.(rain);

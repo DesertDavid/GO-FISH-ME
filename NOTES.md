@@ -36,6 +36,7 @@ The user wants it to look great and never generic/"AI-made" (minimal marine-elec
 - Check a build: `npx vite build` (the >500 kB chunk warning is expected).
 - URL options: `?loc=<id>` loads a location without touching the save.
 - Dev hooks in the page: `window.game` (the Game), `window.__step(n, dt)` steps frames.
+- **Developer mode** (free-fly camera + dev panel): `?dev=1`, or Settings > Gameplay > Developer tools, then `` ` `` (panel) and `\` (fly; both rebindable under Controls > Developer). Session-only: the first use writes the real progress once and then freezes all saving until reload (`dev.js`, `devPanel.js`, `dev.css`). `?dev=1&loc=&boat=&hour=&fly=1&up=1` carries a session across the location picker. Full guide: `docs/dev-mode.md`.
 - `fishlab.html?ids=a,b,c&cols=2&n=4&dist=4.5` renders species models; `window.__shot(name)`
   there posts a PNG to a local receiver on 127.0.0.1:5300 (a tiny Python script, not in repo).
 - Blender 5.2: `H:\Blender\blender-5.2.3-windows-x64\blender.exe`.
@@ -47,7 +48,7 @@ The user wants it to look great and never generic/"AI-made" (minimal marine-elec
     -> `public/models/hands.glb` (Draco-compressed on export, 2.9 MB -> 0.48 MB; max vertex error ~4 um,
        normals 0.06 deg. `hands.js` loads it through DRACOLoader, decoder files live in `public/draco/`,
        copied from three/examples/jsm/libs/draco - refresh them if three is upgraded)
-- Saves: localStorage `reelworld-save-v1` (the live autosave), `reelworld-slots-v1` (named slots), settings `reelworld-settings-v1`. `?loc=<id>` pages never write the autosave (`save.js` frozen flag).
+- Saves: localStorage `reelworld-save-v1` (the live autosave), `reelworld-slots-v1` (named slots), settings `reelworld-settings-v1`. `?loc=<id>` and `?dev=1` pages never write the autosave, the slots or the disk backup (`save.js` frozen flag, checked by `saveSlots.js` too); the developer tools also freeze it on first use.
 
 ## Git
 Repo DesertDavid/GO-FISH-ME, branch `main`, repo-local identity already set (keeps the
@@ -69,6 +70,7 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - `game/docks.js` - procedural docks on real shorelines; `livewell.js` - livewell + market; `buildings.js` (+ `bld*.js`) - shops at the docks and background towns, bridges, lighthouses.
 - `game/rod.js` + `game/hands.js` - first-person rod, reel and Blender hands (left hand rides
   the crank; forearm hinges from a fixed elbow).
+- `game/dev.js` + `devPanel.js` - developer tools (free-fly camera, boat/location/weather/time/tackle/fish pickers, stats overlay); hooks into `game.js` are `this.dev.*` (fly gates input and camera, `paused` stops the clock), `weather.js` (`devLevel`, `devRain`, `devTide`), `save.js` (`isFrozen`).
 - `game/fishing.js` casting/bite/fight, `net.js` net boats, `troll.js` trolling,
   `sonar.js`, `weather.js`, `night.js`, `wildlife.js`, `aiBoats.js`, `tournaments.js`,
   `challenges.js`, `audio.js`, `save.js`, `settings.js`, `gear.js` (rods, reels, lines,
