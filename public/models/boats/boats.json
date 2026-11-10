@@ -33,5 +33,25 @@
   "length": 26.0,
   "beam": 8.0,
   "depth": 3.9
+ },
+ "kayak": {
+  "length": 3.66,
+  "beam": 0.9,
+  "depth": 0.5
+ },
+ "pontoon": {
+  "length": 6.9,
+  "beam": 2.6,
+  "depth": 1.2
+ },
+ "bay": {
+  "length": 6.9,
+  "beam": 2.5,
+  "depth": 0.92
+ },
+ "yacht": {
+  "length": 18.4,
+  "beam": 5.5,
+  "depth": 2.35
  }
 }

@@ -1,7 +1,7 @@
 # Builds every boat in the game and exports one GLB per boat to public/models/boats/.
 # Run:  blender -b --factory-startup --python tools/blender/build_boats.py
 # Axes (Blender): +X = bow, +Y = port, +Z = up. Origin: keel bottom at midship.
-import bpy, bmesh, math, os, json
+import bpy, bmesh, math, os, sys, json
 from mathutils import Vector
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'public', 'models', 'boats')
@@ -625,13 +625,29 @@ def build_seiner(root):
     life_ring(root, (4.0, 3.1, dz + 1.8), (math.pi / 2, 0, 0))
     return spec
 
+# newer boats live in their own files (they share this file's helpers)
+for _f in ('boats_kayak.py', 'boats_pontoon.py', 'boats_bay.py', 'boats_yacht.py'):
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), _f)
+    if os.path.exists(_p):
+        exec(compile(open(_p, encoding='utf8').read(), _p, 'exec'))
+
 BOATS = {
     'jon': build_jon, 'bass': build_bass, 'skiff': build_skiff, 'center': build_center,
     'sport': build_sport, 'trawler': build_trawler, 'seiner': build_seiner,
 }
+for _n, _fn in (('kayak', 'build_kayak'), ('pontoon', 'build_pontoon'), ('bay', 'build_bay'), ('yacht', 'build_yacht')):
+    if _fn in globals():
+        BOATS[_n] = globals()[_fn]
+# `-- --only kayak,bay` builds just those boats (default: all)
+ONLY = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else None
 
 meta = {}
+_mp = os.path.join(OUT, 'boats.json')
+if ONLY and os.path.exists(_mp):
+    meta = json.load(open(_mp))
 for name, fn in BOATS.items():
+    if ONLY and name not in ONLY:
+        continue
     reset()
     _mats.clear()
     root = bpy.data.objects.new('boat_' + name, None)
