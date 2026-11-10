@@ -195,6 +195,7 @@ table.haul td:first-child, table.haul th:first-child { text-align: left; }
 .pause-side .ch b { color: var(--amber); font-weight: 600; }
 .pause-side .ch.done { color: var(--faint); text-decoration: line-through; }
 .pause-side .ch.done b { color: var(--faint); }
+.pause-side .credits-line { margin-top: 18px; font-size: 11px; line-height: 1.4; color: var(--faint); }
 .pause-side .prog { color: var(--dim); font-size: 13px; }
 
 /* ---- livewell & market */
