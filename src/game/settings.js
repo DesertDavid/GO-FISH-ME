@@ -25,7 +25,7 @@ export const SPEC = {
   wildlife: num(1, 0, 1), fishCount: num(1, 0.2, 1), weatherFx: num(1, 0, 1),
   fov: num(60, 45, 100), fps: bool(false),
   // audio ('volume' is the master level, as it always was)
-  volume: num(0.7, 0, 1), sfxVol: num(1, 0, 1), ambVol: num(1, 0, 1), uiVol: num(1, 0, 1), muteBlur: bool(false),
+  volume: num(0.7, 0, 1), sfxVol: num(1, 0, 1), ambVol: num(1, 0, 1), uiVol: num(1, 0, 1), muteBlur: bool(false), sonarPing: bool(true),
   // display / HUD
   sonar: bool(true), compass: bool(true), depthReadout: bool(true), hints: bool(true),
   unitDist: one('m', ['m', 'ft']), unitWeight: one('lb', ['lb', 'kg']), unitSpeed: one('kn', ['kn', 'mph', 'kmh']),

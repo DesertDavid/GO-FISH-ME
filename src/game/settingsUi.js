@@ -49,6 +49,7 @@ const OPTS = {
     { k: 'sfxVol', t: 'slider', label: 'Effects', desc: 'Casting, splashes, reel clicks, drag, the engine and bumps.', min: 0, max: 1, step: 0.05, fmt: pct },
     { k: 'ambVol', t: 'slider', label: 'Ambience', desc: 'Water and wind, rain, thunder and the foghorn.', min: 0, max: 1, step: 0.05, fmt: pct },
     { k: 'uiVol', t: 'slider', label: 'Interface', desc: 'Menu clicks.', min: 0, max: 1, step: 0.05, fmt: pct },
+    { k: 'sonarPing', t: 'toggle', label: 'Fish finder ping', desc: 'A soft ping every few seconds while the fish finder panel is showing.' },
     { k: 'muteBlur', t: 'toggle', label: 'Mute when unfocused', desc: 'Silence the game while the window is in the background or minimised.' },
   ],
   display: [
@@ -76,7 +77,7 @@ const TAB_KEYS = {
   gameplay: ['mouseLock', 'severeWeather', 'biteQuality'],
   controls: ['lookSpeed', 'invertY', 'binds'],
   graphics: ['preset', ...GFX_KEYS, 'fov', 'fps'],
-  audio: ['volume', 'sfxVol', 'ambVol', 'uiVol', 'muteBlur'],
+  audio: ['volume', 'sfxVol', 'ambVol', 'uiVol', 'sonarPing', 'muteBlur'],
   display: ['compass', 'sonar', 'depthReadout', 'hints', 'hudScale', 'hudOpacity', 'unitDist', 'unitWeight', 'unitSpeed'],
   access: ['reduceMotion', 'reduceFlash', 'safeColors', 'bigText'],
 };

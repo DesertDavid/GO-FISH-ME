@@ -311,7 +311,7 @@ export class GameAudio {
       else if (!g.ui.panel && this.lastPanel) this.play('uiClose');
       this.lastPanel = g.ui.panel;
     }
-    if (g.settings.sonar && !g.foot && !S.paused) {
+    if (g.settings.sonar && g.settings.sonarPing !== false && !g.foot && !S.paused) {
       this.pingT -= dt;
       if (this.pingT <= 0) { this.pingT = clamp(2 + S.depth / 12, 2.5, 6); this.play('ping', S.depth); }
     }
