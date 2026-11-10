@@ -36,6 +36,7 @@ BOOT, SOLE = 0x25272a, 0x6b5a3e
 HAT, HAT_D = 0xb89528, 0x8f7420
 STRAP, BRASS = 0x3b2f22, 0x9c7b3c
 EYE, LURE_R, LURE_W = 0x15171a, 0xb23a2a, 0xd8d2c4
+GLOVE = 0xa98430                  # rubber glove: the sou'wester's ochre, a touch darker
 
 for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
 for coll in (bpy.data.meshes, bpy.data.materials):
@@ -237,13 +238,17 @@ piece('body_lure', transform(lathe(capsule_profile(0.014, 0.085, 4), 10, (1, 1, 
 piece('body_lure_tail', transform(lathe(capsule_profile(0.009, 0.035, 3), 8, (1, 1, 1)), (0.245, BRIM_Y + 0.045, 0.19), (0, 0, math.radians(70))), torso, LURE_W, wear=0.03)
 
 # ------------------------------------------------------------------ arms (Y down from the shoulder)
+# knit sleeves (cylinders with round ends), a rolled light cuff + dark seam ring at each wrist, and a round rubber-glove ball
+# in the sou'wester's ochre. The ring and the colour change are what make the ball read as a hand, not a blob.
 for side, s in (('L', 1), ('R', -1)):
     j = J[side]
-    piece(f'arm_upper_{side}', transform(lathe(capsule_profile(0.072, 0.36, 6), 18), (AX * s, (SHY + ELY) / 2 + 0.01, 0)), j['sh'], NAVY, wear=0.05)
-    piece(f'arm_fore_{side}', transform(lathe(capsule_profile(0.06, 0.32, 6), 18), (AX * s, (ELY + WRY) / 2, 0)), j['el'], SKIN, wear=0.05)
-    piece(f'arm_cuff_{side}', transform(lathe(torus_profile(0.064, 0.028, 8), 20), (AX * s, ELY - 0.05, 0)), j['el'], KNIT_L, wear=0.07)
-    piece(f'arm_cuff2_{side}', transform(lathe(torus_profile(0.062, 0.024, 8), 20), (AX * s, ELY - 0.095, 0)), j['el'], NAVY, wear=0.07)
-    piece(f'arm_hand_{side}', transform(lathe(sphere_profile(0.075, 8), 24), (AX * s, HBY, 0)), j['hb'], SKIN, wear=0.045)
+    piece(f'arm_upper_{side}', transform(lathe(capsule_profile(0.064, 0.36, 8), 20), (AX * s, (SHY + ELY) / 2 + 0.01, 0)), j['sh'], NAVY, wear=0.05)
+    piece(f'arm_fore_{side}', transform(lathe(capsule_profile(0.053, 0.34, 8), 20), (AX * s, (ELY + WRY) / 2 + 0.01, 0)), j['el'], NAVY, wear=0.05, fn=lambda p: 1.0 + 0.1 * math.sin(p[1] * 90))
+    piece(f'arm_elbowpatch_{side}', transform(lathe(sphere_profile(0.036, 5), 12, (1, 1.25, 0.5)), (AX * s + (0.0), ELY + 0.0, -0.047)), j['el'], OLIVE_D, wear=0.06)
+    piece(f'arm_cuff_{side}', transform(lathe(torus_profile(0.052, 0.024, 8), 22), (AX * s, WRY + 0.015, 0)), j['el'], KNIT_L, wear=0.07)
+    piece(f'arm_cuff2_{side}', transform(lathe(torus_profile(0.054, 0.012, 6), 22), (AX * s, WRY - 0.012, 0)), j['el'], NAVY_D, wear=0.05)
+    piece(f'arm_hand_{side}', transform(lathe(sphere_profile(0.074, 9), 28), (AX * s, HBY - 0.004, 0), (0, 0, 0), (1.0, 0.93, 1.0)), j['hb'], GLOVE, wear=0.045,
+          fn=lambda p: 0.9 + 0.1 * min(1, max(0, (p[1] - 0.50) / 0.1)))
 
 # ------------------------------------------------------------------ legs + boots
 for side, s in (('L', 1), ('R', -1)):

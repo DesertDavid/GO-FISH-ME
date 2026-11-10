@@ -12,7 +12,7 @@ const one = (def, list) => ({ def, list });
 
 export const SPEC = {
   // gameplay
-  mouseLock: bool(true), severeWeather: bool(true), biteQuality: bool(false), hands: one('1', ['1', '2', '3']), devTools: bool(false),
+  mouseLock: bool(true), severeWeather: bool(true), biteQuality: bool(false), hands: one('3', ['1', '2', '3']), handsPicked: bool(false), devTools: bool(false),
   // controls
   lookSpeed: num(1, 0.3, 2.5), invertY: bool(false),
   // graphics
@@ -67,6 +67,12 @@ export function sanitize(raw) {
   for (const [k, spec] of Object.entries(SPEC)) {
     const v = raw ? raw[k] : undefined;
     out[k] = !valid(spec, v) ? spec.def : spec.list || spec.bool ? v : Math.min(spec.max, Math.max(spec.min, v));
+  }
+  // Jellybean (3) became the default hands. Before `handsPicked` existed a saved '1' was just the old default, so it moves to 3;
+  // anything else saved (2, or 3) was a real choice, and a Classic pick made in Settings sets handsPicked and stays.
+  if (raw && raw.handsPicked !== true) {
+    if (raw.hands === '2' || raw.hands === '3') out.handsPicked = true;
+    else out.hands = SPEC.hands.def;
   }
   return out;
 }

@@ -11,9 +11,15 @@ import { FEEL } from './fightFeel.js';
 // Arms are solved with two-bone IK onto world-space targets (the rod's grip and the real crank `knob` anchor).
 const draco = new DRACOLoader().setDecoderPath(`${import.meta.env.BASE_URL}draco/`);
 const loader = new GLTFLoader().setDRACOLoader(draco);
-export const GRIP_Z = 0.24;                     // where the right ball sits on the handle axis: the foregrip ahead of the reel seat
+export const GRIP_Z = 0.09;                     // where the right ball sits on the handle axis: the foregrip ahead of the reel seat
 export const BODY_SCALE = 1.2;                 // model eye is 1.40 m; the game's eye is 1.68 m
 const MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.55 });
+// a faint warm rim so the silhouette separates from dark water and bright sky
+MAT.onBeforeCompile = (sh) => {
+  const rim = ['float jRim = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 2.6);',
+    'outgoingLight += jRim * vec3(0.95, 0.88, 0.72) * 0.16;', '#include <opaque_fragment>'].join(String.fromCharCode(10));
+  sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', rim);
+};
 let srcP = null;
 
 export function loadJelly() {
@@ -50,11 +56,27 @@ export class Jelly {
   }
 
   // first person: only the arms (and tucked in closer together, as seen from the eye)
-  armsOnly(on, shoulderX = 0.17) {
+  armsOnly(on, shoulderX = 0.17, ball = 0.56, thin = 0.78) {
     for (const m of [...this.meshes.body, ...this.meshes.leg]) m.visible = !on;
     this.j.Shoulder_L.position.x = on ? shoulderX : this.rest.Shoulder_L.x;
     this.j.Shoulder_R.position.x = on ? -shoulderX : this.rest.Shoulder_R.x;
-    for (const n of ['HandBall_L', 'HandBall_R']) this.j[n].scale.setScalar(on ? 0.72 : 1);   // smaller balls up close (scales about the ball centre)
+    for (const n of ['HandBall_L', 'HandBall_R']) this.j[n].scale.setScalar(on ? ball : 1);   // smaller balls up close (scales about the ball centre)
+    // slimmer sleeves up close: the sleeve and cuff meshes get their own geometry squeezed about the limb axis
+    this.thin ??= new Map();
+    for (const m of this.meshes.arm) {
+      if (m.name.startsWith('arm_hand')) continue;
+      if (!this.thin.has(m)) this.thin.set(m, { orig: m.geometry, slim: null });
+      const t = this.thin.get(m);
+      if (on && !t.slim) {
+        const g = m.geometry.clone(), pos = g.attributes.position;
+        g.computeBoundingBox();
+        const cx = (g.boundingBox.min.x + g.boundingBox.max.x) / 2;
+        for (let i = 0; i < pos.count; i++) pos.setXYZ(i, cx + (pos.getX(i) - cx) * thin, pos.getY(i), pos.getZ(i) * thin);
+        pos.needsUpdate = true; g.computeBoundingSphere();
+        t.slim = g;
+      }
+      m.geometry = on ? t.slim : t.orig;
+    }
   }
 
   // point `joint` (whose bone hangs along its parent's -Y at rest) along the world direction `dir`

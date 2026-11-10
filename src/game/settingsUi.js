@@ -20,7 +20,7 @@ const OPTS = {
   gameplay: [
     { k: 'mouseLock', t: 'toggle', label: 'Mouse look', desc: 'Click the view once to lock the mouse; it then looks around with no button held. Off: hold the right button and drag.' },
     { k: 'severeWeather', t: 'toggle', label: 'Severe weather', desc: 'Squalls with strong wind, big seas and lightning. Fog banks still roll in when this is off.' },
-    { k: 'hands', t: 'seg', label: 'First-person hands', desc: 'Classic: the original modelled hands. Realistic: a textured hand with nails, knuckles and a rolled flannel sleeve (credit in the pause menu). Jellybean: the stylised angler with capsule arms and ball hands, the same figure you see in third person.', opts: [['1', 'Classic'], ['2', 'Realistic'], ['3', 'Jellybean']], reload: true },
+    { k: 'hands', t: 'seg', label: 'First-person hands', desc: 'Jellybean (default): the stylised angler with capsule sleeves and round rubber-glove hands, the same figure you see in third person. Classic: the original modelled hands. Realistic: a textured hand with nails, knuckles and a rolled flannel sleeve (credit in the pause menu).', opts: [['3', 'Jellybean'], ['1', 'Classic'], ['2', 'Realistic']], reload: true },
     { k: 'biteQuality', t: 'toggle', label: 'Bite-quality ticks', desc: 'Three small ticks on the lure marker show how well the lure, depth and time of day suit the fish.' },
     { k: 'devTools', t: 'toggle', label: 'Developer tools', desc: 'Turns on the developer panel and the free-fly camera (keys under Controls > Developer). Using either pauses saving until you reload, and nothing you do with them is ever saved. Also available as ?dev=1 in the address.' },
   ],
@@ -203,7 +203,7 @@ export class SettingsPanel {
       case 'st-toggle': this.set({ [d.k]: !g.settings[d.k] }); this.draw(); break;
       case 'st-seg': {
         const o = this.find(d.k), raw = o.opts.find(([v]) => String(v) === d.v)[0];
-        this.set({ [d.k]: raw });
+        this.set(d.k === 'hands' ? { hands: raw, handsPicked: true } : { [d.k]: raw });
         this.draw();
         break;
       }
