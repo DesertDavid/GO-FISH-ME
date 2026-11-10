@@ -139,7 +139,7 @@ export class Game {
     if (this.freshStart) diskBackup().then((b) => { if (b) this.ui.toast('A backup of earlier progress was found on disk - Esc > Save / Load to restore it.', 'info'); });
     if (!this.save.seenHelp) { this.ui.open('help'); this.commit({ seenHelp: true }); }
     this.ensureChallenges();
-    this.ui.toast(`Welcome to ${this.loc.name}`, 'good');
+    this.ui.toast(`${this.loc.name}.`, 'good');
     if (!hasPermit(this.save, this.loc.id)) this.ui.toast('Fishing here needs a permit: buy one at the tackle shop (Chart: C).', 'info');
   }
 
@@ -227,7 +227,7 @@ export class Game {
         if (ev.shiftKey) { if (this.compass.list().length) { this.compass.clear(); this.ui.toast('Waypoints cleared', 'info'); } }
         else this.compass.here();
       }
-      if (act === 'skip') { this.commit({ hour: this.save.hour + 1 }); this.applySun(true); this.tourTick(60); this.ui.toast('An hour passes…', 'info'); }
+      if (act === 'skip') { this.commit({ hour: this.save.hour + 1 }); this.applySun(true); this.tourTick(60); this.ui.toast('An hour goes by.', 'info'); }
       if (act === 'dragUp' || act === 'dragDown') this.dragNudge(act === 'dragUp' ? 1 : -1);
       if (/^[1-9]$/.test(k) && !this.fishing.busy()) {
         const id = this.save.lures[+k - 1];
@@ -371,7 +371,7 @@ export class Game {
   toggleHolster() {
     if (this.fishing.busy()) { this.ui.toast('Reel in before you put the rod away.', 'info'); return; }
     this.holstered = !this.holstered;
-    this.ui.toast(this.holstered ? 'Rod put away' : 'Rod out', 'info');
+    this.ui.toast(this.holstered ? 'Rod put away.' : 'Rod out.', 'info');
   }
 
   canFish() {
@@ -425,7 +425,7 @@ export class Game {
     this.rod.holster += ((this.holstered ? 1 : 0) - this.rod.holster) * Math.min(1, dt * 7);
     if (this.holstered && this.rod.holster > 0.995) this.rod.holster = 1;
     // a screaming trolling rod: take the rod back out so the click can grab it
-    if (this.holstered && this.troll.pending) { this.holstered = false; this.ui.toast('Rod out', 'info'); }
+    if (this.holstered && this.troll.pending) { this.holstered = false; this.ui.toast('Rod out.', 'info'); }
     const canAct = (this.view === 'first' || this.view === 'under') && !this.holstered;
     const input = {
       down: this.mouse.down && !this.ui.isOpen() && canAct,
@@ -481,7 +481,7 @@ export class Game {
       hour -= 24;
       this.save.day = (this.save.day || 1) + 1;
       this.ensureChallenges();
-      this.ui.toast('Midnight - new challenges are posted.', 'good');
+      this.ui.toast('New challenges posted.', 'good');
     }
     this.save.hour = hour;
     this.permitWatch();
@@ -884,7 +884,7 @@ export class Game {
       cash += v; stats.earned += v;
       market = this.market.recordSale(p.res.save, p.kept.sp);
       this.audio.play('cash');
-      this.ui.toast(`Sold for $${Math.round(v).toLocaleString()}`, 'good');
+      this.ui.toast(`Sold, $${Math.round(v).toLocaleString()}.`, 'good');
     } else if (mode === 'keep' || mode === 'cull') {
       if (mode === 'cull') {
         const worst = livewell.reduce((a, k) => (!a || this.market.value(p.res.save, k) < this.market.value(p.res.save, a) ? k : a), null);
@@ -898,7 +898,7 @@ export class Game {
       stats.released += 1;
       p.f.released = true;
       this.fishing.luckUntil = performance.now() + 180000;
-      this.ui.toast('Released! Rare-variant luck boosted for 3 minutes.', 'good');
+      this.ui.toast('Released. Luck is up for three minutes.', 'good');
       const at = this.foot ? this.fishing.lure : this.boat.position;
     }
     this.save = { ...p.res.save, cash, stats, livewell, market };
@@ -909,7 +909,7 @@ export class Game {
     for (const c of ch.completed) {
       bonus += c.reward;
       xpGain += challengeXp(c.reward);
-      this.ui.toast(`Challenge complete: ${c.text}  +$${c.reward.toLocaleString()}`, 'good');
+      this.ui.toast(`Done: ${c.text}. Paid $${c.reward.toLocaleString()}.`, 'good');
     }
     this.save = { ...this.save, challenges: ch.state, cash: this.save.cash + bonus, stats: { ...this.save.stats, earned: this.save.stats.earned + bonus } };
     if (bonus) this.audio.play('cash');
@@ -1018,7 +1018,7 @@ export class Game {
     this.tour = new Tournament(def, this.loc);
     this.tourRefresh = 0;
     this.audio.play('strike');
-    this.ui.toast(`${def.name} is under way - ${def.minutes} minutes on the clock!`, 'good');
+    this.ui.toast(`${def.name}: ${def.minutes} minutes on the clock.`, 'good');
     this.ui.leaderboard(this.tour);
     this.ui.hud();
   }
@@ -1070,7 +1070,7 @@ export class Game {
     f.depth = 0.3;
     f.bite = { sp: p.sp, morph: p.morph, lb: p.lb };
     f.hook();
-    this.ui.toast('Rod in hand - pull the throttle back and fight it!', 'good');
+    this.ui.toast('Rod in hand. Throttle back and work it.', 'good');
   }
 
   ensureChallenges() {
@@ -1128,7 +1128,7 @@ export class Game {
     this.save = { ...this.save, wear: { ...w, [kind]: now } };
     const cross = (x) => was < x && now >= x;
     if (kind === 'line') {
-      if (cross(0.5)) this.ui.toast('Your line is getting worn. A fresh spool at the tackle shop is cheap (B).', 'info');
+      if (cross(0.5)) this.ui.toast('Line is getting worn. A fresh spool is cheap (B).', 'info');
       if (cross(0.8)) this.ui.toast('Line badly frayed - it will break well below its rating. Respool soon.', 'bad');
     } else if (cross(0.6)) this.ui.toast('Your hook is dull: more fish will come off. Sharpen it at the tackle shop (B).', 'info');
   }
@@ -1138,7 +1138,7 @@ export class Game {
     if (!id) return;
     const w = this.save.wear;
     this.save = { ...this.save, wear: { ...w, lost: [...new Set([...w.lost, id])] } };
-    this.ui.toast(`Snagged and broke off - lost the ${lure.name.toLowerCase()}. Tied on a nightcrawler; restock at the tackle shop.`, 'bad');
+    this.ui.toast(`Snagged and broke off. Lost the ${lure.name.toLowerCase()}. A nightcrawler is on now.`, 'bad');
     this.equip('lure', 'nightcrawler');
   }
 
@@ -1200,7 +1200,7 @@ export class Game {
     if (!meets(this.save, 'boats', id)) { this.ui.toast(`Needs angler level ${gateLevel('boats', id)}.`, 'info'); return; }
     this.commit({ cash: this.save.cash - b.price, boats: [...this.save.boats, id] });
     this.audio.play('cash');
-    this.ui.toast(`You bought a ${b.name}!`, 'good');
+    this.ui.toast(`Bought the ${b.name}.`, 'good');
     if (b.waters.includes(this.loc.water)) this.switchBoat(id);
   }
 
@@ -1223,7 +1223,7 @@ export class Game {
     if (!meets(this.save, 'locs', id)) { this.ui.toast(`Needs angler level ${gateLevel('locs', id)}.`, 'info'); return; }
     this.commit({ cash: this.save.cash - l.price, unlocked: [...this.save.unlocked, id] });
     this.audio.play('cash');
-    this.ui.toast(`Waters opened: ${l.name}. You'll need a fishing permit there.`, 'good');
+    this.ui.toast(`${l.name} is open. You will need a permit there.`, 'good');
   }
 
   travel(id) {
