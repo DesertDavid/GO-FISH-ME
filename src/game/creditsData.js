@@ -111,5 +111,26 @@ export const MODEL_CREDITS = [
     "url": "https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e",
     "license": "CC-BY-SA-4.0",
     "category": "hands"
+  },
+  {
+    "title": "Fishing Rod, Rigged and Animated",
+    "author": "Ergin ERYILDIR",
+    "url": "https://sketchfab.com/3d-models/fishing-rod-rigged-and-animated-78991bf44cf54acb8660bef317d72c7a",
+    "license": "CC-BY-4.0",
+    "category": "rod"
+  },
+  {
+    "title": "Fishing Rod",
+    "author": "Tyler_Hurdle",
+    "url": "https://sketchfab.com/3d-models/fishing-rod-2379c4d6bd894395aca307619ff48689",
+    "license": "CC-BY-4.0",
+    "category": "rod"
+  },
+  {
+    "title": "Fishing Rod",
+    "author": "EthanPortman",
+    "url": "https://sketchfab.com/3d-models/fishing-rod-b90dd9d681084a7c96dcc1b2798b3f5f",
+    "license": "CC-BY-4.0",
+    "category": "rod"
   }
 ];

@@ -10,6 +10,8 @@ Mode "static": same bake, but length is metres and `pivot: "feet"` puts the lowe
 Mode "rigged": keeps the armature and skin; meshes are joined and decimated on the rest pose, "clips" maps source action
 names to game names ({"Idle:BaseAnimation": "idle"}), all other actions are dropped; a root empty carries the
 orientation/scale/pivot so bones and clips are untouched. Length is metres along the nose axis.
+Mode "rod" (tools/blender/rod_mode.py): fishing rods -> public/models/rods/*.glb, tip +Z, reel below, crank on +X, a bone chain for
+the bend, named anchors; `--report` also prints every mesh island in the rod frame (for writing the drop/crank/reel rules).
 """
 import bpy, sys, os, json, math, bmesh
 from mathutils import Vector, Matrix
@@ -229,5 +231,9 @@ for a in manifest['assets']:
         process_rigged(a)
     elif a['mode'] in ('fish', 'static'):
         process(a)
+    elif a['mode'] == 'rod':
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import rod_mode
+        rod_mode.process_rod(a, SRC, OUT_DIR, PREVIEW, report='--report' in argv)
     else:
         print('SKIP unknown mode', a['mode'], a['id'])

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { SPECIES_BY_ID, rollMorph, rollWeight } from './species.js';
-import { LURES } from './gear.js';
+import { LURES, RODS } from './gear.js';
 import { fit } from './bait.js';
+import { loadRodClone } from './rodModel.js';
 
 // Trolling spread: three boat rods (two off the outriggers, one off the transom) pulling
 // skirted baits through the wake. Cruise at 2-5 m/s; when one goes off, click to take
@@ -11,6 +12,8 @@ export const TROLL_GEAR = { rod: 'standup', reel: 'twospeed50', line: 'mono80', 
 const BACK = [42, 58, 32, 50, 38];            // line out behind the boat (m); rods 4 and 5 come from rod-holder upgrades
 const SIDE = [-9, 9, 0, -4.5, 4.5];
 const ROD_NAME = ['Left', 'Right', 'Center', 'Port inner', 'Starboard inner'];
+
+const _tb = new THREE.Vector3(), _td = new THREE.Vector3(), _ts = new THREE.Vector3(), _tl = new THREE.Vector3(), _tt = new THREE.Vector3(), _tq = new THREE.Quaternion(), _dirs = [];
 
 export class Trolling {
   constructor(ctx) {
@@ -28,6 +31,49 @@ export class Trolling {
       return l;
     });
     this.skipT = 0;
+    this.rods = [];            // real rod models standing in the holders (rodModel.js), made on first use
+    this.rodsLoading = false;
+    this.rodT = 0;
+  }
+
+  // the visible rods: each stands in its holder and points at its tip (the line starts there); the blank bows toward the bait
+  ensureRods() {
+    if (this.rods.length || this.rodsLoading) return;
+    this.rodsLoading = true;
+    const id = TROLL_GEAR.rod;
+    Promise.all(BACK.map(() => loadRodClone(RODS[id].model))).then((ms) => {
+      this.rods = ms.map((m) => { const g = new THREE.Group(); g.add(m.root); g.visible = false; this.ctx.scene.add(g); return { m, g }; });
+    }).catch((e) => { console.warn('troll rod models failed', e); }).finally(() => { this.rodsLoading = false; });
+  }
+
+  placeRods(tips, n, dt) {
+    this.rodT += dt;
+    const c = this.ctx, boat = c.boat;
+    const back = _tb.set(-1, 0, 0).applyQuaternion(boat.quaternion).setY(0).normalize();
+    for (let i = 0; i < this.rods.length; i++) {
+      const { m, g } = this.rods[i];
+      const show = this.active && i < n && !(c.boat.id === 'sport' && i < 2);   // outrigger tips are poles on the sportfisher, no rod there
+      g.visible = show;
+      if (!show) continue;
+      // direction: aft and up, a little outboard
+      const out = i === 0 ? -0.18 : i === 1 ? 0.18 : 0;
+      _td.set(0, 0, 0).addScaledVector(back, 0.62).addScaledVector(_ts.set(-back.z, 0, back.x), out).setY(0.78).normalize();
+      const tip = tips[i];
+      g.position.copy(tip).addScaledVector(_td, -m.tipZ);
+      g.lookAt(_tl.copy(g.position).add(_td));
+      // bow toward the bait; a hooked-up rod doubles over and shakes
+      const hit = this.pending && this.pending.index === i;
+      const toLine = _tt.subVectors(this.lures[i], tip).normalize();
+      const bow = (hit ? 0.9 + Math.sin(this.rodT * 38) * 0.05 : 0.16 + Math.sin(this.rodT * 1.3 + i) * 0.03);
+      for (let k = 1; k <= 28; k++) {
+        const s = k / 28;
+        (_dirs[k] || (_dirs[k] = new THREE.Vector3())).copy(_td).lerp(toLine, Math.min(0.95, bow * Math.pow(s, 1.8) * 1.2)).normalize();
+      }
+      g.updateMatrixWorld(true);
+      m.pose(_tq.copy(g.quaternion).invert(), _dirs, 28);
+      if (m.crank) m.crank.rotation.x = hit ? this.rodT * 25 : 0;
+      g.updateMatrixWorld(true);
+    }
   }
 
   get n() { return Math.min(BACK.length, this.ctx.boatMods?.().trollRods || 3); }
@@ -46,6 +92,8 @@ export class Trolling {
     this.pending = null;
     c.ui.toast(this.active ? 'Lines out. Hold 2-5 m/s (4-10 kn) and watch the rod tips.' : 'Spread cleared.', 'info');
     this.lines.forEach((l, i) => { l.visible = this.active && i < this.n; });
+    if (this.active) this.ensureRods();
+    else this.placeRods([], 0, 0);
   }
 
   // rod tips in boat-local coordinates: outriggers on the sportfisher, transom corners otherwise
@@ -82,6 +130,7 @@ export class Trolling {
       }
       this.lines[i].geometry.attributes.position.needsUpdate = true;
     });
+    this.placeRods(tips, n, dt);
     // baits skipping in the wake
     this.skipT -= dt;
     if (speed > 1.5 && this.skipT <= 0) {
@@ -124,6 +173,7 @@ export class Trolling {
     const lure = this.lures[p.index].clone();
     this.pending = null;
     this.active = false;
+    this.placeRods([], 0, 0);
     this.lines.forEach((l) => { l.visible = false; });
     c.ui.lureMarker(null);
     c.startTrollFight(p, lure);

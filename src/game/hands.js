@@ -92,7 +92,7 @@ export class Hands {
     if (!this.wrist) return;
     this.left.updateMatrixWorld(true);
     const wrist = this.left.localToWorld(_w.copy(this.wrist));
-    const elbow = rod.handle.localToWorld(_e.copy(KNOB_HOME).add(this.elbow));
+    const elbow = rod.handle.localToWorld(_e.copy(rod.knobHome || KNOB_HOME).add(this.elbow));
     const dir = _v.subVectors(elbow, wrist);
     const len = dir.length();
     // direction in the handle frame, so the arm keeps the handle's roll

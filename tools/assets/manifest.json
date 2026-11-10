@@ -313,6 +313,217 @@
       "author": "Elena FF",
       "url": "https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e",
       "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "rod_kit",
+      "category": "rod",
+      "mode": "rod",
+      "input": "fishing_rod_rigged_and_animated/scene.gltf",
+      "out": "rods/kit.glb",
+      "title": "Fishing Rod, Rigged and Animated",
+      "author": "Ergin ERYILDIR",
+      "url": "https://sketchfab.com/3d-models/fishing-rod-rigged-and-animated-78991bf44cf54acb8660bef317d72c7a",
+      "license": "CC-BY-4.0",
+      "tier": "medium",
+      "length": 1.98,
+      "rest_pose": true,
+      "tex": 1024,
+      "tris": {
+        "skin": 7000,
+        "reel": 6000,
+        "crank": 1500
+      },
+      "drop": [
+        {
+          "obj": "Object_7"
+        }
+      ],
+      "reel": [
+        {
+          "obj": "Rod02"
+        },
+        {
+          "obj": "Object001"
+        },
+        {
+          "obj": "Object002"
+        }
+      ],
+      "crank": [
+        {
+          "obj": "rod03"
+        }
+      ],
+      "flex_z": 0.45,
+      "axis_obj": [
+        "Object_9"
+      ],
+      "guides_z": [
+        0.777,
+        1.174,
+        1.575,
+        1.978
+      ],
+      "license_text": "This work is based on \"Fishing Rod, Rigged and Animated\" (https://sketchfab.com/3d-models/fishing-rod-rigged-and-animated-78991bf44cf54acb8660bef317d72c7a) by Ergin ERYILDIR (https://sketchfab.com/ergin3d.com) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "sketchfab_license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/); author must be credited, commercial use allowed"
+    },
+    {
+      "id": "rod_surf",
+      "category": "rod",
+      "mode": "rod",
+      "input": "fishing_rod3/scene.gltf",
+      "out": "rods/surf.glb",
+      "title": "Fishing Rod",
+      "author": "Tyler_Hurdle",
+      "url": "https://sketchfab.com/3d-models/fishing-rod-2379c4d6bd894395aca307619ff48689",
+      "license": "CC-BY-4.0",
+      "tier": "surf",
+      "length": 2.74,
+      "rest_pose": true,
+      "tex": 512,
+      "tris": {
+        "skin": 9000,
+        "reel": 9000,
+        "crank": 1500
+      },
+      "axis_obj": [
+        "FishingRod_M_FishingRod_Smooth"
+      ],
+      "crank": [
+        {
+          "box": [
+            [
+              0.5,
+              0.8
+            ],
+            [
+              -0.25,
+              0.0
+            ],
+            [
+              0.05,
+              0.4
+            ]
+          ]
+        }
+      ],
+      "reel": [
+        {
+          "box": [
+            [
+              0.45,
+              0.82
+            ],
+            [
+              -0.3,
+              -0.012
+            ],
+            [
+              -0.3,
+              0.05
+            ]
+          ]
+        }
+      ],
+      "crank_pivot": [
+        0.02,
+        -0.136,
+        0.614
+      ],
+      "knob": [
+        0.198,
+        -0.052,
+        0.616
+      ],
+      "flex_z": 0.36,
+      "guides_z": [
+        1.452,
+        1.742,
+        2.012,
+        2.212,
+        2.418,
+        2.585,
+        2.734
+      ],
+      "license_text": "This work is based on \"Fishing Rod\" (https://sketchfab.com/3d-models/fishing-rod-2379c4d6bd894395aca307619ff48689) by Tyler_Hurdle (https://sketchfab.com/golden_oreo37) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "sketchfab_license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/); author must be credited, commercial use allowed"
+    },
+    {
+      "id": "rod_standup",
+      "category": "rod",
+      "mode": "rod",
+      "input": "fishing_rod2/scene.gltf",
+      "out": "rods/standup.glb",
+      "title": "Fishing Rod",
+      "author": "EthanPortman",
+      "url": "https://sketchfab.com/3d-models/fishing-rod-b90dd9d681084a7c96dcc1b2798b3f5f",
+      "license": "CC-BY-4.0",
+      "tier": "standup",
+      "length": 1.68,
+      "tex": 1024,
+      "tris": {
+        "skin": 9000,
+        "reel": 9000,
+        "crank": 2500
+      },
+      "axis_obj": [
+        "Rod_0",
+        "Rod_10",
+        "End_Rod"
+      ],
+      "flex_z": 0.32,
+      "drop": [
+        {
+          "obj": "String_Knot"
+        },
+        {
+          "obj": "String_Bend"
+        },
+        {
+          "obj": "String_L"
+        },
+        {
+          "obj": "String_Back"
+        }
+      ],
+      "crank": [
+        {
+          "obj": "Reel_Handle"
+        }
+      ],
+      "reel": [
+        {
+          "obj": "Reel_"
+        },
+        {
+          "obj": "ReeL"
+        },
+        {
+          "obj": "Screw_"
+        },
+        {
+          "obj": "Nob_"
+        },
+        {
+          "obj": "Gear_"
+        },
+        {
+          "obj": "String_Wrap"
+        }
+      ],
+      "flip": true,
+      "guides_z": [
+        0.692,
+        0.851,
+        0.985,
+        1.119,
+        1.234,
+        1.349,
+        1.448,
+        1.536
+      ],
+      "license_text": "This work is based on \"Fishing Rod\" (https://sketchfab.com/3d-models/fishing-rod-b90dd9d681084a7c96dcc1b2798b3f5f) by EthanPortman (https://sketchfab.com/EthanPortman) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "sketchfab_license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/); author must be credited, commercial use allowed"
     }
   ]
 }

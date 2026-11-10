@@ -218,7 +218,7 @@ export class Hands2 {
     this.left.quaternion.copy(hq);
     // turn the hand along the elbow -> wrist line (two passes: the wrist depends on the turn), wrist rocking with the crank
     const wob = (0.12 + 0.1 * ld) * Math.sin(spin);
-    const el = _e.fromArray(T.left.elbow).add(KNOB_HOME);                                   // elbow, handle frame
+    const el = _e.fromArray(T.left.elbow).add(rod.knobHome || KNOB_HOME);                                   // elbow, handle frame
     const kn = this.left.position.clone(); rod.handle.worldToLocal(kn);                   // knob (+pull), handle frame
     let dirH = _v.copy(kn).add(_w.set(0, 0, 0.0)).sub(el);
     this.dirL = this.dirL || new THREE.Vector3(); this.dirL.copy(dirH);

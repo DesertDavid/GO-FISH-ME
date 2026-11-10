@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { makeHands } from './hands.js';
 import { RODS } from './gear.js';
 import { FEEL } from './fightFeel.js';
+import { loadRodModel } from './rodModel.js';
 
 // First-person rod (overlay scene, drawn over the world with its own depth) + fishing line
 // and terminal tackle (main scene). The blank is a tapered tube rebuilt every frame along a
 // progressive bend toward the line.
 const N = 28, RING = 7;
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3();
-const _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
+const _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _qi = new THREE.Quaternion();
+const KNOB_HOME = new THREE.Vector3(0.057, -0.085, 0.07);   // the procedural crank's circle centre (handle frame)
 
 export class Rod {
   constructor(overlayScene, scene) {
@@ -84,7 +86,21 @@ export class Rod {
       this.guides.push(ring);
       this.group.add(ring);
     }
-    overlayScene.add(this.group);
+    // everything above is the procedural fallback; a real model (rodModel.js) replaces it per rod tier
+    this.proc = [this.blank, ...this.handle.children, ...this.guides];
+    this.procCrank = this.crank;
+    this.procKnob = this.knob;
+    this.knobHome = KNOB_HOME.clone();
+    this.model = null;
+    this.wantModel = null;
+    this.flexZ = 0.24;
+    this.dirs = Array.from({ length: N + 1 }, () => new THREE.Vector3(0, 0, -1));
+    this.guideGeo = new THREE.BufferGeometry();
+    this.guideGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
+    this.threadLine = new THREE.Line(this.guideGeo, new THREE.LineBasicMaterial({ color: 0xe8f0f0, transparent: true, opacity: 0.8 }));
+    this.threadLine.frustumCulled = false;
+    this.threadLine.visible = false;
+    overlayScene.add(this.group, this.threadLine);
     this.hands = makeHands(this);
 
     // line (main scene)
@@ -120,10 +136,39 @@ export class Rod {
     this.lineMat.color.setHex(line.color);
     this.lineOnSpool.material.color.setHex(line.color);
     this.lureMat.color.setHex(lure.color);
-    this.length = rod.len;
+    this.procLen = rod.len;
+    this.length = this.model && this.wantModel === (rod.model || null) ? this.model.tipZ : rod.len;
     this.power = rod.power;
     const id = Object.keys(RODS).find((k) => RODS[k] === rod);
     this.flex = FEEL.rods[id] || FEEL.rodDefault;
+    this.threadLine.material.color.setHex(line.color);
+    // real model for this tier (falls back to the procedural rod while loading, or if it fails)
+    const want = rod.model || null;
+    if (want === this.wantModel && (this.model || !want)) return;
+    this.wantModel = want;
+    if (!want) { this.useModel(null); return; }
+    loadRodModel(want).then((m) => { if (this.wantModel === want) this.useModel(m); }).catch((e) => { console.warn('rod model failed', want, e); this.useModel(null); });
+  }
+
+  // m = RodModel or null (procedural rod)
+  useModel(m) {
+    if (this.model && this.model !== m) this.model.root.removeFromParent();
+    this.model = m;
+    for (const o of this.proc) o.visible = !m;
+    if (m) {
+      this.handle.add(m.root);
+      this.flexZ = m.flexZ;
+      this.length = m.tipZ;
+      this.crank = m.crank || this.procCrank;
+      this.knob = m.knob || this.procKnob;
+      this.knobHome.copy(m.knobHome || KNOB_HOME);
+    } else {
+      this.flexZ = 0.24;
+      this.length = this.procLen;
+      this.crank = this.procCrank; this.knob = this.procKnob;
+      this.knobHome.copy(KNOB_HOME);
+    }
+    this.hands.rodChanged?.();
   }
 
   // a snap or a hook coming out: the rod loses its load at once and whips past straight
@@ -159,8 +204,8 @@ export class Rod {
     const bend = this.bendX;
     const toLine = pose.target ? _b.subVectors(pose.target, this.butt).normalize() : _b.copy(this.dir).setY(this.dir.y - 0.6).normalize();
     const p = this.points;
-    p[0].copy(this.butt).addScaledVector(this.dir, 0.24);
-    const seg = (L - 0.24) / N;
+    p[0].copy(this.butt).addScaledVector(this.dir, this.flexZ);
+    const seg = (L - this.flexZ) / N;
     for (let i = 1; i <= N; i++) {
       const s = i / N;
       const k = Math.max(-0.7, Math.min(0.97, bend * Math.pow(s, fx.act) * 1.15));
@@ -168,21 +213,33 @@ export class Rod {
       // gravity sag on long soft tips
       _c.y -= 0.04 * s * s;
       p[i].copy(p[i - 1]).addScaledVector(_c.normalize(), seg);
+      this.dirs[i].copy(_c);
     }
     this.tip.copy(p[N]);
-    this.buildBlank();
+    if (!this.model) this.buildBlank();
 
     // handle frame: z along rod, y roughly world up
     const z = this.dir, x = _c.crossVectors(new THREE.Vector3(0, 1, 0), z).normalize(), y = _d.crossVectors(z, x);
     _m.makeBasis(x, y, z);
     this.handle.quaternion.setFromRotationMatrix(_m);
     this.handle.position.copy(this.butt);
+    if (this.model) {
+      this.handle.updateMatrixWorld(true);
+      this.model.pose(_qi.copy(this.handle.quaternion).invert(), this.dirs, N);
+      this.handle.updateMatrixWorld(true);
+      this.model.tip.getWorldPosition(this.tip);
+      // the line threaded from the reel through every guide to the real tip
+      const path = this.model.path, arr = this.guideGeo.attributes.position.array;
+      for (let i = 0; i < path.length; i++) { path[i].getWorldPosition(_a); arr[i * 3] = _a.x; arr[i * 3 + 1] = _a.y; arr[i * 3 + 2] = _a.z; }
+      this.guideGeo.setDrawRange(0, path.length);
+      this.guideGeo.attributes.position.needsUpdate = true;
+    }
     this.load = pose.load || 0;
     if (pose.reeling) this.reelSpin += dt * 14 * (pose.reelRate ?? 1);
     this.crank.rotation.x = this.reelSpin;
-    this.spool.rotation.z = pose.lineOut ? -this.reelSpin * 0.3 : 0;
+    if (!this.model) this.spool.rotation.z = pose.lineOut ? -this.reelSpin * 0.3 : 0;
 
-    for (let i = 0; i < this.guides.length; i++) {
+    for (let i = 0; !this.model && i < this.guides.length; i++) {
       const k = Math.round(((i + 1) / (this.guides.length + 0.6)) * N);
       const a = p[k], b = p[Math.min(N, k + 1)];
       const g = this.guides[i];
@@ -252,6 +309,7 @@ export class Rod {
 
   setVisible(v) {
     this.group.visible = v;
+    this.threadLine.visible = v && !!this.model;
     if (!v) this.nearLine.visible = false;
   }
 }

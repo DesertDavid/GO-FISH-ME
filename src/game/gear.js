@@ -1,14 +1,15 @@
 // Tackle and boats. Rods: power = line class it's built for (lb), cast = max cast (m),
-// sens = bite sensitivity (longer strike window), lift = how hard it tires a fish.
+// sens = bite sensitivity (longer strike window), lift = how hard it tires a fish. model = real GLB in
+// public/models/rods (rodModel.js, built by tools/blender/rod_mode.py); tiers without one use the procedural rod in rod.js.
 export const RODS = {
-  medium: { name: 'Medium Spinning 6\'6"', price: 0, power: 12, cast: 48, sens: 0.6, lift: 1, len: 1.98, color: 0x2a2f36 },
+  medium: { name: 'Starter Spinning Combo 6\'6"', model: 'kit', price: 0, power: 12, cast: 48, sens: 0.6, lift: 1, len: 1.98, color: 0x2a2f36 },
   ultralight: { name: 'Ultralight Spinning 5\'6"', price: 70, power: 6, cast: 36, sens: 0.95, lift: 0.8, len: 1.68, color: 0xd8c8a0 },
   flyrod: { name: '9\' 8-Weight Fly Rod', price: 420, power: 12, cast: 32, sens: 1, lift: 0.9, len: 2.74, color: 0x3a2a20, fly: true },
   mhcasting: { name: 'Medium-Heavy Casting 7\'', price: 190, power: 20, cast: 58, sens: 0.75, lift: 1.15, len: 2.13, color: 0x1a1a1a },
   flipping: { name: 'Heavy Flipping Stick 7\'6"', price: 260, power: 30, cast: 45, sens: 0.7, lift: 1.3, len: 2.29, color: 0x3a0a0a },
   inshore: { name: 'Inshore Spinning 7\'6"', price: 240, power: 25, cast: 62, sens: 0.8, lift: 1.2, len: 2.29, color: 0x0d3a5a },
-  surf: { name: 'Heavy Spinning 9\'', price: 380, power: 40, cast: 78, sens: 0.65, lift: 1.3, len: 2.74, color: 0x2a4a2a },
-  standup: { name: 'Offshore Stand-Up 5\'6"', price: 650, power: 80, cast: 34, sens: 0.55, lift: 1.7, len: 1.68, color: 0xb0b8c0 },
+  surf: { name: 'Surf Spinning 9\'', model: 'surf', price: 380, power: 40, cast: 78, sens: 0.65, lift: 1.3, len: 2.74, color: 0x2a4a2a },
+  standup: { name: 'Offshore Conventional Stand-Up 5\'6"', model: 'standup', price: 650, power: 80, cast: 34, sens: 0.55, lift: 1.7, len: 1.68, color: 0xb0b8c0 },
   biggame: { name: '130-Class Big Game', price: 1900, power: 130, cast: 26, sens: 0.5, lift: 2.1, len: 1.83, color: 0xd0a030 },
 };
 
