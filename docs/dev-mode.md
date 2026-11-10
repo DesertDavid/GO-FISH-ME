@@ -25,7 +25,7 @@ A **DEV** marker under the compass shows the state ("fly 40 m/s", "clock paused"
 | Tab | What it has |
 | --- | --- |
 | View | fly toggle, fly speed, boat-follows toggle, first person / over the shoulder (jellybean) / boat overview, FPS counter, stats overlay, fish finder |
-| Boats | spawn any of the 7 boats (jon, bass, skiff, center console, sportfisher, trawler, seiner) on any water, instantly, without owning or unlocking them. "Fit every upgrade" fits all upgrades on whichever boat you spawn. Flying over water: the boat appears under the camera |
+| Boats | spawn any of the 11 boats (jon, kayak, bass, skiff, pontoon, bay boat, center console, sportfisher, trawler, seiner, yacht) on any water, instantly, without owning or unlocking them. "Fit every upgrade" fits all upgrades on whichever boat you spawn. Flying over water: the boat appears under the camera |
 | World | location picker (all 14; reloads as `?dev=1&loc=...`, carrying boat, hour and fly), time-of-day slider, clock pause, weather (auto, clear, partly, overcast, rain, fog bank, squall) held at a chosen intensity, "strike now" lightning, tide held high / low |
 | Gear | any rod, any lure (loaned and equipped), "loan all tackle", free fishing permit |
 | Fish | species (this water first), colour variant, size from tiny to just over the record; **Hook it** (fight starts now, in front of the boat) or **Land it** (straight to the catch card) |
