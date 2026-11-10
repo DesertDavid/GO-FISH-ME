@@ -13,6 +13,7 @@ import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 import { PlayerBoat } from './boats.js';
 import { customOf, mods as boatModsOf, upgradePrice, upgradeLevel, UPGRADES, paintCost, finalName } from './boatCustom.js';
 import { Rod } from './rod.js';
+import { PlayerBody } from './jelly.js';
 import { Fishing } from './fishing.js';
 import { NetFishing } from './net.js';
 import { buildScenery, Hotspots } from './scenery.js';
@@ -45,6 +46,7 @@ import { catchXp, challengeXp, tournamentXp, levelOf, levelInfo, unlocksAt, gate
 
 const TABLES = { rods: RODS, reels: REELS, lines: LINES, lures: LURES };
 const KIND_OF = { rods: 'rod', reels: 'reel', lines: 'line', lures: 'lure' };
+const _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler();
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -65,6 +67,7 @@ export class Game {
     this.patchProp = engine.patchProp;
     this.heightAt = engine.heightAt;
     this.view = 'first';
+    this.tp = false;                  // third person over the shoulder (view stays 'first': fishing, holster, menus all work)
     this.look = { yaw: 0, pitch: -0.06, dist: 0 };
     this.keys = new Set();
     this.mouse = { down: false, pressed: false, right: false, x: 0, y: 0 };
@@ -111,6 +114,7 @@ export class Game {
     this.boat = await new PlayerBoat(boatId).create(e.floaters, this.patchProp, this.start, this.start.yaw || 0, this.boatCust(boatId));
     this.look.yaw = BOATS[boatId].face || 0;
     this.rod = new Rod(this.overlay, this.scene);
+    this.body = new PlayerBody(this);   // the jellybean angler, drawn in third person
     this.fishing = new Fishing(this.ctx());
     this.net = new NetFishing(this.ctx());
     this.ambient = new AmbientFish(this.ctx());
@@ -215,7 +219,12 @@ export class Game {
       const act = this.binds.rev[k];
       const open = { tackle: 'tackle', shop: 'shop', marina: 'marina', map: 'map', chart: 'chart', journal: 'journal', help: 'help', settings: 'settings', events: 'events', trophy: 'trophy' }[act];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
-      if (act === 'view') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
+      if (act === 'view') {
+        // first person -> over the shoulder (still fishing) -> the old boat overview orbit -> first person
+        if (this.view === 'first' && !this.tp) this.tp = true;
+        else if (this.view === 'first') { this.tp = false; this.view = 'third'; this.look.yaw = 0; }
+        else { this.view = 'first'; this.tp = false; this.restoreLook(); }
+      }
       if (act === 'stepOff') this.toggleShore();
       if (act === 'talk') { this.ui.open('talk'); this.keys.clear(); return; }
       if (act === 'livewell') { this.ui.open('livewell'); this.keys.clear(); return; }
@@ -453,7 +462,11 @@ export class Game {
     // would wash out the hands and rod right beside it
     if (this.e.overlayFill) this.e.overlayFill.intensity += ((this.fishing.state === 'caught' ? 3.5 : 0.5) - this.e.overlayFill.intensity) * Math.min(1, dt * 4);
     this.troll.update(dt);
+    const tpOn = this.view === 'first' && this.tp;
+    this.rod.setSpace(tpOn);
+    this.fishing.lctx.camera = tpOn ? this.angler : this.camera;
     this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo && this.rod.holster < 1);
+    this.body.update(dt, tpOn);
     this.ui.power(this.fishing.state === 'charging' ? this.fishing.power : null);
     this.net.update(dt);
     const bp = this.foot ? this.footPos : this.boat.position;
@@ -549,6 +562,7 @@ export class Game {
     if (this.view === 'first') {
       cam.position.copy(A.position);
       cam.quaternion.copy(A.quaternion);
+      if (this.tp) this.shoulderCamera(cam, A);
     } else if (this.view === 'under') {
       this.underwaterCamera(dt);
     } else {
@@ -563,6 +577,24 @@ export class Game {
     }
     this.fightShake(dt);
     cam.updateMatrixWorld();
+  }
+
+  // Third person over the right shoulder: behind and above the angler, along the aim, pulled in where terrain, a dock deck,
+  // a building or the water would be in the way. The angler (A) is still where the fishing is aimed from.
+  shoulderCamera(cam, A) {
+    const f = _v.set(0, 0, -1).applyQuaternion(A.quaternion), right = _v2.set(1, 0, 0).applyQuaternion(A.quaternion);
+    const want = _v3.copy(A.position).addScaledVector(f, -3.6).addScaledVector(right, 0.8);
+    want.y += 1.0;
+    const surf = this.water[0] || 0;
+    let t = 1;
+    for (let i = 1; i <= 16; i++) {
+      const u = i / 16, x = A.position.x + (want.x - A.position.x) * u, y = A.position.y + (want.y - A.position.y) * u, z = A.position.z + (want.z - A.position.z) * u;
+      const deck = this.docks.deckAt(x, z);
+      if (this.heightAt(x, z) + 0.35 > y || (deck !== null && deck + 0.35 > y) || this.buildings?.blocks(x, z)) { t = Math.max(0.28, (i - 1.5) / 16); break; }
+    }
+    cam.position.lerpVectors(A.position, want, t);
+    cam.position.y = Math.max(cam.position.y, surf + 0.45);
+    cam.lookAt(_v3.copy(A.position).addScaledVector(f, 14).addScaledVector(right, 0.25).setY(A.position.y - 0.5 + f.y * 14));
   }
 
   // a heavy fish on the line (and landing jolts) shake the view a little; Reduce motion turns it off
@@ -642,6 +674,7 @@ export class Game {
     if (this.view === 'first') {
       cam.position.copy(A.position);
       cam.quaternion.copy(A.quaternion);
+      if (this.tp) this.shoulderCamera(cam, A);
     } else if (this.view === 'under') {
       this.underwaterCamera(dt);
     } else {

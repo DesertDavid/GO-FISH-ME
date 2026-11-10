@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { FEEL } from './fightFeel.js';
 import { Hands2 } from './hands2.js';
+import { Hands3 } from './hands3.js';
 import { loadSettings } from './settings.js';
 
 // First-person hands, modelled in Blender (tools/blender/build_hands.py). The model is built in
@@ -103,11 +104,11 @@ export class Hands {
   }
 }
 
-// Which hands to build: the Blender-built set above (default) or the textured "Rigged hand" set in
-// hands2.js. `?hands=2` (or `?hands=1`) overrides the Settings > Gameplay option.
+// Which hands to build: the Blender-built set above (1, Classic), the textured "Rigged hand" set in hands2.js (2) or the
+// stylised jellybean arms with ball hands in hands3.js (3). `?hands=N` overrides the Settings > Gameplay option.
 export function handsVersion() {
   let v = '1';
   try { v = new URLSearchParams(location.search).get('hands') || String(loadSettings().hands || '1'); } catch { /* no window / blocked */ }
-  return v === '2' ? 2 : 1;
+  return v === '3' ? 3 : v === '2' ? 2 : 1;
 }
-export function makeHands(rod) { return handsVersion() === 2 ? new Hands2(rod) : new Hands(rod); }
+export function makeHands(rod) { const v = handsVersion(); return v === 3 ? new Hands3(rod) : v === 2 ? new Hands2(rod) : new Hands(rod); }

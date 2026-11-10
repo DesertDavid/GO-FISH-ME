@@ -246,7 +246,7 @@ export class Rod {
       g.position.copy(a).addScaledVector(y, -0.008);
       g.lookAt(b);
     }
-    this.hands.update();
+    this.hands.update(camera);
   }
 
   buildBlank() {
@@ -307,9 +307,19 @@ export class Rod {
     this.bobber.visible = this.lure.visible = false;
   }
 
+  // third person draws the rod in the world scene (held by the jellybean body); first person in the overlay
+  setSpace(inScene) {
+    if (this.inScene === inScene) return;
+    this.inScene = inScene;
+    (inScene ? this.scene : this.overlay).add(this.group, this.threadLine, this.nearLine);
+    const h = this.hands;
+    for (const k of ['right', 'left', 'arm']) if (h[k]) h[k].visible = !inScene;
+    h.setVisible?.(!inScene);
+  }
+
   setVisible(v) {
     this.group.visible = v;
     this.threadLine.visible = v && !!this.model;
-    if (!v) this.nearLine.visible = false;
+    if (!v || this.inScene) this.nearLine.visible = false;
   }
 }

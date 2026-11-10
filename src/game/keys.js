@@ -13,7 +13,7 @@ export const ACTIONS = [
   ['lookRight', 'Look right (keys)', 'Look', 'arrowright'],
   ['lookUp', 'Look up (keys)', 'Look', 'arrowup'],
   ['lookDown', 'Look down (keys)', 'Look', 'arrowdown'],
-  ['view', 'First / third person', 'Look', 'v'],
+  ['view', 'View: first / over the shoulder / overview', 'Look', 'v'],
   ['underwater', 'Underwater camera (lure / fish)', 'Look', 'u'],
   ['photo', 'Photo mode', 'Look', 'p'],
   ['holster', 'Put the rod away / take it out', 'Fishing', 'x'],

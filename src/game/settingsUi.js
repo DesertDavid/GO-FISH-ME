@@ -20,7 +20,7 @@ const OPTS = {
   gameplay: [
     { k: 'mouseLock', t: 'toggle', label: 'Mouse look', desc: 'Click the view once to lock the mouse; it then looks around with no button held. Off: hold the right button and drag.' },
     { k: 'severeWeather', t: 'toggle', label: 'Severe weather', desc: 'Squalls with strong wind, big seas and lightning. Fog banks still roll in when this is off.' },
-    { k: 'hands', t: 'seg', label: 'First-person hands', desc: 'Classic: the original modelled hands. Realistic: a textured hand with nails, knuckles and a rolled flannel sleeve (credit in the pause menu).', opts: [['1', 'Classic'], ['2', 'Realistic']], reload: true },
+    { k: 'hands', t: 'seg', label: 'First-person hands', desc: 'Classic: the original modelled hands. Realistic: a textured hand with nails, knuckles and a rolled flannel sleeve (credit in the pause menu). Jellybean: the stylised angler with capsule arms and ball hands, the same figure you see in third person.', opts: [['1', 'Classic'], ['2', 'Realistic'], ['3', 'Jellybean']], reload: true },
     { k: 'biteQuality', t: 'toggle', label: 'Bite-quality ticks', desc: 'Three small ticks on the lure marker show how well the lure, depth and time of day suit the fish.' },
   ],
   graphics: [
@@ -84,7 +84,7 @@ const TAB_KEYS = {
   display: ['compass', 'sonar', 'depthReadout', 'hints', 'hudScale', 'hudOpacity', 'unitDist', 'unitWeight', 'unitSpeed'],
   access: ['reduceMotion', 'reduceFlash', 'safeColors', 'bigText'],
 };
-const FIXED_KEYS = [['Esc / Tab', 'Open and close the menus'], ['1 - 9', 'Tie on the lure in that tackle-box slot'], ['Left mouse', 'Cast (hold to power, release), reel, set the hook'], ['Mouse wheel', 'Drag setting (third person: zoom)'], ['Right-drag', 'Look around when Mouse look is off']];
+const FIXED_KEYS = [['Esc / Tab', 'Open and close the menus'], ['1 - 9', 'Tie on the lure in that tackle-box slot'], ['Left mouse', 'Cast (hold to power, release), reel, set the hook'], ['Mouse wheel', 'Drag setting (boat overview: zoom)'], ['Right-drag', 'Look around when Mouse look is off']];
 
 export class SettingsPanel {
   constructor(ui) {
