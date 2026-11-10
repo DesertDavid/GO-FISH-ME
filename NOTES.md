@@ -68,6 +68,7 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   lures, boats).
 
 ## Done
+- Art direction: `src/game/ink.css` sets the type (B612 labels, B612 Mono numbers/keys, Newsreader spoken lines; fonts self-hosted via @fontsource) and the instrument conventions (hairline buttons, one amber accent). It loads after `ui.css` and wins over it; edit the look there. Fish skins vary per individual (3 variants) with uneven bars. Ranked leftovers in `docs/art-audit.md`.
 - Core fishing (cast, bite, fight with drag/tension), 145 species, morphs, journal.
 - 14 locations: Okeechobee, Lake of the Woods, Tahoe, Columbia Gorge, Chesapeake Bay, Florida
   Keys, Mekong (Si Phan Don), Amazon, Lake Kariba (drowned forest), Lofoten fjords, Gulf of

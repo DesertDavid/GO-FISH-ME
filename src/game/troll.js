@@ -39,12 +39,12 @@ export class Trolling {
 
   toggle() {
     const c = this.ctx;
-    if (!this.available()) { c.ui.toast('Trolling works in salt water - try the Keys, the Gulf or the reef.', 'info'); return; }
+    if (!this.available()) { c.ui.toast('Trolling is a salt-water job: the Keys, the Gulf, the reef.', 'info'); return; }
     if (c.fishingBusy()) { c.ui.toast('Reel in first.', 'info'); return; }
     if (c.boatSpec().net) { c.ui.toast('Net boats don\'t carry a trolling spread.', 'info'); return; }
     this.active = !this.active;
     this.pending = null;
-    c.ui.toast(this.active ? 'Lines out! Cruise at 2-5 m/s (4-10 kn) and watch the rods.' : 'Spread cleared.', 'info');
+    c.ui.toast(this.active ? 'Lines out. Hold 2-5 m/s (4-10 kn) and watch the rod tips.' : 'Spread cleared.', 'info');
     this.lines.forEach((l, i) => { l.visible = this.active && i < this.n; });
   }
 
@@ -92,7 +92,7 @@ export class Trolling {
     if (this.pending) {
       this.pending.t -= dt;
       c.ui.lureMarker(this.lures[this.pending.index].clone().setY(surf + 0.5), c.camera, '', 'strike');
-      if (this.pending.t <= 0) { c.ui.toast('Too slow - it pulled free of the bait.', 'bad'); c.ui.lureMarker(null); this.pending = null; }
+      if (this.pending.t <= 0) { c.ui.toast('Too slow. It got off the bait.', 'bad'); c.ui.lureMarker(null); this.pending = null; }
       return;
     }
     const trolling = speed > 1.8 && speed < 6;
@@ -114,7 +114,7 @@ export class Trolling {
     this.pending = { index: Math.floor(Math.random() * this.n), sp, morph: rollMorph(), lb: rollWeight(sp, Math.random, big), t: 8 };
     c.splash(this.lures[this.pending.index].x, this.lures[this.pending.index].z, 0.12, 1.2);
     c.audio.play('scream');
-    c.ui.toast(`FISH ON! ${ROD_NAME[this.pending.index]} rod is screaming - click to grab it!`, 'good');
+    c.ui.toast(`Fish on the ${ROD_NAME[this.pending.index].toLowerCase()} rod. Click to take it.`, 'good');
   }
 
   // the player grabs the bent rod: clear the other lines and hand over to the fight

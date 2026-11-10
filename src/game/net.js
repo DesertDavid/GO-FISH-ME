@@ -39,8 +39,8 @@ export class NetFishing {
 
   toggle() {
     const c = this.ctx;
-    if (!this.type) { c.ui.toast('This boat has no net. Buy a trawler or seiner at the marina.', 'info'); return; }
-    if (!c.loc.net) { c.ui.toast('No commercial stocks here. Net fishing works offshore and inshore saltwater.', 'info'); return; }
+    if (!this.type) { c.ui.toast('No net aboard. The marina sells trawlers and seiners.', 'info'); return; }
+    if (!c.loc.net) { c.ui.toast('No commercial stock on this water. Nets work in salt water, inshore and off.', 'info'); return; }
     if (this.state === 'stowed') {
       if (Math.abs(c.boatSpeed()) > 4) { c.ui.toast('Slow down below 4 m/s to shoot the net.', 'info'); return; }
       this.state = 'deploying'; this.t = 4; this.lbs = {}; this.total = 0; this.path = []; this.turned = 0; this.lastHeading = null; this.torn = false;
@@ -50,7 +50,7 @@ export class NetFishing {
     } else if (this.state === 'fishing') {
       this.state = 'hauling'; this.t = 5;
       if (this.type === 'seine') this.purse();
-      c.ui.toast('Hauling back...', 'info');
+      c.ui.toast('Hauling.', 'info');
       c.audio.play('winch');
     }
   }
@@ -59,13 +59,13 @@ export class NetFishing {
     const c = this.ctx;
     // a closed circle around a school pays off big
     const closed = this.turned > Math.PI * 1.7 && this.path.length > 10 && this.path[0].distanceTo(this.path[this.path.length - 1]) < 90;
-    if (!closed) { c.ui.toast('The circle wasn\'t closed - most of the school escaped.', 'bad'); return; }
+    if (!closed) { c.ui.toast('Circle not closed. Most of the school went under the corkline.', 'bad'); return; }
     let cx = 0, cz = 0;
     for (const p of this.path) { cx += p.x; cz += p.z; }
     cx /= this.path.length; cz /= this.path.length;
     const hot = c.hotspots.near(cx, cz, 120);
-    if (hot > 0) { this.addCatch(this.cap * (0.35 + 0.6 * hot) * (0.7 + Math.random() * 0.3)); c.ui.toast('Pursed around the school!', 'good'); }
-    else c.ui.toast('Closed the net on empty water.', 'bad');
+    if (hot > 0) { this.addCatch(this.cap * (0.35 + 0.6 * hot) * (0.7 + Math.random() * 0.3)); c.ui.toast('Pursed. The school is in the bunt.', 'good'); }
+    else c.ui.toast('Pursed on empty water.', 'bad');
   }
 
   addCatch(lb) {
@@ -111,7 +111,7 @@ export class NetFishing {
       this.bag.scale.setScalar(0.4 + 0.6 * deployed);
       this.corks.count = 0;
       if (this.state === 'fishing') {
-        if (speed > 5.5 && !this.torn) { this.torn = true; this.total *= 0.4; for (const id in this.lbs) this.lbs[id] *= 0.4; c.ui.toast('Towing too fast - the net tore and fish spilled out!', 'bad'); }
+        if (speed > 5.5 && !this.torn) { this.torn = true; this.total *= 0.4; for (const id in this.lbs) this.lbs[id] *= 0.4; c.ui.toast('Towed too fast. The net tore and the catch spilled.', 'bad'); }
         const tow = speed > 0.8 && speed < 5 ? Math.min(1, speed / 2.5) : 0;
         const hot = c.hotspots.near(bagPos.x, bagPos.z, 70);
         const rate = (12 + 900 * hot) * tow * (this.torn ? 0.3 : 1);
@@ -155,7 +155,7 @@ export class NetFishing {
       const sp = SPECIES_BY_ID[id];
       return { sp, lb, value: lb * sp.price * 0.7, count: Math.max(1, Math.round(lb / sp.lb[1])) };
     }).sort((a, b) => b.lb - a.lb);
-    if (!rows.length) { c.ui.toast('Empty net. Tow through the schools (look for diving gulls).', 'bad'); return; }
+    if (!rows.length) { c.ui.toast('Nothing in the net. Tow where the gulls are working.', 'bad'); return; }
     // a few fish from every haul get logged (and might be a rare colour)
     const morphs = [];
     for (const r of rows) {

@@ -121,7 +121,7 @@ export class Fishing {
     if (this.lure.y <= c.waterAt(0)) {
       const ground = c.heightAt(this.lure.x, this.lure.z);
       if (ground > -0.15) {
-        c.ui.toast('Snagged on the bank! Line cut.', 'bad');
+        c.ui.toast('Hung up on the bank. Line cut.', 'bad');
         c.audio.play('snap');
         this.reset();
         return;
@@ -171,8 +171,8 @@ export class Fishing {
     this.lure.y = c.waterAt(0) - (lure.bobber ? 0 : this.depth);
     const home = reeling && horiz(tip, this.lure) < 3;
     if (c.heightAt(this.lure.x, this.lure.z) > -0.05 || home) {
-      if (home) c.ui.toast('Reeled in - click and hold to cast again', 'info');
-      else c.ui.toast('Ran aground: lure back.', 'info');
+      if (home) c.ui.toast('Lure in. Hold the button to cast.', 'info');
+      else c.ui.toast('Lure fouled on the bottom and recovered.', 'info');
       this.reset();
       return;
     }
@@ -237,8 +237,8 @@ export class Fishing {
     this.lure.y = c.waterAt(0) - (this.gear.lure.bobber ? 0 : this.depth);
     if (b.phase === 'nibble') {
       if (input.pressed) {
-        if (Math.random() < 0.2) { c.ui.toast('Too early! You spooked it.', 'bad'); c.fishLife?.cue(b.actor, 'spook'); this.bite = null; this.state = 'water'; this.biteClock = 0; return; }
-        c.ui.toast('Wait for it... strike when you see STRIKE!', 'info');
+        if (Math.random() < 0.2) { c.ui.toast('Struck too soon. It was gone.', 'bad'); c.fishLife?.cue(b.actor, 'spook'); this.bite = null; this.state = 'water'; this.biteClock = 0; return; }
+        c.ui.toast('Something has it. Wait for the strike call.', 'info');
       }
       if (b.t <= 0) {
         // a stiffer, less sensitive rod doesn't telegraph every tap (the strike itself is always obvious)
@@ -247,7 +247,7 @@ export class Fishing {
           c.rod.twitch = 0.35;
           c.audio.play('tick');
           c.splash(this.lure.x, this.lure.z, 0.03, 0.2);
-          c.ui.toast('Nibble...', 'info');
+          c.ui.toast('Nibble.', 'info');
         }
         if (b.actor && b.nibbles > 1) c.fishLife?.cue(b.actor, 'nudge');
         b.bob = 0.6;
@@ -277,12 +277,12 @@ export class Fishing {
       if (input.pressed || reelSet) {
         c.ui.strike(false);
         if (Math.random() < (0.9 + (line.braid ? 0.07 : 0)) * hookMul(this.wear.hook)) this.hook();
-        else { c.ui.toast('Missed the hookset!', 'bad'); c.fishLife?.cue(b.actor, 'spook'); this.bite = null; this.state = 'water'; this.biteClock = 0; }
+        else { c.ui.toast('No hook set.', 'bad'); c.fishLife?.cue(b.actor, 'spook'); this.bite = null; this.state = 'water'; this.biteClock = 0; }
         return;
       }
       if (b.t <= 0) {
         c.ui.strike(false);
-        c.ui.toast('It let go...', 'bad');
+        c.ui.toast('It let go.', 'bad');
         c.fishLife?.cue(b.actor, 'spit');
         this.bite = null;
         this.state = 'water';
@@ -398,12 +398,12 @@ export class Fishing {
     if (spike > line.test) this.overload += dt * ((spike / line.test - 1) * 6 + 0.4);
     else if (!this.runWarn) this.overload = Math.max(0, this.overload - dt * 0.15);
     this.tension = T;
-    if (this.overload >= 1) return this.lose(this.runWarn ? 'SNAP! You cranked against a running fish and twisted the line.' : this.wear.line > 0.5 ? 'SNAP! The frayed line gave out. Respool at the tackle shop.' : 'SNAP! The line broke.', 'snap');
-    if (T > rod.power * 3) return this.lose('Your rod couldn\'t take it - fish lost.', 'snap');
-    if (this.lineOut > reel.cap) return this.lose('Spooled! The fish took all your line.', 'snap');
+    if (this.overload >= 1) return this.lose(this.runWarn ? 'Line parted. You wound against a running fish.' : this.wear.line > 0.5 ? 'Line parted at the frayed stretch. Respool at the tackle shop.' : 'Line parted.', 'snap');
+    if (T > rod.power * 3) return this.lose('The rod gave more than it had. Fish lost.', 'snap');
+    if (this.lineOut > reel.cap) return this.lose('Spooled. It took all the line.', 'snap');
     // slack line lets a fish throw the hook
     if (T < P * 0.12 && !f.thrown) this.slackT += dt; else this.slackT = Math.max(0, this.slackT - dt * 2);
-    if (this.slackT > 2.4) return this.lose('Slack line - it threw the hook!', 'miss');
+    if (this.slackT > 2.4) return this.lose('Line went slack and the hook came out.', 'miss');
     // position
     f.theta += (speed * tang) / Math.max(3, f.r) * dt;
     const bottom = Math.max(0.6, -c.heightAt(f.pos.x, f.pos.z));
@@ -425,10 +425,10 @@ export class Fishing {
       f.jumpT += dt / 1.2;
       const hJ = 0.8 + Math.pow(f.lb, 0.2) * 0.6;
       f.pos.y = c.waterAt(1) + Math.sin(Math.PI * Math.min(1, f.jumpT)) * hJ - 0.2;
-      if (f.jumpT < dt * 2) { c.splash(f.pos.x, f.pos.z, 0.12, f.len * 0.6); c.audio.play('splash'); c.ui.toast(`${f.sp.name} jumps!`, 'info'); }
+      if (f.jumpT < dt * 2) { c.splash(f.pos.x, f.pos.z, 0.12, f.len * 0.6); c.audio.play('splash'); c.ui.toast(`${f.sp.name} clears the water.`, 'info'); }
       if (!f.thrown && f.jumpT > 0.3 && T > line.test * 0.65 && Math.random() < 0.45) {
         f.thrown = true;
-        return this.lose('It shook the hook on the jump! (Lower the drag when they jump.)', 'miss');
+        return this.lose('Hook shaken on the jump. Ease the drag when they leap.', 'miss');
       }
       if (f.jumpT >= 1) { f.jumpT = -1; c.splash(f.pos.x, f.pos.z, 0.15, f.len * 0.7); c.audio.play('splash'); }
     }
@@ -438,7 +438,7 @@ export class Fishing {
     const land = c.boatLength() * 0.35 + 2.5;
     if (f.r < land) {
       if (f.stamina < 0.32) return this.landed();
-      if (f.behavior !== 'run') { f.behavior = 'run'; f.bT = 2.5; f.power = 1; f.dir = Math.random() < 0.5 ? 1 : -1; f.theta += Math.PI * 0.2; c.ui.toast(c.boatLength() ? 'It sees the boat and bolts!' : 'It sees you and bolts!', 'info'); }
+      if (f.behavior !== 'run') { f.behavior = 'run'; f.bT = 2.5; f.power = 1; f.dir = Math.random() < 0.5 ? 1 : -1; f.theta += Math.PI * 0.2; c.ui.toast(c.boatLength() ? 'It has seen the boat and is running.' : 'It has seen you and is running.', 'info'); }
     }
     c.ui.fightTick({ tension: T, test: line.test, drag: D, maxDrag: reel.drag, lineOut: this.lineOut, cap: reel.cap, stamina: f.stamina, fishSide, overload: this.overload, runWarn: this.runWarn });
   }
