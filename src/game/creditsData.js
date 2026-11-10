@@ -104,5 +104,12 @@ export const MODEL_CREDITS = [
     "url": "https://sketchfab.com/3d-models/pelikan-pelican-dba2ea5b9f1e40cca54bd77713d8ff16",
     "license": "CC-BY-4.0",
     "category": "wildlife"
+  },
+  {
+    "title": "Rigged hand",
+    "author": "Elena FF",
+    "url": "https://sketchfab.com/3d-models/rigged-hand-eae97cc2a742413cb5338ab942b12c1e",
+    "license": "CC-BY-SA-4.0",
+    "category": "hands"
   }
 ];

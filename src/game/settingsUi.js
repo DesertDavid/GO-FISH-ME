@@ -7,6 +7,8 @@ import './settings.css';
 import { DEFAULT_SETTINGS, PRESETS, GFX_KEYS } from './settings.js';
 import { ACTIONS, GROUPS, DEFAULT_BINDS, resolveBinds, keyName, keyLabel, reservedReason, assign, ACTION } from './keys.js';
 import { BOOT } from '../engine/gfxBoot.js';
+import { handsVersion } from './hands.js';
+const HANDS_BOOT = String(handsVersion());   // the hands this page was loaded with
 import { writeSave } from './save.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -18,6 +20,7 @@ const OPTS = {
   gameplay: [
     { k: 'mouseLock', t: 'toggle', label: 'Mouse look', desc: 'Click the view once to lock the mouse; it then looks around with no button held. Off: hold the right button and drag.' },
     { k: 'severeWeather', t: 'toggle', label: 'Severe weather', desc: 'Squalls with strong wind, big seas and lightning. Fog banks still roll in when this is off.' },
+    { k: 'hands', t: 'seg', label: 'First-person hands', desc: 'Classic: the original modelled hands. Realistic: a textured hand with nails, knuckles and a rolled flannel sleeve (credit in the pause menu).', opts: [['1', 'Classic'], ['2', 'Realistic']], reload: true },
     { k: 'biteQuality', t: 'toggle', label: 'Bite-quality ticks', desc: 'Three small ticks on the lure marker show how well the lure, depth and time of day suit the fish.' },
   ],
   graphics: [
@@ -104,7 +107,7 @@ export class SettingsPanel {
     const s = this.g.settings, tab = this.tabId;
     const tabs = `<div class="tabs st-tabs">${TABS.map(([id, label]) => `<button class="${id === tab ? 'on' : ''}" data-act="st-tab" data-id="${id}">${label}</button>`).join('')}</div>`;
     const body = tab === 'controls' ? this.controls(s) : this.options(OPTS[tab], s);
-    const reload = this.needsReload(s) ? `<div class="st-reload"><span>Wave resolution or mesh detail changed: they only take effect when the world is rebuilt.</span><button class="btn gold" data-act="st-reload">Restart now</button></div>` : '';
+    const reload = this.needsReload(s) ? `<div class="st-reload"><span>Wave resolution, mesh detail or hands changed: they only take effect when the world is rebuilt.</span><button class="btn gold" data-act="st-reload">Restart now</button></div>` : '';
     const danger = tab === 'gameplay' ? `<div class="st-danger"><button class="btn" data-act="reset">Reset all progress</button><span>Erases your save (settings are kept).</span></div>` : '';
     const armedTab = this.armed === 'tab', armedAll = this.armed === 'all';
     return `<div class="m-head"><h2>Settings</h2><span>Saved as you change them<span class="x" data-act="close">Back</span></span></div>
@@ -115,7 +118,7 @@ export class SettingsPanel {
         <span class="st-keys">←→ change · ↑↓ move · PgUp/PgDn tabs</span></div>`;
   }
 
-  needsReload(s) { return s.fft !== BOOT.fft || s.meshDetail !== BOOT.meshDetail; }
+  needsReload(s) { return s.fft !== BOOT.fft || s.meshDetail !== BOOT.meshDetail || String(s.hands) !== HANDS_BOOT; }
 
   options(list, s) {
     let i = 0;

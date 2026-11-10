@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { FEEL } from './fightFeel.js';
+import { Hands2 } from './hands2.js';
+import { loadSettings } from './settings.js';
 
 // First-person hands, modelled in Blender (tools/blender/build_hands.py). The model is built in
 // the rod handle's frame (+z along the rod toward the tip, +y up, +x to the angler's left):
@@ -100,3 +102,12 @@ export class Hands {
     this.arm.scale.set(1, 1, len / this.armLen);
   }
 }
+
+// Which hands to build: the Blender-built set above (default) or the textured "Rigged hand" set in
+// hands2.js. `?hands=2` (or `?hands=1`) overrides the Settings > Gameplay option.
+export function handsVersion() {
+  let v = '1';
+  try { v = new URLSearchParams(location.search).get('hands') || String(loadSettings().hands || '1'); } catch { /* no window / blocked */ }
+  return v === '2' ? 2 : 1;
+}
+export function makeHands(rod) { return handsVersion() === 2 ? new Hands2(rod) : new Hands(rod); }

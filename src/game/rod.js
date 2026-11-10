@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Hands } from './hands.js';
+import { makeHands } from './hands.js';
 import { RODS } from './gear.js';
 import { FEEL } from './fightFeel.js';
 
@@ -85,7 +85,7 @@ export class Rod {
       this.group.add(ring);
     }
     overlayScene.add(this.group);
-    this.hands = new Hands(this);
+    this.hands = makeHands(this);
 
     // line (main scene)
     this.lineGeo = new THREE.BufferGeometry();

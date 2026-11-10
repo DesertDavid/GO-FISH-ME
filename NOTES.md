@@ -36,6 +36,9 @@ The user wants it to look great and never generic/"AI-made" (minimal marine-elec
   there posts a PNG to a local receiver on 127.0.0.1:5300 (a tiny Python script, not in repo).
 - Blender 5.2: `H:\Blender\blender-5.2.3-windows-x64\blender.exe`.
   - `blender -b --factory-startup --python tools/blender/build_boats.py` -> `public/models/boats/`
+  - hands2 (optional realistic hands, see below): `python -I tools/blender/bake_gltf_rest.py <extracted rigged_hand zip dir> rest.npz`, then
+    `blender -b --factory-startup --python tools/blender/build_hands_v2.py -- --rest rest.npz --tex <dir>/textures/lambert1_baseColor.jpeg [--preview DIR]`
+    -> `public/models/hands2.glb` (155 KB: 16k-vert skinned hand, 1024 webp texture, Draco). Dev page: `handslab.html?hands=1|2` (free camera on the rod, `window.__lab.shot({...})`).
   - `blender -b --factory-startup --python tools/blender/build_hands.py [-- --preview DIR]`
     -> `public/models/hands.glb` (Draco-compressed on export, 2.9 MB -> 0.48 MB; max vertex error ~4 um,
        normals 0.06 deg. `hands.js` loads it through DRACOLoader, decoder files live in `public/draco/`,
@@ -78,6 +81,7 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - Docks + shore fishing (G to step off, walk with WASD); livewell + daily market (L).
 - Boat collisions with drowned trees, sea stacks, docks, rig legs.
 - Blender-built first-person hands; left hand follows the crank.
+- **hands2 (opt-in, NOT the default)**: `?hands=2` or Settings > Gameplay > First-person hands > Realistic (needs reload). `game/hands2.js` loads `hands2.glb`: the "Rigged hand" model by Elena FF (Sketchfab, **CC-BY-SA-4.0**), cleaned in Blender, 22 named bones (Wrist, Thumb0-3, Index0-3 ... Pinky0-3), a rigid forearm with rolled cuff and generated plaid flannel sleeve (`Arm`, `Elbow`). The left hand is the same mesh mirrored (`scale.x = -1`). Fingers are posed at runtime by rotating bones about hand-frame axes (`POSES` idle/grip/crank in hands2.js, blended by `rod.holster`; crank hand turns along its forearm and works its fingers with the spin; right hand squeezes under load). Placement numbers live in `T` (tuned in handslab.html). The hand texture's skin tone is dark brown as modelled; Classic is lighter. **Licence note:** CC-BY-SA means credit is required (done: `public/credits.md`, pause-menu credits line via `tools/assets/manifest.json` + `gen_credits.mjs`) and the *modified model* (`hands2.glb`) must be shared under CC-BY-SA-4.0 too; it does not by itself force the game code under that licence, but decide before making it the default. Comparison shots: `docs/hands-compare.png`. Known rough spots: wrist where hand mesh meets the cuff, left hand sits low/dark in the boat view, landing-by-hand uses a mirrored idle copy (`cloneLeft`).
 - Standalone Edge app-window launcher; mouse lock on any click; no right-click menu.
 - Closing any menu (button, Back, click outside, Esc/Tab) re-grabs the mouse inside that same gesture (`ui.close/forceClose` -> `game.grabPointer`). If the browser refuses (cooldown after its own Esc unlock) it is silent and retried on the next key or click on the view; travel reloads the page, so that one still needs a click.
 - Travel menu postcards: `public/images/locations/<id>.webp` (800x450, 40-100 KB, made with the local

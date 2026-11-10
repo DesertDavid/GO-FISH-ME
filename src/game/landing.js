@@ -90,9 +90,9 @@ export class Landing {
       this.parts.gaff = gaff;
     } else {
       const hand = new THREE.Group();
-      const src = ctx.rod.hands?.left?.children?.[0];
+      const src = ctx.rod.hands?.cloneLeft ? ctx.rod.hands.cloneLeft() : ctx.rod.hands?.left?.children?.[0];
       if (src) {
-        const c = src.clone(true);
+        const c = ctx.rod.hands?.cloneLeft ? src : src.clone(true);
         hand.add(c);
         this.parts.model = true;
       } else {
