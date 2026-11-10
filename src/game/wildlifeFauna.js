@@ -17,21 +17,24 @@ const KIND = {
   wolf: { hab: 'land', speed: 1.1, idle: 'idle', alt: 'idle2', walk: 'idle', run: 'idle', flee: 45, jit: 0.1 },
   bear: { hab: 'land', speed: 0, jit: 0.1 },
   pelican: { hab: 'land', speed: 0, jit: 0.1, face: 'water' },
+  deer: { hab: 'land', speed: 0, jit: 0.1 },       // its one clip is an idle loop, so it stands and browses
+  bluebird: { hab: 'land', speed: 0, idle: 'idle', jit: 0.1 },
+  ray: { hab: 'bottom', speed: 0.6, idle: 'swim', walk: 'swim', jit: 0.25 },   // cruises just over a sandy bottom
 };
 
 // who lives where: [kind, count]
 const SPAWN = {
-  okeechobee: [['duck', 5], ['duckwalk', 2]],
-  woods: [['duck', 5], ['duckwalk', 2], ['moose', 2], ['wolf', 1], ['bear', 1]],
-  tahoe: [['duck', 4], ['duckwalk', 2]],
-  columbia: [['duck', 4], ['moose', 2], ['bear', 1]],
-  chesapeake: [['duck', 5], ['duckwalk', 2], ['pelican', 3]],
+  okeechobee: [['duck', 5], ['duckwalk', 2], ['deer', 2]],
+  woods: [['duck', 5], ['duckwalk', 2], ['moose', 2], ['wolf', 1], ['bear', 1], ['deer', 2], ['bluebird', 2]],
+  tahoe: [['duck', 4], ['duckwalk', 2], ['deer', 2], ['bluebird', 1]],
+  columbia: [['duck', 4], ['moose', 2], ['bear', 1], ['deer', 2]],
+  chesapeake: [['duck', 5], ['duckwalk', 2], ['pelican', 3], ['deer', 1], ['bluebird', 2]],
   fjord: [['duck', 4], ['wolf', 1]],
   bering: [['duck', 4], ['moose', 1], ['wolf', 2], ['bear', 2]],
   kariba: [['hippo', 4], ['hippoland', 1]],
-  keys: [['turtle', 3], ['pelican', 3]],
-  reef: [['turtle', 3]],
-  cabo: [['turtle', 2], ['pelican', 2]],
+  keys: [['turtle', 3], ['pelican', 3], ['ray', 3]],
+  reef: [['turtle', 3], ['ray', 3]],
+  cabo: [['turtle', 2], ['pelican', 2], ['ray', 2]],
   gulf: [['turtle', 2], ['pelican', 2]],
 };
 const MODEL = (k) => KIND[k].model || k;
@@ -46,7 +49,11 @@ export class Fauna {
     this.t = 0;
     const plan = SPAWN[ctx.loc.id] || [];
     if (!plan.length) return;
-    loadKinds(plan.map(([k]) => MODEL(k))).then(() => this.populate(plan));
+    this.plan = plan;
+    this.total = plan.reduce((n, [, c]) => n + c, 0);
+    this.topT = 0;
+    this.ready = false;
+    loadKinds(plan.map(([k]) => MODEL(k))).then(() => { this.ready = true; this.populate(plan, ctx.camera.position); });
   }
 
   depthAt(x, z) { return -this.ctx.heightAt(x, z); }
@@ -55,12 +62,13 @@ export class Fauna {
   fits(hab, x, z) {
     const h = this.ctx.heightAt(x, z);
     if (hab === 'land') {
-      if (h < 0.3 || h > 9) return false;
-      return Math.abs(this.ctx.heightAt(x + 2, z) - h) < 1 && Math.abs(this.ctx.heightAt(x, z + 2) - h) < 1;
+      if (h < 0.3 || h > 30) return false;
+      return Math.abs(this.ctx.heightAt(x + 2, z) - h) < 1.8 && Math.abs(this.ctx.heightAt(x, z + 2) - h) < 1.8;
     }
     const d = -h;
     if (hab === 'water') return d > 0.5 && d < 8;
     if (hab === 'shallow') return d > 0.7 && d < 15;   // deeper than they can stand in: they float with the back awash
+    if (hab === 'bottom') return d > 1.2 && d < 8;
     return d > 4;   // deep
   }
 
@@ -87,12 +95,13 @@ export class Fauna {
     return null;
   }
 
-  populate(plan) {
-    const c = this.ctx.camera.position;
+  // add whatever is still missing of the plan (nothing fits near a mid-lake start, so it keeps trying as the player travels)
+  populate(plan, c) {
     for (const [kind, n] of plan) {
       const cfg = KIND[kind];
       let home = null;
-      for (let i = 0; i < n; i++) {
+      const have = this.list.filter((e) => e.kind === kind).length;
+      for (let i = have; i < n; i++) {
         const an = makeAnimal(MODEL(kind), this.ctx.patchProp);
         if (!an) break;
         // ducks, hippos and wolves keep company: the first of a kind picks the spot, the rest settle near it
@@ -131,12 +140,14 @@ export class Fauna {
     if (cfg.hab === 'land') y = this.ctx.heightAt(e.x, e.z);
     else if (cfg.hab === 'shallow') y = Math.max(this.ctx.heightAt(e.x, e.z), -1.25) + Math.sin(this.t * 0.8 + e.bob) * 0.03;
     else if (cfg.hab === 'water') y = (cfg.y ?? -0.05) + Math.sin(this.t * 1.3 + e.bob) * 0.02;
+    else if (cfg.hab === 'bottom') y = this.ctx.heightAt(e.x, e.z) + 0.45 + Math.sin(this.t * 0.5 + e.bob) * 0.05;
     else y = -(1.1 + 0.5 * Math.sin(this.t * 0.2 + e.bob));
     o.position.set(e.x, y, e.z);
     o.rotation.y = e.vh;
   }
 
   update(dt, center) {
+    if (this.ready && this.list.length < this.total && (this.topT -= dt) <= 0) { this.topT = 6; this.populate(this.plan, center); }
     if (!this.list.length) return;
     this.t += dt;
     for (const e of this.list) {
@@ -182,7 +193,7 @@ export class Fauna {
     const nx = e.x + Math.cos(e.heading) * sp, nz = e.z - Math.sin(e.heading) * sp;
     if (this.fits(cfg.hab, nx, nz)) {
       e.x = nx; e.z = nz;
-      if (cfg.hab === 'deep' && Math.random() < dt * 0.4) e.heading += rnd(-0.5, 0.5);
+      if ((cfg.hab === 'deep' || cfg.hab === 'bottom') && Math.random() < dt * 0.4) e.heading += rnd(-0.5, 0.5);
     } else {   // blocked by the shoreline: turn away and rest
       e.heading += Math.PI * rnd(0.6, 1.2);
       if (e.state === 'flee') { e.state = 'idle'; e.timer = rnd(3, 6); e.an.play(cfg.idle); }

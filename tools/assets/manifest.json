@@ -62,8 +62,7 @@
         "mako",
         "porbeagle",
         "blacktip",
-        "lemonshark",
-        "tigershark"
+        "lemonshark"
       ]
     },
     {
@@ -602,6 +601,143 @@
       "license_text": "This work is based on \"Fishing Rod\" (https://sketchfab.com/3d-models/fishing-rod-f952f077a60f41e288e60f124cf2887f) by Andre_Gladstone_Leite (https://sketchfab.com/dexterkoller) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
       "sketchfab_license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/); author must be credited, commercial use allowed",
       "rgb_copies": true
+    },
+    {
+      "id": "carp",
+      "category": "fish",
+      "mode": "fish",
+      "input": "../src2/carp_fish/scene.gltf",
+      "out": "fish/carp.glb",
+      "title": "Carp Fish",
+      "author": "huykhoi2407",
+      "url": "https://sketchfab.com/3d-models/carp-fish-ef0c406d4ca84242a0464abecb7d7037",
+      "license": "CC-BY-4.0",
+      "up": "z",
+      "tex": 1024,
+      "frame": 0,
+      "tris": 7500,
+      "species": [
+        "carp",
+        "siamesecarp",
+        "grasscarp"
+      ],
+      "head": "-x"
+    },
+    {
+      "id": "barramundi",
+      "category": "fish",
+      "mode": "fish",
+      "input": "../src2/barramundi_fish/scene.gltf",
+      "out": "fish/barramundi.glb",
+      "title": "Barramundi fish",
+      "author": "ryan_saputra",
+      "url": "https://sketchfab.com/3d-models/barramundi-fish-699ae7b41ed14962a4d1afa008a8ba2a",
+      "license": "CC-BY-4.0",
+      "up": "z",
+      "tex": 1024,
+      "tris": 4200,
+      "species": [
+        "barramundi"
+      ],
+      "head": "+x"
+    },
+    {
+      "id": "tilapia",
+      "category": "fish",
+      "mode": "fish",
+      "input": "../src2/tillapia_buttikoferi_fish/scene.gltf",
+      "out": "fish/tilapia.glb",
+      "title": "Tillapia Buttikoferi fish",
+      "author": "Ra_in_coat",
+      "url": "https://sketchfab.com/3d-models/tillapia-buttikoferi-fish-4868f44cc73642c380fa5b8eb530a8d3",
+      "license": "CC-BY-4.0",
+      "up": "z",
+      "tex": 1024,
+      "frame": 0,
+      "tris": 1800,
+      "species": [
+        "tilapia",
+        "threespot",
+        "karibatilapia"
+      ],
+      "head": "-y"
+    },
+    {
+      "id": "tigershark",
+      "category": "fish",
+      "mode": "fish",
+      "input": "../src2/tiger_shark/scene.gltf",
+      "out": "fish/tigershark.glb",
+      "title": "Tiger Shark",
+      "author": "cebraVFX",
+      "url": "https://sketchfab.com/3d-models/tiger-shark-8a19770317984b4a9628934acd587a67",
+      "license": "CC-BY-4.0",
+      "up": "z",
+      "tex": 1024,
+      "tris": 18000,
+      "species": [
+        "tigershark"
+      ],
+      "head": "-y"
+    },
+    {
+      "id": "ray",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "../src2/eagle_stingray/scene.gltf",
+      "out": "wildlife/ray.glb",
+      "title": "Eagle stingray",
+      "author": "kenchoo",
+      "url": "https://sketchfab.com/3d-models/eagle-stingray-4d615971858940f38703a1f1ffb370be",
+      "license": "CC-BY-4.0",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Swim cycle": "swim"
+      },
+      "length": 2.2,
+      "tris": 13300,
+      "head": "+x"
+    },
+    {
+      "id": "deer",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "../src2/deer_idle/scene.gltf",
+      "out": "wildlife/deer.glb",
+      "title": "Deer Idle",
+      "author": "kenchoo",
+      "url": "https://sketchfab.com/3d-models/deer-idle-c80f3de2e24542e1a8e578f832c6211c",
+      "license": "CC-BY-4.0",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Animation": "idle"
+      },
+      "length": 1.9,
+      "tris": 9900,
+      "pivot": "feet",
+      "head": "-y"
+    },
+    {
+      "id": "bluebird",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "../src2/eastern_blue_bird/scene.gltf",
+      "out": "wildlife/bluebird.glb",
+      "title": "Eastern Blue Bird",
+      "author": "kenchoo",
+      "url": "https://sketchfab.com/3d-models/eastern-blue-bird-c646531de6a3494faeaf2d3ce91b9dd2",
+      "license": "CC-BY-4.0",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Animation": "idle"
+      },
+      "length": 0.2,
+      "tris": 3500,
+      "pivot": "feet",
+      "head": "-y"
     }
   ]
 }

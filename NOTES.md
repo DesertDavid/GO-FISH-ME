@@ -181,6 +181,10 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   - **Flow**: `finishCatch` -> `noteCatch`: per-water best always updated; a first-of-species or personal best (and the best fish of a tournament, replaced by heavier ones, kept only on a podium or when also a first/PB) is queued as a candidate; the catch card says "Measured and photographed for the wall...". Mounts are replicas cast from measurements (so the fish itself can be released), fee `mountFee(lb)` = 15 + 7*sqrt(lb) rounded to $5, min $20. Journal summary shows "Trophies n / 12".
   - Dev: `game.devLand('pike', 12.5)` puts a fish on the catch card; `game.hall` (`.site`, `.build()`, `.group`); `game.buildings.hall` = site. Headless checks used a built copy + Playwright/Edge (software GL, ~35 s per frame render, so shots are canvas `toDataURL` after `__step`).
   - Not done / not verified: no hall at Lake of the Woods and the fjord (no flat site found; log warns), plaque text at far distance is small (readable within about 4 m), the wall is tinted by the sun only (lamps glow at night, not checked in a night shot), mounted fish do not move, no sound on mounting beyond the cash chime.
+- Batch 2 of the asset wishlist: hero fish carp (carp, Siamese, grass), barramundi, tilapia (blue, three-spot, Kariba), tiger shark (own model now); wildlife stingray (Keys, Reef, Cabo, cruising over the bottom),
+  white-tailed deer (Okeechobee, Woods, Tahoe, Columbia, Chesapeake; posed idle loop, does not walk), eastern bluebird (Woods, Tahoe, Chesapeake). 1.8 MB. Rejected (non-commercial): hybrid duck, bird (deiby),
+  dead monkey, deer NC, alpaca, love birds, tokay gecko, otter, moose demo, sheep; share-alike (not used, ask the user): polar bear, rigged hand. Unused for now: bream, silver fish, red horse, koi, school of fish,
+  coral/tropical/red-finned fish, whales (Titom, b3s), whip snake, taipan, monkey, snapping turtle, great white pelican, dodo, the five spare 'Fish' packs and six fishing rods (no matching species or too heavy).
 
 ## Known gaps / ideas
 - No angler body when walking in third person (NPC anglers have one; the player's could reuse `buildAngler`).

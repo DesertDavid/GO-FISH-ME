@@ -139,5 +139,54 @@ export const MODEL_CREDITS = [
     "url": "https://sketchfab.com/3d-models/fishing-rod-f952f077a60f41e288e60f124cf2887f",
     "license": "CC-BY-4.0",
     "category": "rod"
+  },
+  {
+    "title": "Carp Fish",
+    "author": "huykhoi2407",
+    "url": "https://sketchfab.com/3d-models/carp-fish-ef0c406d4ca84242a0464abecb7d7037",
+    "license": "CC-BY-4.0",
+    "category": "fish"
+  },
+  {
+    "title": "Barramundi fish",
+    "author": "ryan_saputra",
+    "url": "https://sketchfab.com/3d-models/barramundi-fish-699ae7b41ed14962a4d1afa008a8ba2a",
+    "license": "CC-BY-4.0",
+    "category": "fish"
+  },
+  {
+    "title": "Tillapia Buttikoferi fish",
+    "author": "Ra_in_coat",
+    "url": "https://sketchfab.com/3d-models/tillapia-buttikoferi-fish-4868f44cc73642c380fa5b8eb530a8d3",
+    "license": "CC-BY-4.0",
+    "category": "fish"
+  },
+  {
+    "title": "Tiger Shark",
+    "author": "cebraVFX",
+    "url": "https://sketchfab.com/3d-models/tiger-shark-8a19770317984b4a9628934acd587a67",
+    "license": "CC-BY-4.0",
+    "category": "fish"
+  },
+  {
+    "title": "Eagle stingray",
+    "author": "kenchoo",
+    "url": "https://sketchfab.com/3d-models/eagle-stingray-4d615971858940f38703a1f1ffb370be",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Deer Idle",
+    "author": "kenchoo",
+    "url": "https://sketchfab.com/3d-models/deer-idle-c80f3de2e24542e1a8e578f832c6211c",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Eastern Blue Bird",
+    "author": "kenchoo",
+    "url": "https://sketchfab.com/3d-models/eastern-blue-bird-c646531de6a3494faeaf2d3ce91b9dd2",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
   }
 ];

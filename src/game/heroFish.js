@@ -9,7 +9,11 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 export const HERO_MODELS = {
   tuna: { file: 'fish/tuna.glb', species: ['yellowfin', 'blackfin', 'bluefin', 'skipjack', 'dogtooth'], tint: 0.18, tints: { bluefin: 0.8, blackfin: 0.65, skipjack: 0.7, dogtooth: 0.7 } },
   swordfish: { file: 'fish/swordfish.glb', species: ['swordfish'], tint: 0.12 },
-  shark: { file: 'fish/shark.glb', species: ['mako', 'porbeagle', 'blacktip', 'lemonshark', 'tigershark'], tint: 0.6 },
+  shark: { file: 'fish/shark.glb', species: ['mako', 'porbeagle', 'blacktip', 'lemonshark'], tint: 0.6 },
+  tigershark: { file: 'fish/tigershark.glb', species: ['tigershark'], tint: 0 },
+  carp: { file: 'fish/carp.glb', species: ['carp', 'siamesecarp', 'grasscarp'], tint: 0.08, tints: { grasscarp: 0.55, siamesecarp: 0.4 } },
+  barramundi: { file: 'fish/barramundi.glb', species: ['barramundi'], tint: 0.1 },
+  tilapia: { file: 'fish/tilapia.glb', species: ['tilapia', 'threespot', 'karibatilapia'], tint: 0.3, tints: { tilapia: 0.7, karibatilapia: 0.5 } },
   perch: { file: 'fish/bass.glb', species: ['yellowperch', 'sauger'], tint: 0.1 },
 };
 const BY_SPECIES = {};

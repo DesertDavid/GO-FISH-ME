@@ -11,6 +11,7 @@ const loader = new GLTFLoader().setDRACOLoader(draco);
 const files = {
   dolphin: 'dolphin', whale: 'whale', turtle: 'turtle', duck: 'duckloop', duckwalk: 'duckwalk', hippo: 'hippo',
   moose: 'moose', wolf: 'wolf', bear: 'bear', gator: 'alligator', pelican: 'pelican',
+  ray: 'ray', deer: 'deer', bluebird: 'bluebird',
 };
 const cache = new Map();      // kind -> Promise<gltf | null>
 const loaded = new Map();     // kind -> gltf

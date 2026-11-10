@@ -171,6 +171,9 @@ def process_rigged(a):
     if len(meshes) > 1:
         bpy.ops.object.join()
     mesh = bpy.context.view_layer.objects.active
+    if mesh.data.shape_keys:   # morph targets cannot be decimated; the skeleton does the animating
+        for kb in reversed(list(mesh.data.shape_keys.key_blocks)):
+            mesh.shape_key_remove(kb)
     # decimate the rest-pose mesh (the modifier goes before the armature so weights are interpolated)
     mesh.data.calc_loop_triangles()
     n = len(mesh.data.loop_triangles)
