@@ -57,6 +57,8 @@ export class FishLife {
     this.visT = 0;
     this.sea = 0;
     this.nEng = 0;
+    this.focus = null;   // fish cam: { depth, x, z } of the camera while it hangs under the boat (fishcam.js)
+    this.maxY = T.spawn.maxY;
     this.pendingTake = null;
     this.swirlT = 0;
     this.cond = { lureId: '', lure: null, depth: 0, bottom: 5, hour: 12, wx: 'partly' };
@@ -112,6 +114,7 @@ export class FishLife {
     this.visT -= dt;
     if (this.visT <= 0) { this.visT = 0.5; this.vis = this.visibility(); }
     this.lureTick(dt);
+    this.maxY = Math.max(T.spawn.maxY, this.focus ? this.focus.depth + 14 : 0, this.L.on ? -this.L.y + 3 : 0);
     this.threatTick();
     // spawn
     this.spawnT -= dt;
@@ -182,6 +185,7 @@ export class FishLife {
     const want = Math.max(1, Math.round(T.spawn.countClear * clamp(this.vis / T.vis.clear, 0.12, 1)));
     if (!free || live >= Math.min(want, T.maxActors) || this.buildT > 0) return;
     const g = this.g, cam = this.cam, H = g.heightAt;
+    if (this.focus) { this.trySpawnDeep(free); return; }
     // pick a species
     let r = Math.random() * this.poolSum, pick = this.pool[this.pool.length - 1];
     for (const p of this.pool) { if (r <= p.c) { pick = p; break; } }
@@ -206,8 +210,42 @@ export class FishLife {
     }
   }
 
+  // fish cam hanging at depth d: species weighted by how well d suits them (bait.js depth factor + habitat band),
+  // placed around the camera (or half of them around the lure when it is close), at about the camera's depth
+  trySpawnDeep(free) {
+    const g = this.g, H = g.heightAt, d = this.focus.depth, L = this.L;
+    const useLure = L.on && Math.random() < 0.5 && Math.hypot(L.x - this.cam.x, L.z - this.cam.z) < this.vis * 1.2;
+    const cx = useLure ? L.x : this.cam.x, cz = useLure ? L.z : this.cam.z, cy = useLure ? L.y : -d;
+    const ring1 = Math.max(4, this.vis * 0.8);
+    for (let k = 0; k < 8; k++) {
+      const ang = Math.random() * TAU, r = (useLure ? 1.5 : 4) + Math.random() * ring1;
+      const x = cx + Math.cos(ang) * r, z = cz + Math.sin(ang) * r, bd = -H(x, z);
+      if (bd < 1.5 || bd < -cy + 0.4) continue;
+      const yy = clamp(cy + (Math.random() - 0.5) * Math.min(this.vis * 0.5, 8), -(bd - 0.4), -0.6);
+      const cond = { lureId: 'jig', lure: LURES.jig, depth: -yy, bottom: bd, hour: g.hour(), wx: 'partly' };
+      let sum = 0;
+      const ws = this.deepW || (this.deepW = new Float32Array(this.pool.length));
+      for (let i = 0; i < this.pool.length; i++) { const p = this.pool[i]; const df = fit(p.sp, cond).depth; ws[i] = p.w * df * df; sum += ws[i]; }
+      if (sum <= 0) continue;
+      let rr0 = Math.random() * sum, pick = this.pool[0];
+      for (let i = 0; i < this.pool.length; i++) { rr0 -= ws[i]; if (rr0 <= 0) { pick = this.pool[i]; break; } }
+      const sp = pick.sp, tr = traits(sp);
+      if (tr.bottom && Math.abs(bd + yy) > 3) continue;
+      const n = tr.school && Math.random() < T.spawn.groupChance ? T.spawn.groupMin + Math.floor(Math.random() * (T.spawn.groupMax - T.spawn.groupMin + 1)) : 1;
+      let leader = null;
+      for (let i = 0; i < n; i++) {
+        const a = i === 0 ? free : this.actors.find((o) => !o.on);
+        if (!a) break;
+        if (!this.init(a, sp, x + (Math.random() - 0.5) * (i ? 2.5 : 0), z + (Math.random() - 0.5) * (i ? 2.5 : 0), bd, leader, undefined, yy)) { this.buildT = T.spawn.buildEvery; return; }
+        if (i === 0) leader = a;
+      }
+      this.buildT = T.spawn.buildEvery;
+      return;
+    }
+  }
+
   // set an actor up as a fresh fish of species sp at (x, z); false if the model could not be had yet
-  init(a, sp, x, z, bd, leader, lbForce) {
+  init(a, sp, x, z, bd, leader, lbForce, yFix) {
     const morph = rollMorph(Math.random, 1);
     const model = this.acquire(sp, morph);
     if (!model) return false;
@@ -218,7 +256,7 @@ export class FishLife {
     a.len = fishLengthM(sp, lb).m;
     a.x = x; a.z = z; a.hd = Math.random() * TAU;
     const top = -0.5 - Math.random() * Math.max(0.2, Math.min(T.spawn.maxY, bd - 0.8, this.vis * 0.7));
-    a.homeY = tr.bottom ? -bd + a.len * 0.4 : tr.top ? -0.3 - Math.random() * 0.8 : top;
+    a.homeY = tr.bottom ? -bd + a.len * 0.4 : yFix !== undefined ? yFix : tr.top ? -0.3 - Math.random() * 0.8 : top;
     a.y = a.homeY;
     a.speed = a.len * T.swim.cruiseBL;
     a.wander = rr(T.swim.wander);
@@ -296,6 +334,8 @@ export class FishLife {
     const dcx = a.x - this.cam.x, dcz = a.z - this.cam.z, dp = Math.hypot(dcx, dcz);
     // recycle fish that drifted out of sight (or out of the sim area)
     if (dp > T.simRadius || (a.state === 'cruise' && dp > this.vis * 1.3 && !a.leader)) { this.release(a); return; }
+    // the fish cam changes which depth matters: swap fish that are not near the camera's depth for ones that are
+    if (a.state === 'cruise' && !a.leader && (this.focus ? Math.abs(-a.y - this.focus.depth) > Math.max(7, this.vis * 0.55) : -a.y > this.maxY + 2)) { this.release(a); return; }
     a.cool -= dt; a.wary -= dt; a.qT -= dt;
     a.flare = Math.max(0, a.flare - dt * 2.2);
     a.shake = Math.max(0, a.shake - dt * 1.4);
@@ -314,7 +354,7 @@ export class FishLife {
     switch (a.state) {
       case 'cruise': {
         a.wander -= dt;
-        if (a.wander <= 0) { a.wander = rr(T.swim.wander); a.wantHd = a.hd + (Math.random() - 0.5) * 1.6; a.homeY = clamp(a.homeY + (Math.random() - 0.5) * 0.6, -T.spawn.maxY, -0.35); if (a.tr.bottom) a.homeY = -(-g.heightAt(a.x, a.z)) + a.len * 0.4; }
+        if (a.wander <= 0) { a.wander = rr(T.swim.wander); a.wantHd = a.hd + (Math.random() - 0.5) * 1.6; a.homeY = clamp(a.homeY + (Math.random() - 0.5) * 0.6, -this.maxY, -0.35); if (a.tr.bottom) a.homeY = -(-g.heightAt(a.x, a.z)) + a.len * 0.4; }
         wantHd = a.wantHd;
         if (a.leader && a.leader.state !== 'spook') {
           const lh = a.leader.hd, cs = Math.cos(lh), sn = -Math.sin(lh);
@@ -341,7 +381,7 @@ export class FishLife {
         const dx = a.x - L.x, dz = a.z - L.z, d = Math.hypot(dx, dz) + 1e-4, d3 = Math.hypot(d, a.y - L.y);
         // trail behind the lure on the side the fish is on
         tx = L.x + (dx / d) * a.gap; tz = L.z + (dz / d) * a.gap; haveT = true;
-        ty = clamp(L.y, a.tr.bottom ? -(-g.heightAt(a.x, a.z)) + 0.1 : -T.spawn.maxY, -0.12);
+        ty = clamp(L.y, a.tr.bottom ? -(-g.heightAt(a.x, a.z)) + 0.1 : -this.maxY, -0.12);
         const maxV = Math.min(T.swim.capMs, a.len * T.swim.maxBL);
         wantSpeed = clamp(L.speed * 1.12 + 0.12 + (d - a.gap) * 0.9, a.len * 0.25, maxV);
         turn = T.swim.chaseTurn;
@@ -408,7 +448,7 @@ export class FishLife {
         const b = a.ht;
         if (!b || !b.alive) { a.state = 'cruise'; break; }
         a.st += dt;
-        tx = b.x; tz = b.z; haveT = true; ty = clamp(b.y, -T.spawn.maxY, -0.3);
+        tx = b.x; tz = b.z; haveT = true; ty = clamp(b.y, -this.maxY, -0.3);
         wantSpeed = Math.min(T.swim.capMs, a.len * T.swim.strikeBL * 0.8); turn = 6;
         if (Math.hypot(b.x - a.x, b.z - a.z) < 1.6 || a.st > 7) { if (Math.hypot(b.x - a.x, b.z - a.z) < 3.5) b.scatterNow(); a.state = 'cruise'; a.wander = 0; a.cool = 4; a.flare = 1; }
         break;

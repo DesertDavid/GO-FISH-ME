@@ -106,6 +106,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec4 uUnder;   // scattering coefficient (1/m), shaft strength, shaft range (m), meniscus darkening
 uniform float uFull;   // 1: camera deep enough that the whole near plane is submerged
+uniform float uCamDepth;   // metres under the surface at the camera
 in vec2 vUv;
 out vec4 outColor;
 
@@ -134,7 +135,7 @@ vec3 shafts(vec2 uv, float dist) {
 }
 
 void main() {
-  float d = uFull > 0.5 ? 10.0 : texture(tLens, vUv).r;   // lens depth
+  float d = uFull > 0.5 ? max(uCamDepth, 10.0) : texture(tLens, vUv).r;   // lens depth
 
   // where the pixel sees the water surface, its facing decides; elsewhere the lens
   // test. That keeps the split consistent with the mesh even where its coarse fan
@@ -176,7 +177,7 @@ void main() {
   // brighter looking up towards the light
   vec3 ambient = textureLod(uSkyCube, vec3(0.0, 1.0, 0.0), uSkyMaxLod).rgb;
   vec3 fogCol = uScatterColor * (ambient + uSunColor * max(uSunDir.y, 0.0))
-              * exp(-uAbsorption * d * 0.5) * mix(0.55, 1.35, dir.y * 0.5 + 0.5);
+              * exp(-uAbsorption * d * 0.5) * exp(-0.011 * max(d - 10.0, 0.0)) * mix(0.55, 1.35, dir.y * 0.5 + 0.5);   // and dark in the deep: the daylight is gone below ~100 m
   vec3 T = exp(-sigT * dist);
   col = col * T + fogCol * (1.0 - T);
   if (uUnder.y > 0.0) col += uSunColor * shafts(uv, dist) * (uUnder.x * uUnder.y);
@@ -192,7 +193,7 @@ export class UnderwaterPass {
       tColor: { value: null }, tDepth: { value: null }, ...caustics,
       tLens: { value: null }, tShafts: { value: null },
       uInvProj: { value: camera.projectionMatrixInverse }, uCamWorld: { value: camera.matrixWorld },
-      uUnder: { value: new THREE.Vector4() }, uFull: { value: 0 }, uFrame: { value: 0 },
+      uUnder: { value: new THREE.Vector4() }, uFull: { value: 0 }, uCamDepth: { value: 0 }, uFrame: { value: 0 },
     };
     this.quad = new FullscreenQuad(rawPass(FRAG, this.uniforms));
     this.shaftQuad = new FullscreenQuad(rawPass(SHAFTS, this.uniforms));
@@ -212,12 +213,13 @@ export class UnderwaterPass {
   }
 
   // src: the HDR target after the water pass (colour + depth). Returns the new colour.
-  render(renderer, src, full) {
+  render(renderer, src, full, camDepth = 10) {
     const u = this.uniforms, p = this.params;
     u.tColor.value = src.texture;
     u.tDepth.value = src.depthTexture;
     u.uUnder.value.set(p.scattering, p.shafts, p.shaftRange, p.meniscus);
     u.uFull.value = full ? 1 : 0;
+    u.uCamDepth.value = camDepth;
     u.uFrame.value = (u.uFrame.value + 1) % 64;
     if (!full) this.lensQuad.render(renderer, this.lens);
     if (p.shafts > 0) this.shaftQuad.render(renderer, this.shaftRT);

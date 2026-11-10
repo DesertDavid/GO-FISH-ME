@@ -21,6 +21,8 @@ varying vec3 vWPos;
 varying vec3 vWNrm;
 uniform samplerCube uSkyCube;
 uniform vec3 uAbsorption;
+uniform vec4 uLamp;      // fish cam lamp: world position + intensity (0 = off)
+uniform vec3 uLampCol;
 uniform vec3 uSunDirT;
 uniform float uCausticStrength;
 uniform float uFogDensity;
@@ -157,6 +159,7 @@ const UNDERWATER = /* glsl */`
   // refracted path)
   vec3 rsun = refract(-uSunDirT, vec3(0.0, 1.0, 0.0), 1.0 / 1.33);
   float sunPath = wdepth / max(-rsun.y, 0.1);
+  vec3 albedoDry = diffuseColor.rgb;   // before the water takes the sunlight's share: the camera lamp is local, so it sees this
   diffuseColor.rgb *= exp(-uAbsorption * (sunPath * 0.6 + wdepth * 0.4));
 `;
 
@@ -206,6 +209,15 @@ const CAUSTICS = /* glsl */`
 `;
 
 const FOG = /* glsl */`
+  if (uLamp.w > 0.0 && vWPos.y < 0.5) {
+    // fish cam lamp: a soft cone-less point light with falloff and wrap, tinted by the water over the short path
+    vec3 toL = uLamp.xyz - vWPos;
+    float d2 = max(dot(toL, toL), 0.04);
+    vec3 nW = normalize(vec4(normal, 0.0) * viewMatrix).xyz;
+    float lam = clamp(dot(nW, toL * inversesqrt(d2)) * 0.6 + 0.4, 0.0, 1.0);
+    float att = uLamp.w / (1.0 + d2 * 0.09) * exp(-uAbsorption.r * sqrt(d2) * 0.6);
+    outgoingLight += albedoDry * uLampCol * lam * att * smoothstep(900.0, 60.0, d2);
+  }
   vec3 fdir = normalize(vWPos - cameraPosition);
   float fogAmt = 1.0 - exp(-length(vWPos - cameraPosition) * uFogDensity);
   vec3 fogC = textureLod(uSkyCube, vec3(fdir.x, max(fdir.y, 0.0), fdir.z), 3.0).rgb;
@@ -351,6 +363,8 @@ export function createTerrain({ sky, caustics, floatShadow, water, absorption, r
     ...caustics,
     uSkyCube: { value: sky.cube },
     uAbsorption: { value: absorption },
+    uLamp: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uLampCol: { value: new THREE.Color(1, 0.94, 0.8) },
     uSunDirT: { value: sky.sunDir },
     uSunShadowMatrix: { value: new THREE.Matrix4() },   // the sun light's shadow.matrix (main.js)
     uCausticStrength: { value: 1.0 },

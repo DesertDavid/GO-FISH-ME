@@ -108,7 +108,7 @@ async function boot() {
   const floaters = new Floaters({ scene, heightAt: groundAt, patchMaterial: terrain.patchProp });
   const underwater = new UnderwaterPass(surface, camera, caustics.uniforms);
   underwater.params.scattering = look.turbidity;
-  let camWater = 0, wasSubmerged = false, uwComp = 1;
+  let camWater = 0, wasSubmerged = false, uwComp = 1, deepDim = 1;
 
   const reflection = new PlanarReflection(REFLECT_LAYER);
   su.uReflMatrix.value = reflection.textureMatrix;
@@ -293,7 +293,10 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     const submerged = camY < camWater - 0.3, nearSurface = camY < camWater + 0.6;
     su.uCamSide.value = camY > camWater + 0.5 ? -1 : camY < camWater - 0.5 ? 1 : 0;
     snow.update(camera, hdrRT.height, nearSurface);
-    uwComp += ((submerged ? 0.55 : 1) - uwComp) * Math.min(1, dt * 3);
+    // below ~6 m the daylight thins out (Beer-Lambert on the water's clearest channel); the auto-exposure is a multiplier on top, so this is what keeps depth dark
+    deepDim = Math.exp(-Math.max(0.02, 0.5 * Math.min(...look.absorption)) * Math.max(0, camWater - camY - 6));
+    uwComp += ((submerged ? 0.55 * deepDim : 1) - uwComp) * Math.min(1, dt * 3);
+    engine.deepDim = deepDim;
     // at night: hold exposure down (auto exposure would brighten it back to day) and drain colour
     post.params.exposure = uwComp * THREE.MathUtils.lerp(1, 0.2, night) * (1 + flash * 1.6 * opt.flash) * (1 - gloom);
     post.params.saturation = THREE.MathUtils.lerp(1.3, 0.55, night);
@@ -326,8 +329,11 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     }
 
     let out = hdrRT.texture;
-    if (nearSurface) out = underwater.render(renderer, hdrRT, camY < camWater - 0.8);
+    // no sunlight shafts far below the surface: skip that half-res pass (the fish cam goes deep)
+    underwater.params.shafts = camWater - camY > 30 ? 0 : 2;
+    if (nearSurface) out = underwater.render(renderer, hdrRT, camY < camWater - 0.8, camWater - camY);
     post.render(out, dt);
+    game.fishCam?.capture(renderer.domElement);
     timer.endFrame();
   }
 

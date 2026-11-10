@@ -23,6 +23,7 @@ import { AIBoats } from './aiBoats.js';
 import { ShoreLife } from './shorelife.js';
 import { Birds } from './birds.js';
 import { FishLife } from './fishLife.js';
+import { FishCam } from './fishcam.js';
 import { Trolling, TROLL_GEAR } from './troll.js';
 import { Tournament, tournamentsFor } from './tournaments.js';
 import { TrophyHall } from './trophyHall.js';
@@ -134,6 +135,7 @@ export class Game {
     this.birds.init();
     this.fishLife = new FishLife(this);
     this.fishLife.balls.attachBirds(this.birds);
+    this.fishCam = new FishCam(this);
     this.sonar = new Sonar(document.getElementById('sonar'));
     this.compass = new Compass(this, document.getElementById('compass'));
     this.applyGear();
@@ -224,21 +226,24 @@ export class Game {
       if (act === 'dev' || act === 'fly') { this.dev.hotkey(act); this.keys.clear(); return; }
       const open = { tackle: 'tackle', shop: 'shop', marina: 'marina', map: 'map', chart: 'chart', journal: 'journal', help: 'help', settings: 'settings', events: 'events', trophy: 'trophy' }[act];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
-      if (act === 'view') {
+      if (act === 'view' && !this.fishCam.active) {
         // first person -> over the shoulder (still fishing) -> the old boat overview orbit -> first person
         if (this.view === 'first' && !this.tp) this.tp = true;
         else if (this.view === 'first') { this.tp = false; this.view = 'third'; this.look.yaw = 0; }
         else { this.view = 'first'; this.tp = false; this.restoreLook(); }
       }
-      if (act === 'stepOff') this.toggleShore();
+      if (act === 'stepOff') { this.fishCam.exit(); this.toggleShore(); }
       if (act === 'talk') { this.ui.open('talk'); this.keys.clear(); return; }
       if (act === 'livewell') { this.ui.open('livewell'); this.keys.clear(); return; }
       if (act === 'net') { if (this.foot) this.ui.toast('Nets work from the boat.', 'info'); else if (this.net.state !== 'stowed' || this.permitOk()) this.net.toggle(); }
       if (act === 'troll') { if (this.foot) this.ui.toast('The trolling spread runs off the boat.', 'info'); else if (this.troll.active || this.permitOk()) this.troll.toggle(); }
       if (act === 'holster') this.toggleHolster();
       if (act === 'anchor') this.toggleAnchor();
-      if (act === 'underwater') this.toggleUnderwater();
-      if (act === 'photo') this.togglePhoto();
+      if (act === 'fishcam') this.fishCam.toggle();
+      if (act === 'camLamp') this.fishCam.toggleLamp();
+      if (act === 'camFollow') this.fishCam.toggleFollow();
+      if (act === 'underwater' && !this.fishCam.active) this.toggleUnderwater();
+      if (act === 'photo') { if (this.fishCam.active) this.fishCam.photo(); else this.togglePhoto(); }
       if (act === 'sonar') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
       if (act === 'waypoint') {
         if (ev.shiftKey) { if (this.compass.list().length) { this.compass.clear(); this.ui.toast('Waypoints cleared', 'info'); } }
@@ -335,6 +340,7 @@ export class Game {
     el.addEventListener('wheel', (ev) => {
       ev.preventDefault();
       if (this.dev.fly) { this.dev.wheel(ev.deltaY); return; }
+      if (this.fishCam?.active) { this.fishCam.wheel(ev.deltaY); return; }
       if (this.view === 'third') this.look.dist = THREE.MathUtils.clamp(this.look.dist + Math.sign(ev.deltaY) * 3, -10, 60);
       else this.dragNudge(-Math.sign(ev.deltaY));
     }, { passive: false });
@@ -423,8 +429,9 @@ export class Game {
     // boat controls (A/D steer the rod during a fight)
     const c = this.boat.control;
     const throttleTarget = (k('forward') ? 1 : 0) - (k('back') ? 1 : 0);
-    c.throttle += ((this.foot ? 0 : throttleTarget) - c.throttle) * Math.min(1, dt * 3);
-    c.steer = fighting || this.foot ? 0 : (k('right') ? 1 : 0) - (k('left') ? 1 : 0);
+    const camOn = this.fishCam?.active;   // the fish cam is hanging: W/S run its cable, the boat sits still
+    c.throttle += ((this.foot || camOn ? 0 : throttleTarget) - c.throttle) * Math.min(1, dt * 3);
+    c.steer = fighting || this.foot || camOn ? 0 : (k('right') ? 1 : 0) - (k('left') ? 1 : 0);
     if (this.foot) this.walk(dt, k, fighting);
     if (k('lookLeft')) this.look.yaw += dt * 1.6;
     if (k('lookRight')) this.look.yaw -= dt * 1.6;
@@ -437,6 +444,7 @@ export class Game {
       if (hit > 0.6 && this.bumpCool <= 0) { this.audio.play('bump', Math.min(1, hit / 5)); this.bumpCool = 0.5; }
     }
     this.audio.engine(c.throttle, this.boatSpeed());
+    this.fishCam.update(dt);
     this.updateCamera(dt);
     this.dev.update(dt);   // the free-fly camera takes over here when it is on
 
@@ -575,6 +583,8 @@ export class Game {
       if (this.tp) this.shoulderCamera(cam, A);
     } else if (this.view === 'under') {
       this.underwaterCamera(dt);
+    } else if (this.view === 'cam') {
+      this.fishCam.placeCamera(dt);
     } else {
       const L = this.boat.hull.length;
       const dist = L * 1.3 + 6 + this.look.dist;
@@ -687,6 +697,8 @@ export class Game {
       if (this.tp) this.shoulderCamera(cam, A);
     } else if (this.view === 'under') {
       this.underwaterCamera(dt);
+    } else if (this.view === 'cam') {
+      this.fishCam.placeCamera(dt);
     } else {
       const a = al.yaw + Math.PI * 1.5 + this.look.yaw;
       const dist = Math.max(2.5, 7 + this.look.dist * 0.5);
@@ -781,7 +793,8 @@ export class Game {
     }
     if (this.foot && this.view === 'first' && !this.ui.isOpen() && this.hall?.inside(this.foot)) hints.push([KL('trophy'), 'trophy room: records, mounts']);
     if (!this.ui.isOpen() && this.view === 'first' && this.keepers?.who()) hints.push([KL('talk'), `talk to ${this.keepers.who().d.name}`]);
-    this.ui.shoreHint(hints);
+    if (this.view === 'first' && !this.ui.isOpen() && !this.fishing.busy() && this.fishCam.usable()) hints.push([KL('fishcam'), 'lower the fish cam']);
+    this.ui.shoreHint(this.fishCam.active ? [] : hints);
   }
 
   // photo mode: hide every overlay (HUD and rod); the views and camera controls still work

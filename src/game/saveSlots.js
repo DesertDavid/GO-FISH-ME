@@ -2,7 +2,7 @@
 // The live game still autosaves to `reelworld-save-v1` (save.js); slots are snapshots of it.
 import { LOCATIONS, LOCATION_ORDER } from './locations.js';
 import { DEFAULT_SAVE, readRaw, writeRaw, isFrozen } from './save.js';
-import { CATALOG_SIZE } from './species.js';
+import { CATALOG_SIZE, SPECIES_BY_ID } from './species.js';
 import { BOATS, RODS, REELS, LINES, LURES } from './gear.js';
 import { upgradeSave, levelOf } from './progress.js';
 import { sanitizeCustom } from './boatCustom.js';
@@ -122,6 +122,9 @@ export function sanitizeSave(raw) {
   }
   out.waypoints = wp;
   out.custom = sanitizeCustom(raw.custom);
+  const sg = {};
+  if (out.sighted && typeof out.sighted === 'object') for (const [id, e] of Object.entries(out.sighted)) if (SPECIES_BY_ID[id] && e && isFinite(e.n)) sg[id] = { n: Math.max(1, Math.floor(e.n)), loc: LOCATIONS[e.loc] ? e.loc : null, day: +e.day || 1, first: +e.first || 1 };
+  out.sighted = sg;
   return out;
 }
 
