@@ -1,6 +1,6 @@
 # Reel World - 3D asset wishlist
 
-Agreed in a brainstorming chat. Build status (2026-11-09): importer, manifest and credits exist (`tools/blender/import_assets.py`, `tools/assets/manifest.json`); in game so far: Tuna, Swordfish, Shark (AndrejKrebs), Bass-Fish (it is really a perch: used for yellow perch and sauger). Next: dolphin, whale, turtle, ducks, hippo, moose (need the `rigged` importer mode), then props.
+Agreed in a brainstorming chat. Build status (2026-11-09): importer, manifest and credits exist (`tools/blender/import_assets.py`, `tools/assets/manifest.json`); in game so far: Tuna, Swordfish, Shark (AndrejKrebs), Bass-Fish (it is really a perch: used for yellow perch and sauger). Wildlife pass done: dolphin, blue whale, sea turtle, both ducks, hippo, moose (static pose), wolf, grizzly, alligator, perched pelican. Next: props (section 3) and set dressing (section 4); still unsourced: heron, cormorant, osprey, otter, manatee, gulls.
 
 ## Ground rules
 - **Licence:** CC0 or CC-BY only. Every CC-BY model needs title, author and source URL in a credits file (proposed: `public/credits.md`, shown from the Esc menu). Non-commercial (NC) and share-alike (SA) models are out.

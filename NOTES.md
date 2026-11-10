@@ -141,6 +141,11 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   Done: tuna (5 species), swordfish, shark (mako, porbeagle, blacktip, lemon, tiger), perch (yellow perch, sauger); 0.85 MB total. `node tools/assets/gen_credits.mjs` rebuilds
   `public/credits.md` + `src/game/creditsData.js` (credit line shows in the Esc menu). `fishlab.html?ids=a,b&n=2` needs `n` = number of ids.
   Not done yet: wildlife (ducks, hippo, moose, turtle, dolphin, whale) needs a `rigged` mode in the importer (keep clips) + `wildlife.js` wiring; stingray (no species yet); props.
+- Real wildlife (importer mode `rigged`/`static`, models in `public/models/wildlife/`, 3.4 MB): `wildlifeModels.js` loads/clones them (nose +x, metres, named clips);
+  `wildlife.js` uses the real dolphin, blue whale and alligator for the swimmers (procedural lofts are the fallback; Keys and Gulf now have a few gators too);
+  `wildlifeFauna.js` places per location: ducks (swimming + walking), hippos (Kariba), moose, wolves, grizzlies (static or idle), perched pelicans, sea turtles. They live around the player
+  (moved when > 420 m away, culled > 300 m). Moose clips break on export, so it is a static pose. `wildlab.html?kinds=duck,wolf&clip=idle` previews them.
+  Not done: hermit crab (licence unchecked), monkeys, snapping turtle, great white pelican, flying pelican, otter; stingray, manta etc. have no species yet.
 
 ## Known gaps / ideas
 - No angler body when walking in third person (NPC anglers have one; the player's could reuse `buildAngler`).

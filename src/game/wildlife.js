@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { loadKinds, hasModel, makeAnimal } from './wildlifeModels.js';
+import { Fauna } from './wildlifeFauna.js';
 
 // Wildlife: dolphin pods arcing through the swell, whales that blow and fluke-dive, and
-// gators/caimans cruising low in the water. Procedural lofts, vertex-coloured.
+// gators/caimans cruising low in the water. Real models (wildlifeModels.js) when loaded, procedural lofts, vertex-coloured,
+// as the fallback; shore animals (ducks, hippos, moose, ...) live in wildlifeFauna.js.
 
 // Body along x (head at +x). r(t) -> [halfWidth, halfHeight, yOffset]; colours top -> belly.
 function loft(length, r, top, belly, rings = 40, seg = 18) {
@@ -91,7 +94,7 @@ function gatorGeo() {
 }
 
 const KINDS = {
-  gulf: ['dolphin'], reef: ['dolphin'], keys: ['dolphin'],
+  gulf: ['dolphin', 'gator'], reef: ['dolphin'], keys: ['dolphin', 'gator'],
   bering: ['whale'], fjord: ['whale'],
   okeechobee: ['gator'], amazon: ['gator'],
   chesapeake: ['dolphin'], cabo: ['whale', 'dolphin'], kariba: ['gator'],   // Kariba's are Nile crocodiles
@@ -109,8 +112,20 @@ export class Wildlife {
     this.events = [];
     this.timer = 8 + Math.random() * 10;
     this.gators = [];
-    if (this.kinds.includes('gator')) this.spawnGators();
+    this.anims = [];
+    this.fauna = new Fauna(ctx);
+    loadKinds(this.kinds).finally(() => { if (this.kinds.includes('gator')) this.spawnGators(); });   // real models if they load, else the lofts
     this.spoutTex = this.makeSpoutTexture();
+  }
+
+  // a swimmer: the real model when it is loaded (clip 'swim'), else the procedural loft
+  make(kind) {
+    const an = hasModel(kind) ? makeAnimal(kind, this.ctx.patchProp) : null;
+    if (!an) return new THREE.Mesh(this.geometry(kind), this.mat);
+    an.play('swim', 0);
+    if (an.mixer) an.mixer.setTime(Math.random() * 2);
+    this.anims.push(an);
+    return an.root;
   }
 
   geometry(kind) {
@@ -129,12 +144,13 @@ export class Wildlife {
 
   spawnGators() {
     const c = this.ctx;
-    for (let i = 0, tries = 0; i < 6 && tries < 300; tries++) {
+    const want = this.kinds[0] === 'gator' ? 6 : 2;
+    for (let i = 0, tries = 0; i < want && tries < 300; tries++) {
       const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 500;
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       const d = -c.heightAt(x, z);
       if (d < 0.6 || d > 4) continue;
-      const m = new THREE.Mesh(this.geometry('gator'), this.mat);
+      const m = this.make('gator');
       m.position.set(x, -0.06, z);
       m.scale.setScalar(0.7 + Math.random() * 0.6);
       this.group.add(m);
@@ -145,6 +161,11 @@ export class Wildlife {
 
   update(dt, center) {
     const c = this.ctx;
+    this.fauna.update(dt, center);
+    for (let i = this.anims.length - 1; i >= 0; i--) {
+      const a = this.anims[i];
+      if (!a.root.parent) this.anims.splice(i, 1); else if (a.mixer) a.mixer.update(dt);
+    }
     // gators: drift slowly, slip under when the boat gets close
     for (const g of this.gators) {
       g.t += dt;
@@ -179,7 +200,7 @@ export class Wildlife {
     const e = { kind, t: 0, life: kind === 'whale' ? 24 : 18, x, z, heading, members: [] };
     const n = kind === 'whale' ? 1 : 3 + Math.floor(Math.random() * 4);
     for (let k = 0; k < n; k++) {
-      const mesh = new THREE.Mesh(this.geometry(kind), this.mat);
+      const mesh = this.make(kind);
       mesh.scale.setScalar(kind === 'whale' ? 0.85 + Math.random() * 0.3 : 0.85 + Math.random() * 0.35);
       this.group.add(mesh);
       e.members.push({ mesh, ox: (Math.random() - 0.5) * 10, oz: (Math.random() - 0.5) * 10, phase: Math.random() * 2, splashed: false });

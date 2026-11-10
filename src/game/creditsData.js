@@ -27,5 +27,82 @@ export const MODEL_CREDITS = [
     "url": "https://sketchfab.com/3d-models/bass-fish-2d664e9899ad46a787d5549ed8c42241",
     "license": "CC-BY-4.0",
     "category": "fish"
+  },
+  {
+    "title": "Game-Ready dolphin (Swimming)",
+    "author": "Allie2k",
+    "url": "https://sketchfab.com/3d-models/game-ready-dolphin-swimming-b621ec8894734bc79c04338edff3cd0d",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Blue Whale - Textured",
+    "author": "Bohdan Lvov",
+    "url": "https://sketchfab.com/3d-models/blue-whale-textured-d24d19021c724c3a9134eebcb76b0e0f",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Sea Turtle",
+    "author": "Eloi",
+    "url": "https://sketchfab.com/3d-models/sea-turtle-23dcb315dea44f5082b020b04710bd31",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Duck_Walk (Free)",
+    "author": "Nyilonelycompany",
+    "url": "https://sketchfab.com/3d-models/duck-walk-free-415584bc3224484fba20a482592e2157",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Duck Animation",
+    "author": "icekic",
+    "url": "https://sketchfab.com/3d-models/duck-animation-4a95a539dab94eaf9314a93ddb743f4e",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Hippopotamus",
+    "author": "planeta-elefante",
+    "url": "https://sketchfab.com/3d-models/hippopotamus-b6f94ccfd88442b9b92a9484d27561a5",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Lose-the-moose",
+    "author": "eyork4633",
+    "url": "https://sketchfab.com/3d-models/lose-the-moose-4e1afd1297e7483bbdafc0a169f86f6a",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "WOLF ONLINE mountain wolf skin 2",
+    "author": "seth the yutyrannus",
+    "url": "https://sketchfab.com/3d-models/wolf-online-mountain-wolf-skin-2-6d569313eecd47dfb4d598c40d715a34",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Grizzly Bear Realistic Bear 3D Model",
+    "author": "criticaldamage9211",
+    "url": "https://sketchfab.com/3d-models/grizzly-bear-realistic-bear-3d-model-df9d941ee11a419db3a007775bdae832",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "Mississippi Alligator (Animated, downloadable)",
+    "author": "Андрей",
+    "url": "https://sketchfab.com/3d-models/mississippi-alligator-animated-downloadable-f0cc55fd5e4448e6bbd2ee65b2f1ea66",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
+  },
+  {
+    "title": "pelikan pelican",
+    "author": "wasis007",
+    "url": "https://sketchfab.com/3d-models/pelikan-pelican-dba2ea5b9f1e40cca54bd77713d8ff16",
+    "license": "CC-BY-4.0",
+    "category": "wildlife"
   }
 ];

@@ -2,32 +2,305 @@
   "_doc": "Source models for tools/blender/import_assets.py. Run: blender -b --factory-startup --python tools/blender/import_assets.py -- --src <dir with each zip extracted into its own folder> [--only id,id] [--preview DIR]. 'input' is relative to --src. mode 'fish' bakes the pose at 'frame' into one static mesh, nose +x, back +y, length 'length' (1 = same convention as the procedural fish). 'head'/'up' name the Blender (Z-up) axes the source model's nose and back point along after glTF import. 'species' lists the species ids that use the model (see src/game/heroFish.js).",
   "assets": [
     {
-      "id": "tuna", "category": "fish", "mode": "fish",
-      "input": "tuna_fish/scene.gltf", "out": "fish/tuna.glb",
-      "title": "Tuna Fish", "author": "GoldenZtuff", "url": "https://sketchfab.com/3d-models/tuna-fish-642c6515d893474a8fc8f129491efcac",
-      "license": "CC-BY-4.0", "head": "-y", "up": "z", "frame": 0, "tris": 8100, "tex": 1024,
-      "species": ["yellowfin", "blackfin", "bluefin", "skipjack", "dogtooth"]
+      "id": "tuna",
+      "category": "fish",
+      "mode": "fish",
+      "input": "tuna_fish/scene.gltf",
+      "out": "fish/tuna.glb",
+      "title": "Tuna Fish",
+      "author": "GoldenZtuff",
+      "url": "https://sketchfab.com/3d-models/tuna-fish-642c6515d893474a8fc8f129491efcac",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "frame": 0,
+      "tris": 8100,
+      "tex": 1024,
+      "species": [
+        "yellowfin",
+        "blackfin",
+        "bluefin",
+        "skipjack",
+        "dogtooth"
+      ]
     },
     {
-      "id": "swordfish", "category": "fish", "mode": "fish",
-      "input": "sword_fish/scene.gltf", "out": "fish/swordfish.glb",
-      "title": "Sword Fish", "author": "Carlos.Maciel", "url": "https://sketchfab.com/3d-models/sword-fish-9f076eb541a44a96b65e53a4062db506",
-      "license": "CC-BY-4.0", "head": "-x", "up": "z", "tris": 7700, "tex": 1024,
-      "species": ["swordfish"]
+      "id": "swordfish",
+      "category": "fish",
+      "mode": "fish",
+      "input": "sword_fish/scene.gltf",
+      "out": "fish/swordfish.glb",
+      "title": "Sword Fish",
+      "author": "Carlos.Maciel",
+      "url": "https://sketchfab.com/3d-models/sword-fish-9f076eb541a44a96b65e53a4062db506",
+      "license": "CC-BY-4.0",
+      "head": "-x",
+      "up": "z",
+      "tris": 7700,
+      "tex": 1024,
+      "species": [
+        "swordfish"
+      ]
     },
     {
-      "id": "shark", "category": "fish", "mode": "fish",
-      "input": "shark/scene.gltf", "out": "fish/shark.glb",
-      "title": "Shark", "author": "AndrejKrebs", "url": "https://sketchfab.com/3d-models/shark-5d5fc65b6b514e2cb8c3fbc04791a89a",
-      "license": "CC-BY-4.0", "head": "-y", "up": "z", "frame": 0, "tris": 14000, "diffuse": "textures/SharkBody_diffuse.png", "tex": 1024,
-      "species": ["mako", "porbeagle", "blacktip", "lemonshark", "tigershark"]
+      "id": "shark",
+      "category": "fish",
+      "mode": "fish",
+      "input": "shark/scene.gltf",
+      "out": "fish/shark.glb",
+      "title": "Shark",
+      "author": "AndrejKrebs",
+      "url": "https://sketchfab.com/3d-models/shark-5d5fc65b6b514e2cb8c3fbc04791a89a",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "frame": 0,
+      "tris": 14000,
+      "diffuse": "textures/SharkBody_diffuse.png",
+      "tex": 1024,
+      "species": [
+        "mako",
+        "porbeagle",
+        "blacktip",
+        "lemonshark",
+        "tigershark"
+      ]
     },
     {
-      "id": "bass", "category": "fish", "mode": "fish",
-      "input": "bass_-_fish/scene.gltf", "out": "fish/bass.glb",
-      "title": "Bass - Fish", "author": "Simon Ustal", "url": "https://sketchfab.com/3d-models/bass-fish-2d664e9899ad46a787d5549ed8c42241",
-      "license": "CC-BY-4.0", "head": "-x", "up": "z", "frame": 0, "tris": 10000, "tex": 1024,
-      "species": ["yellowperch", "sauger"]
+      "id": "bass",
+      "category": "fish",
+      "mode": "fish",
+      "input": "bass_-_fish/scene.gltf",
+      "out": "fish/bass.glb",
+      "title": "Bass - Fish",
+      "author": "Simon Ustal",
+      "url": "https://sketchfab.com/3d-models/bass-fish-2d664e9899ad46a787d5549ed8c42241",
+      "license": "CC-BY-4.0",
+      "head": "-x",
+      "up": "z",
+      "frame": 0,
+      "tris": 10000,
+      "tex": 1024,
+      "species": [
+        "yellowperch",
+        "sauger"
+      ]
+    },
+    {
+      "id": "dolphin",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "game-ready_dolphin_swimming/scene.gltf",
+      "out": "wildlife/dolphin.glb",
+      "title": "Game-Ready dolphin (Swimming)",
+      "author": "Allie2k",
+      "url": "https://sketchfab.com/3d-models/game-ready-dolphin-swimming-b621ec8894734bc79c04338edff3cd0d",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Take 001": "swim"
+      },
+      "length": 2.6,
+      "tris": 1500
+    },
+    {
+      "id": "whale",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "blue_whale_-_textured/scene.gltf",
+      "out": "wildlife/whale.glb",
+      "title": "Blue Whale - Textured",
+      "author": "Bohdan Lvov",
+      "url": "https://sketchfab.com/3d-models/blue-whale-textured-d24d19021c724c3a9134eebcb76b0e0f",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Swimming": "swim"
+      },
+      "length": 14,
+      "tris": 2600
+    },
+    {
+      "id": "turtle",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "sea_turtle1/scene.gltf",
+      "out": "wildlife/turtle.glb",
+      "title": "Sea Turtle",
+      "author": "Eloi",
+      "url": "https://sketchfab.com/3d-models/sea-turtle-23dcb315dea44f5082b020b04710bd31",
+      "license": "CC-BY-4.0",
+      "head": "+y",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Tortue Anim": "swim"
+      },
+      "length": 1.1,
+      "tris": 7000
+    },
+    {
+      "id": "duckwalk",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "duck_walk_free/scene.gltf",
+      "out": "wildlife/duckwalk.glb",
+      "title": "Duck_Walk (Free)",
+      "author": "Nyilonelycompany",
+      "url": "https://sketchfab.com/3d-models/duck-walk-free-415584bc3224484fba20a482592e2157",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "walk": "walk"
+      },
+      "length": 0.55,
+      "tris": 4500,
+      "pivot": "feet"
+    },
+    {
+      "id": "duckloop",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "duck_animation/scene.gltf",
+      "out": "wildlife/duckloop.glb",
+      "title": "Duck Animation",
+      "author": "icekic",
+      "url": "https://sketchfab.com/3d-models/duck-animation-4a95a539dab94eaf9314a93ddb743f4e",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Animation": "loop"
+      },
+      "length": 0.55,
+      "tris": 4500,
+      "pivot": "feet"
+    },
+    {
+      "id": "hippo",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "hippopotamus/scene.gltf",
+      "out": "wildlife/hippo.glb",
+      "title": "Hippopotamus",
+      "author": "planeta-elefante",
+      "url": "https://sketchfab.com/3d-models/hippopotamus-b6f94ccfd88442b9b92a9484d27561a5",
+      "license": "CC-BY-4.0",
+      "head": "+x",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Idle:BaseAnimation": "idle",
+        "Idle2:BaseAnimation": "idle2",
+        "Walk:BaseAnimation": "walk",
+        "Run:BaseAnimation": "run"
+      },
+      "length": 3.4,
+      "tris": 5300,
+      "pivot": "feet"
+    },
+    {
+      "id": "moose",
+      "category": "wildlife",
+      "mode": "static",
+      "input": "lose-the-moose/scene.gltf",
+      "out": "wildlife/moose.glb",
+      "title": "Lose-the-moose",
+      "author": "eyork4633",
+      "url": "https://sketchfab.com/3d-models/lose-the-moose-4e1afd1297e7483bbdafc0a169f86f6a",
+      "license": "CC-BY-4.0",
+      "head": "+y",
+      "up": "z",
+      "tex": 1024,
+      "length": 2.9,
+      "tris": 4400,
+      "pivot": "feet",
+      "pose_clip": "Idle",
+      "frame": 10
+    },
+    {
+      "id": "wolf",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "wolf_online_mountain_wolf_skin_2/scene.gltf",
+      "out": "wildlife/wolf.glb",
+      "title": "WOLF ONLINE mountain wolf skin 2",
+      "author": "seth the yutyrannus",
+      "url": "https://sketchfab.com/3d-models/wolf-online-mountain-wolf-skin-2-6d569313eecd47dfb4d598c40d715a34",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Idle1": "idle",
+        "Idle2": "idle2"
+      },
+      "length": 1.5,
+      "tris": 2900,
+      "pivot": "feet"
+    },
+    {
+      "id": "bear",
+      "category": "wildlife",
+      "mode": "static",
+      "input": "grizzly_bear_realistic_bear_3d_model/scene.gltf",
+      "out": "wildlife/bear.glb",
+      "title": "Grizzly Bear Realistic Bear 3D Model",
+      "author": "criticaldamage9211",
+      "url": "https://sketchfab.com/3d-models/grizzly-bear-realistic-bear-3d-model-df9d941ee11a419db3a007775bdae832",
+      "license": "CC-BY-4.0",
+      "head": "+y",
+      "up": "z",
+      "tex": 1024,
+      "length": 2.0,
+      "tris": 6700,
+      "pivot": "feet"
+    },
+    {
+      "id": "alligator",
+      "category": "wildlife",
+      "mode": "rigged",
+      "input": "mississippi_alligator_animated_downloadable/scene.gltf",
+      "out": "wildlife/alligator.glb",
+      "title": "Mississippi Alligator (Animated, downloadable)",
+      "author": "Андрей",
+      "url": "https://sketchfab.com/3d-models/mississippi-alligator-animated-downloadable-f0cc55fd5e4448e6bbd2ee65b2f1ea66",
+      "license": "CC-BY-4.0",
+      "head": "-y",
+      "up": "z",
+      "tex": 1024,
+      "clips": {
+        "Play": "swim"
+      },
+      "length": 3.6,
+      "tris": 6000,
+      "only_materials": [
+        "defaultMat"
+      ]
+    },
+    {
+      "id": "pelican",
+      "category": "wildlife",
+      "mode": "static",
+      "input": "pelikan_pelican/scene.gltf",
+      "out": "wildlife/pelican.glb",
+      "title": "pelikan pelican",
+      "author": "wasis007",
+      "url": "https://sketchfab.com/3d-models/pelikan-pelican-dba2ea5b9f1e40cca54bd77713d8ff16",
+      "license": "CC-BY-4.0",
+      "head": "-x",
+      "up": "z",
+      "tex": 1024,
+      "length": 0.9,
+      "tris": 8000,
+      "pivot": "feet"
     }
   ]
 }
