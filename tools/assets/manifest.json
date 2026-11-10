@@ -524,6 +524,84 @@
       ],
       "license_text": "This work is based on \"Fishing Rod\" (https://sketchfab.com/3d-models/fishing-rod-b90dd9d681084a7c96dcc1b2798b3f5f) by EthanPortman (https://sketchfab.com/EthanPortman) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
       "sketchfab_license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/); author must be credited, commercial use allowed"
+    },
+    {
+      "id": "rod_cast",
+      "category": "rod",
+      "mode": "rod",
+      "input": "fishing_rod1/scene.gltf",
+      "out": "rods/casting.glb",
+      "title": "Fishing Rod",
+      "author": "Andre_Gladstone_Leite",
+      "url": "https://sketchfab.com/3d-models/fishing-rod-f952f077a60f41e288e60f124cf2887f",
+      "license": "CC-BY-4.0",
+      "tier": "mhcasting",
+      "length": 2.13,
+      "tex": 512,
+      "tris": {
+        "skin": 8000,
+        "reel": 6000,
+        "crank": 1500
+      },
+      "drop": [
+        {
+          "obj": "Object_5"
+        }
+      ],
+      "reel": [
+        {
+          "box": [
+            [
+              0.3,
+              0.5
+            ],
+            [
+              -0.13,
+              -0.01
+            ],
+            [
+              -0.1,
+              0.12
+            ]
+          ]
+        }
+      ],
+      "synth_crank": {
+        "pivot": [
+          0.088,
+          -0.066,
+          0.396
+        ],
+        "dir": [
+          -0.15,
+          1.0
+        ],
+        "length": 0.055,
+        "x_out": 0.1,
+        "knob_len": 0.025
+      },
+      "crank_pivot": [
+        0.088,
+        -0.066,
+        0.396
+      ],
+      "knob": [
+        0.1125,
+        -0.0741,
+        0.4504
+      ],
+      "flex_z": 0.5,
+      "guides_z": [
+        0.488,
+        0.689,
+        1.042,
+        1.395,
+        1.747,
+        2.1
+      ],
+      "license_text": "This work is based on \"Fishing Rod\" (https://sketchfab.com/3d-models/fishing-rod-f952f077a60f41e288e60f124cf2887f) by Andre_Gladstone_Leite (https://sketchfab.com/dexterkoller) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "sketchfab_license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/); author must be credited, commercial use allowed",
+      "rgb_copies": true
     }
   ]
 }

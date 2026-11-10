@@ -169,7 +169,28 @@ def decimate(ob, tris):
     return tri_count(ob)
 
 
-def shrink_textures(maxpx, keep_normal):
+def fix_grey_images(a_all=False):
+    """WEBP export fails on 1-channel (grey) sources and leaves a texture without an image (the game then fails to load the glb): re-save those as RGB copies."""
+    n = 0
+    for im in list(bpy.data.images):
+        if im.size[0] == 0 or not (a_all or im.channels == 1):
+            continue
+        w, h = im.size
+        px = np.empty(w * h * 4, dtype=np.float32)
+        im.pixels.foreach_get(px)
+        new = bpy.data.images.new(im.name + '_rgb', w, h, alpha=False)
+        new.pixels.foreach_set(px)
+        new.colorspace_settings.name = im.colorspace_settings.name
+        for m in bpy.data.materials:
+            if m.use_nodes:
+                for nd in m.node_tree.nodes:
+                    if nd.type == 'TEX_IMAGE' and nd.image == im:
+                        nd.image = new
+        n += 1
+    log('grey images converted', n)
+
+
+def shrink_textures(maxpx, keep_normal, rgb_copies=False):
     for im in list(bpy.data.images):
         if im.size[0] == 0:
             continue
@@ -178,6 +199,8 @@ def shrink_textures(maxpx, keep_normal):
             k = maxpx / max(w, h)
             im.scale(max(1, int(w * k)), max(1, int(h * k)))
         im.pack()
+    if rgb_copies:
+        fix_grey_images(True)
     if not keep_normal:
         for m in bpy.data.materials:
             if not m.use_nodes:
@@ -189,10 +212,60 @@ def shrink_textures(maxpx, keep_normal):
                             m.node_tree.links.remove(l)
 
 
+def synth_crank(c):
+    """For models that ship without a handle: an axle stub, a flat arm and a round knob, built in the report frame.
+    c = {pivot:[x,y,z], dir:[0,y,z] (arm direction), length, x_out (arm plane), color}"""
+    px, py, pz = c['pivot']
+    d = Vector((0, c['dir'][0], c['dir'][1])).normalized()
+    ln = c.get('length', 0.06)
+    xo = c.get('x_out', px + 0.02)
+    bm = bmesh.new()
+    def cyl(p0, p1, r, seg=14):
+        v0, v1 = Vector(p0), Vector(p1)
+        ax_ = (v1 - v0)
+        m = Matrix.Translation((v0 + v1) / 2) @ ax_.to_track_quat('Z', 'Y').to_matrix().to_4x4()
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=seg, radius1=r, radius2=r, depth=ax_.length, matrix=m)
+    cyl((px, py, pz), (xo, py, pz), 0.0045)                                   # axle
+    tip = Vector((xo, py, pz)) + d * ln
+    cyl((xo, py, pz), (xo, tip.y, tip.z), 0.0055)                             # arm (round bar)
+    cyl((xo, tip.y, tip.z), (xo + c.get('knob_len', 0.03), tip.y, tip.z), c.get('knob_r', 0.0105))   # knob
+    me = bpy.data.meshes.new('crank_synth')
+    bm.to_mesh(me); bm.free()
+    mat = bpy.data.materials.new('crank_synth')
+    mat.use_nodes = True
+    b = mat.node_tree.nodes['Principled BSDF']
+    b.inputs['Base Color'].default_value = (*c.get('color', (0.07, 0.07, 0.08)), 1)
+    b.inputs['Metallic'].default_value = 0.6
+    b.inputs['Roughness'].default_value = 0.35
+    me.materials.append(mat)
+    for p_ in me.polygons:
+        p_.use_smooth = True
+    ob = bpy.data.objects.new('crank', me)
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
+
+
 # ---------------------------------------------------------------- main
 def process_rod(a, src, out_dir, preview=None, report=False):
     parts = load_parts(a, src)
     drop = a.get('drop', [])
+    for pd in a.get('pre_drop', []):   # islands (line, lure ...) that would skew the frame: {min:[x,y,z], max:[x,y,z]} = their bounding box in the glTF-imported model space
+        lo_, hi_ = np.array(pd['min']), np.array(pd['max'])
+        tol = pd.get('tol', 0.01)
+        for o in parts:
+            isl = islands(o)
+            co = verts(o)
+            kill = []
+            for i in np.unique(isl):
+                fs = np.nonzero(isl == i)[0]
+                vs = np.unique(np.concatenate([np.array(o.data.polygons[k].vertices) for k in fs]))
+                if np.all(np.abs(co[vs].min(0) - lo_) < tol) and np.all(np.abs(co[vs].max(0) - hi_) < tol):
+                    kill += list(fs)
+            if kill:
+                bm = bmesh.new(); bm.from_mesh(o.data); bm.faces.ensure_lookup_table()
+                bmesh.ops.delete(bm, geom=[bm.faces[k] for k in kill], context='FACES')
+                bm.to_mesh(o.data); bm.free()
+                log('pre_drop removed', len(kill), 'faces from', o.name)
     # 1. frame from everything that is not dropped by object name
     core = [o for o in parts if not any(('box' not in r) and o.name.startswith(r.get('obj', '\0')) for r in drop)]
     origin, x, y, z, L = build_frame(core, a)
@@ -308,6 +381,9 @@ def process_rod(a, src, out_dir, preview=None, report=False):
     skin = join(groups['skin'], 'rod_skin')
     reel = join(groups['reel'], 'rod_reel')
     crank = join(groups['crank'], 'crank')
+    sc_ = a.get('synth_crank')
+    if sc_ and not crank:
+        crank = synth_crank(sc_)
     tr = a.get('tris', {})
     log('tris before', {k: tri_count(v) for k, v in (('skin', skin), ('reel', reel), ('crank', crank)) if v})
     skin_n = decimate(skin, tr.get('skin', 12000))
@@ -406,7 +482,7 @@ def process_rod(a, src, out_dir, preview=None, report=False):
         spool = [0, -0.05, REEL_Z + 0.04]
 
     # 5. materials: dedupe by name stem, shrink textures
-    shrink_textures(a.get('tex', 1024), a.get('keep_normal_maps', False))
+    shrink_textures(a.get('tex', 1024), a.get('keep_normal_maps', False), a.get('rgb_copies', False))
 
     # 6. to glTF axes (Blender: x, -z, y), skeleton, vertex weights
     Rg = Matrix.Rotation(math.pi / 2, 4, 'X')

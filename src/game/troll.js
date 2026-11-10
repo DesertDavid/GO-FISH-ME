@@ -113,6 +113,8 @@ export class Trolling {
     const surf = c.waterHeightApprox();
     const n = this.n;
     this.lines.forEach((l, i) => { l.visible = i < n; });
+    this.placeRods(tips, n, dt);
+    tips.forEach((tp, i) => { const r = this.rods[i]; if (r && r.g.visible) r.m.tip.getWorldPosition(tp); });   // the line leaves the real rod tip
     BACK.slice(0, n).forEach((d, i) => {
       const off = SIDE[i];
       const target = boat.position.clone().addScaledVector(back, d).addScaledVector(side, off);
@@ -130,7 +132,6 @@ export class Trolling {
       }
       this.lines[i].geometry.attributes.position.needsUpdate = true;
     });
-    this.placeRods(tips, n, dt);
     // baits skipping in the wake
     this.skipT -= dt;
     if (speed > 1.5 && this.skipT <= 0) {

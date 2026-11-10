@@ -132,5 +132,12 @@ export const MODEL_CREDITS = [
     "url": "https://sketchfab.com/3d-models/fishing-rod-b90dd9d681084a7c96dcc1b2798b3f5f",
     "license": "CC-BY-4.0",
     "category": "rod"
+  },
+  {
+    "title": "Fishing Rod",
+    "author": "Andre_Gladstone_Leite",
+    "url": "https://sketchfab.com/3d-models/fishing-rod-f952f077a60f41e288e60f124cf2887f",
+    "license": "CC-BY-4.0",
+    "category": "rod"
   }
 ];
