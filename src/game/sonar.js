@@ -16,7 +16,7 @@ export class Sonar {
     this.t = 0;
     const { ctx, c } = this;
     const W = c.width, H = c.height - 18;
-    this.maxDepth += (Math.max(6, Math.min(200, depth * 1.3)) - this.maxDepth) * 0.05;
+    this.maxDepth += (Math.max(6, Math.min(450, depth * 1.3)) - this.maxDepth) * 0.05;
     const y = (d) => 18 + (d / this.maxDepth) * H;
     ctx.drawImage(c, 2, 0, W - 2, c.height, 0, 0, W - 2, c.height);
     const x = W - 2;

@@ -15,13 +15,14 @@ export const TUNING = {
   // 4 time-of-day anchors (hours), interpolated linearly around the clock
   hours: { night: 1.5, dawn: 6.5, day: 12.5, dusk: 19 },
   // retrieve depth: a mid-water lure that is not being reeled sinks deeper (m per second, max extra m)
-  sink: { rate: 0.5, max: 5, fall: 2.0 },
+  sink: { rate: 1.4, max: 150, fall: 2.5 },   // deep water: a still lure falls ~1.4 m/s and is hauled back up at ~3.5 m/s
   // depth model (metres below the surface)
   depth: {
     surfaceC: 0.3, surfaceSigma: 1.5,
     midC: 2.6, midSigma: 2.2, midMin: 1.4, midMax: 7,
     sizeShift: 0.8,          // + log10(typical lb) * this to the mid-water centre (bigger fish sit lower)
     jitter: 0.9,             // +- metres of per-species variety, hashed from the id
+    bandHi: 45,              // bottom fish default habitat: bottom deeper than this (m) is poor (see OVERRIDES band)
     bottomGap: 0.9,          // bottom fish: tolerance (m) above the bottom
     nightShallow: 0.7,       // non-bottom fish come up at night (x)
     sunDeep: 1.2,            // and sit a little deeper in bright midday (x)
@@ -133,6 +134,19 @@ export const BODY_COL = {
 // hand-written overrides for the famous ones. kind: multipliers per lure kind, lure: per lure id,
 // time: [dawn, day, dusk, night], wx: [clear..storm], dep: [minM, maxM] preferred retrieve depth
 export const OVERRIDES = {
+  // habitat band [min, max] of bottom depth (m) for bottom-hugging species; outside it the depth fit falls off.
+  // Species not listed use [0, TUNING.depth.bandHi]. Deep-water species are listed here.
+  laketrout: { kind: { spoon: 1.7, diamond: 1.5, jig: 1.4 }, band: [14, 130] },
+  whitefish: { band: [6, 100] }, burbot: { band: [10, 120] }, tahoesucker: { band: [3, 80] },
+  lakesturgeon: { band: [3, 60] }, whitesturgeon: { band: [4, 120] }, bulltrout: { band: [3, 70] },
+  mekongcat: { band: [6, 90] }, vundu: { band: [3, 90] }, piraiba: { band: [4, 80] }, redtail: { band: [2, 60] }, surubim: { band: [2, 60] },
+  sharptooth: { band: [0, 70] }, bottlenose: { band: [0, 60] },
+  cod: { band: [8, 300] }, haddock: { band: [20, 300] }, halibut: { band: [15, 350] }, ling: { band: [25, 400] }, wolffish: { band: [15, 300] },
+  monkfish: { band: [25, 500] }, goldenredfish: { band: [60, 600] }, greenland: { band: [80, 600] }, tusk: { band: [60, 600] },
+  pacificcod: { band: [15, 300] }, pacifichalibut: { band: [20, 300] }, sablefish: { band: [60, 600] }, lingcod: { band: [4, 160] }, yelloweye: { band: [30, 300] },
+  redsnapper: { band: [10, 130] }, amberjack: { band: [25, 150] }, gag: { band: [15, 110] }, redgrouper: { band: [15, 110] }, redporgy: { band: [20, 140] },
+  triggerfish: { band: [4, 90] }, swordfish: { band: [90, 700] }, goliath: { band: [4, 70] }, pargo: { band: [8, 130] }, cabrilla: { band: [3, 70] },
+  coraltrout: { band: [2, 50] }, redemperor: { band: [8, 90] }, sweetlips: { band: [3, 60] }, dogtooth: { band: [10, 120] }, spangled: { band: [2, 50] },
   largemouth: { kind: { worm: 1.8, crank: 1.6 }, dep: [1.2, 4] },
   smallmouth: { kind: { jig: 1.4, crank: 1.5, worm: 1.2 }, dep: [2, 5] },
   spotted: { kind: { worm: 1.5, jig: 1.4 } },
@@ -141,8 +155,7 @@ export const OVERRIDES = {
   brown: { kind: { fly: 1.5, spinner: 1.6, crank: 1.2 }, time: [1, 0.5, 1, 0.8] },
   brook: { kind: { fly: 1.9, spinner: 1.5 } },
   cutthroat: { kind: { fly: 1.8, spinner: 1.5 } },
-  laketrout: { kind: { spoon: 1.7, diamond: 1.5, jig: 1.4 } },
-  kokanee: { kind: { spinner: 1.5, fly: 1.2, live: 1.3 }, dep: [4, 12] },
+  kokanee: { kind: { spinner: 1.5, fly: 1.2, live: 1.3 }, dep: [10, 32] },
   walleye: { kind: { jig: 1.7, live: 1.5, crank: 1.4 } },
   muskie: { kind: { swimbait: 1.8, spinner: 1.5, crank: 1.4 } },
   pike: { kind: { spoon: 1.7, spinner: 1.6 } },

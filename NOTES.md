@@ -211,6 +211,8 @@ may share this folder: commit only the files you changed and `git pull --rebase`
   Bait data: `BODY_KIND`/`BODY_TIME`/`OVERRIDES`/`NIGHT_FEEDERS` in `baitData.js`. Contact sheet: `docs/new-species-contact-sheet.png`. Not added: taimen (not a Mekong fish; Siberian), koi, surgeonfish and
   red-finned fish models (broken pose / alpha-card fins), dolphins/whales as catchable (rule still undecided).
 
+- **Deep water** (`docs/water-depths.md`): `locations.js` runs every water through `deepen()` (only below the waterline; depth <= knee untouched so shores, docks, flats, rig and stacks stay put). Tahoe ~230 m, fjord ~240, Kariba ~100, Woods ~65, rivers 50-65, Gulf/Bering/Cabo now have banks, gullies and canyons. Okeechobee unchanged (4-5 m). Real depth is kept to ~100 m, compressed past that. Gameplay: sonar auto-range to 450 m; a sinking lure falls to the bottom (1.4 m/s, faster with line out); bottom species have a habitat `band` in `baitData.js OVERRIDES` (default 0-45 m) used by `bait.js bandFit` for bites and ambient fish; ambient fish deeper than 32 m are mesh-less sonar markers; Chart shows depth shading, contours and soundings. Headless check: `tools/depth_shots.py` (run it under the 0x0FFF / below-normal wrapper); `node tools/_depths.mjs ../src/game/locations.js` prints the depth table.
+
 ## Known gaps / ideas
 - Sea turtles / hermit crabs requested by the user (Sketchfab links), not done: needs the GLBs downloaded by the user or a procedural/Blender build.
 - Net hold has no protected/undersize species rules (the game has none for rod catches either); the haul panel's Release toggle is the only bycatch control.

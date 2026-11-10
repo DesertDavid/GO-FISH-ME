@@ -22,7 +22,7 @@ export function dockProfile(i) {
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-const WATER_RAMP = [[0, [112, 168, 178]], [1.5, [76, 138, 160]], [5, [44, 100, 134]], [15, [24, 64, 98]], [45, [12, 36, 62]], [120, [6, 18, 36]]];
+const WATER_RAMP = [[0, [112, 168, 178]], [1.5, [76, 138, 160]], [5, [44, 100, 134]], [15, [24, 64, 98]], [45, [12, 36, 62]], [120, [7, 22, 44]], [300, [4, 11, 26]]];
 const LAND_LO = [150, 146, 118], LAND_HI = [176, 168, 148];
 
 function ramp(stops, v) {
@@ -95,7 +95,7 @@ export class Chart {
         } else {
           c = ramp(WATER_RAMP, -h);
           // depth contours every 5 m (shallow) / 20 m (deep) as faint lines
-          const m = h > -20 ? 5 : 20, f = (-h) % m;
+          const m = h > -20 ? 5 : h > -100 ? 20 : 50, f = (-h) % m;
           const edge = Math.abs(gx) + Math.abs(gz);
           if (f < Math.max(0.12, edge * step * 0.7)) c = mix(c, [150, 205, 215], 0.22);
         }
@@ -106,6 +106,19 @@ export class Chart {
       }
     }
     ctx.putImageData(img, 0, 0);
+    // soundings: a few depth figures (m) on a loose grid, kept off the shore and off each other
+    ctx.font = '600 10px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(214,232,238,0.62)';
+    const cell = 70;
+    for (let gj = 0; gj < N; gj += cell) {
+      for (let gi = 0; gi < N; gi += cell) {
+        const i = Math.min(N - 1, gi + 18 + ((gi * 7 + gj * 13) % 34)), j = Math.min(N - 1, gj + 18 + ((gi * 11 + gj * 5) % 34)), d = -hs[j * S + i];
+        if (d < 3) continue;
+        let wet = true;   // all of a small neighbourhood must be water
+        for (const [a, b] of [[-9, 0], [9, 0], [0, -9], [0, 9]]) if (hs[Math.min(N, Math.max(0, j + b)) * S + Math.min(N, Math.max(0, i + a))] > -1) wet = false;
+        if (wet) ctx.fillText(String(Math.round(d)), i, j + 3);
+      }
+    }
+    ctx.textAlign = 'left';
     hit = { win, cv };
     cache.set(id, hit);
     return hit;

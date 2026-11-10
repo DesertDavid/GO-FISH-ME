@@ -28,7 +28,7 @@ export function profileOf(sp) {
   const wx = ov.wx || BODY_WX[sp.body] || WX_DEFAULT;
   // depth: bottom fish hug the bottom; others get a per-species centre (size, hash, hand range)
   let depth;
-  if (sp.depth === 'b') depth = { bottom: true, gap: T.depth.bottomGap * (0.8 + hash01(sp.id + 'g') * 0.5) };
+  if (sp.depth === 'b') depth = { bottom: true, gap: T.depth.bottomGap * (0.8 + hash01(sp.id + 'g') * 0.5), band: ov.band || [0, T.depth.bandHi] };
   else if (ov.dep) depth = { c: (ov.dep[0] + ov.dep[1]) / 2, s: Math.max(0.8, (ov.dep[1] - ov.dep[0]) / 2) };
   else if (sp.depth === 's') depth = { c: T.depth.surfaceC + hash01(sp.id + 's') * 0.5, s: T.depth.surfaceSigma };
   else depth = { c: clamp(T.depth.midC + Math.log10(Math.max(1, typ)) * T.depth.sizeShift + (hash01(sp.id + 'm') - 0.5) * 2 * T.depth.jitter, T.depth.midMin, T.depth.midMax), s: T.depth.midSigma };
@@ -91,10 +91,19 @@ export function prefDepth(sp, hour) {
   return { c: d.c * mul, s: d.s };
 }
 
+// how well the bottom depth (m) suits a bottom species' habitat band: 1 inside, falling off outside
+export function bandFit(sp, bottom) {
+  const d = profileOf(sp).depth;
+  if (!d.bottom) return 1;
+  const [lo, hi] = d.band;
+  const z = bottom < lo ? (lo - bottom) / (0.4 * lo + 1) : bottom > hi ? (bottom - hi) / (0.35 * hi + 1) : 0;
+  return Math.exp(-0.5 * z * z);
+}
+
 export function depthFit(sp, depth, bottom, hour) {
   const d = prefDepth(sp, hour);
   const z = d.bottom ? (bottom - depth) / d.gap : (depth - d.c) / d.s;
-  return clamp(Math.exp(-0.5 * z * z), T.floor.depth, 1);
+  return clamp(Math.exp(-0.5 * z * z) * (d.bottom ? Math.max(0.12, bandFit(sp, bottom)) : 1), T.floor.depth * (d.bottom ? 0.5 : 1), 1);
 }
 
 export function colorFit(sp, lure, hour, wxId) {
@@ -154,7 +163,7 @@ export function hintFor(sp) {
     return [k, m];
   }).sort((a, b) => b[1] - a[1]).filter(([, m]) => m >= 0.9).slice(0, 3).map(([k]) => k);
   const d = profileOf(sp).depth;
-  const depth = d.bottom ? { bottom: true } : { lo: Math.max(0, d.c - d.s), hi: d.c + d.s, c: d.c };
+  const depth = d.bottom ? { bottom: true, band: d.band } : { lo: Math.max(0, d.c - d.s), hi: d.c + d.s, c: d.c };
   const sh = (v) => Math.round(v * 100) / 100;
   return { kinds, labels: kinds.map((k) => KIND_LABEL[k]), depth, time: p.time.map(sh), wx: p.wx.map(sh), color: COL_CLASSES[p.col.indexOf(Math.max(...p.col))] };
 }

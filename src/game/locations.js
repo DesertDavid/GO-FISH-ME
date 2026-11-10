@@ -127,7 +127,14 @@ export const LOCATIONS = {
     ...base, id: 'gulf', name: 'Gulf of Mexico Offshore', region: '60 mi south of Louisiana', water: 'offshore', price: 15000,
     blurb: 'Blue water around the oil rigs: tuna, mahi, wahoo and blue marlin.',
     wind: 8, fetch: 300, swell: 0.5, waterLook: WATER.deepBlue, sky: { turbidity: 2.2, clouds: 0.35 }, fog: 1 / 30000, rig: true,
-    height: () => -300,
+    height(x, z) {
+      // open Gulf: 150-300 m, with salt-dome banks that come up to ~40 m (one under the rig)
+      const base = 170 + 130 * sm(-0.35, 0.55, fbm(x * 0.0006 + 3, z * 0.0006 - 8, 4, 31));
+      const bank = sm(0.3, 0.62, fbm(x * 0.0017 + 7, z * 0.0017, 3, 33));
+      const rig = Math.exp(-(((x - 260) ** 2 + (z + 420) ** 2) / 380 ** 2));
+      const up = Math.max(bank * 0.9, rig);
+      return -(base + (46 - base) * up) + 4 * fbm(x * 0.02, z * 0.02, 2, 35) * up;
+    },
     pool: { yellowfin: 12, blackfin: 12, mahi: 16, wahoo: 7, kingmackerel: 12, redsnapper: 12, amberjack: 8, gag: 6, redgrouper: 6, sailfish: 4, bluemarlin: 1.5, whitemarlin: 2, swordfish: 1.5, mako: 1.5, hammerhead: 1, tigershark: 1, skipjack: 10, cobia: 4, goliath: 1, bluefin: 0.4, triggerfish: 8, redporgy: 8, angelfish: 3 },
     net: { menhaden: 45, sardine: 20, anchovy: 20, skipjack: 8, redsnapper: 4, kingmackerel: 3 },
   },
@@ -159,7 +166,12 @@ export const LOCATIONS = {
     ...base, id: 'bering', name: 'Bering Sea', region: 'Off Dutch Harbor, Alaska', water: 'offshore', price: 25000,
     blurb: 'Big seas, cold spray and the richest fishing grounds on Earth.',
     wind: 12, fetch: 600, swell: 1.2, swellDir: 40, chop: 1, waterLook: WATER.northSea, sky: { turbidity: 3.5, clouds: 0.88 }, fog: 1 / 8000,
-    height: () => -200,
+    height(x, z) {
+      // outer shelf: 70-130 m on the flats, gullies and a shelf break dropping toward 220 m
+      const f = fbm(x * 0.0008 + 1, z * 0.0008 + 9, 4, 41);
+      const gully = Math.abs(fbm(x * 0.0021 + 4, z * 0.0021, 3, 43));
+      return -(78 + 40 * (0.5 + f) + 60 * sm(0.05, -0.3, f) + 55 * sm(0.14, 0.0, gully) + 25 * sm(-300, 1400, x * 0.7 + z * 0.7));
+    },
     pool: { pacificcod: 25, pacifichalibut: 12, sablefish: 10, chum: 10, alaskapollock: 20, chinook: 6, coho: 6, pacificherring: 6, dollyvarden: 6, lingcod: 6, yelloweye: 4, pink: 5 },
     net: { alaskapollock: 40, pacificherring: 25, pacificcod: 15, capelin: 15, sablefish: 5, chum: 5 },
   },
@@ -248,6 +260,41 @@ export const LOCATIONS = {
     net: { sardine: 50, anchovy: 28, skipjack: 10, sierra: 6, yellowtail: 3, bonito: 6 },
   },
 };
+
+// ---- bathymetry --------------------------------------------------------------------------
+// The shapes above set each water's outline and shallows. This pass deepens only what is under
+// the waterline: depth <= knee is untouched (shores, docks, flats stay put) and deeper water is
+// stretched from the old maximum (ref) to the real-world-inspired max, with holes and humps from
+// noise. See docs/water-depths.md for the scale and the sources.
+const deepen = (h, x, z, o) => {
+  if (h > -o.knee) return h;
+  const t = Math.max(0, (-h - o.knee) / (o.ref - o.knee));
+  const shape = Math.pow(t, o.pow);
+  const n = fbm(x * o.fs + o.seed, z * o.fs - o.seed, 3, o.seed | 0);               // -1..1: slow swells in the floor
+  const m = fbm(x * o.fs * 2.7 - o.seed, z * o.fs * 2.7 + 3, 3, (o.seed | 0) + 5);  // finer: holes and humps
+  let d = o.knee + (o.max - o.knee) * shape * (1 + o.feat * n);
+  d += (o.hole || 0) * sm(0.35, 0.75, m) * Math.min(1, shape * 2);                  // deep holes / scours
+  d -= (o.hump || 0) * sm(0.35, 0.75, -m) * Math.min(1, shape * 2) * Math.min(1, d / o.max); // humps and ledges
+  return -Math.max(o.knee, d);
+};
+const DEEP = {
+  woods: { knee: 4, ref: 16, max: 54, pow: 2.0, feat: 0.2, fs: 0.0016, seed: 3, hole: 6, hump: 7 },
+  tahoe: { knee: 6, ref: 110, max: 225, pow: 0.85, feat: 0.12, fs: 0.0012, seed: 5, hole: 10, hump: 14 },
+  columbia: { knee: 4, ref: 17, max: 52, pow: 1.1, feat: 0.3, fs: 0.003, seed: 7, hole: 10, hump: 6 },
+  amazon: { knee: 4, ref: 12, max: 48, pow: 1.1, feat: 0.3, fs: 0.003, seed: 9, hole: 10, hump: 5 },
+  mekong: { knee: 4, ref: 16, max: 62, pow: 1.9, feat: 0.25, fs: 0.003, seed: 11, hole: 14, hump: 8 },
+  kariba: { knee: 4, ref: 31, max: 95, pow: 1.35, feat: 0.15, fs: 0.002, seed: 13, hole: 8, hump: 14 },
+  chesapeake: { knee: 5, ref: 18, max: 48, pow: 1.5, feat: 0.2, fs: 0.003, seed: 15, hole: 5, hump: 4 },
+  keys: { knee: 2.8, ref: 6, max: 16, pow: 1.0, feat: 0.2, fs: 0.003, seed: 17, hole: 3 },
+  fjord: { knee: 6, ref: 86, max: 220, pow: 0.8, feat: 0.12, fs: 0.002, seed: 19, hole: 20, hump: 25 },
+  reef: { knee: 6, ref: 42, max: 190, pow: 0.9, feat: 0.1, fs: 0.002, seed: 21, hole: 10, hump: 8 },
+  cabo: { knee: 7, ref: 300, max: 400, pow: 1.0, feat: 0.1, fs: 0.0016, seed: 23, hole: 30, hump: 20 },
+};
+for (const [id, o] of Object.entries(DEEP)) {
+  const L = LOCATIONS[id], raw = L.height;
+  L.rawHeight = raw;
+  L.height = (x, z) => deepen(raw(x, z), x, z, o);
+}
 
 export const LOCATION_ORDER = ['okeechobee', 'woods', 'tahoe', 'columbia', 'chesapeake', 'keys', 'mekong', 'amazon', 'kariba', 'fjord', 'gulf', 'cabo', 'reef', 'bering'];
 

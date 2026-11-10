@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SPECIES_BY_ID, MORPHS } from './species.js';
 import { buildFish, fishLengthM } from './fishMesh.js';
-import { holdDepth } from './bait.js';
+import { holdDepth, bandFit } from './bait.js';
 
 // A few fish cruising near the boat, seen through the water (refraction + absorption do the rest).
 export class AmbientFish {
@@ -15,9 +15,11 @@ export class AmbientFish {
     this.sum = pool.reduce((a, [, w]) => a + w, 0);
   }
 
-  pick() {
-    let r = Math.random() * this.sum;
-    for (const [id, w] of this.pool) { r -= w; if (r <= 0) return SPECIES_BY_ID[id]; }
+  // pool pick, weighted by whether this water's depth suits a bottom species (cod in a 200 m hole, not walleye)
+  pick(bottom = 5) {
+    const w = this.pool.map(([id, n]) => (SPECIES_BY_ID[id] ? n * Math.max(0.03, bandFit(SPECIES_BY_ID[id], bottom)) : 0));
+    let r = Math.random() * w.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) return SPECIES_BY_ID[this.pool[i][0]]; }
     return SPECIES_BY_ID[this.pool[0][0]];
   }
 
@@ -30,15 +32,21 @@ export class AmbientFish {
       const x = center.x + Math.cos(a) * r, z = center.z + Math.sin(a) * r;
       const bottom = -c.heightAt(x, z);
       if (bottom > 1.6) {
-        const sp = this.pick();
+        const sp = this.pick(bottom);
         const lb = sp.lb[0] + (sp.lb[1] - sp.lb[0]) * Math.random();
-        const { m } = fishLengthM(sp, Math.min(lb, 60));
-        const model = buildFish(sp, MORPHS[0], { patchProp: c.patchProp });
-        model.group.scale.setScalar(m);
         // hold where this species likes to be at this hour (so the fish finder hints at the right depth)
         const depth = holdDepth(sp, bottom, c.hour ? c.hour() : 12);
+        let model;
+        if (depth > 32) {
+          // too deep to be seen through the water: a bare marker keeps the sonar honest, no mesh to build
+          model = { group: new THREE.Group(), body: {}, uniforms: { uSwim: { value: { x: 0 } } } };
+        } else {
+          const { m } = fishLengthM(sp, Math.min(lb, 60));
+          model = buildFish(sp, MORPHS[0], { patchProp: c.patchProp });
+          model.group.scale.setScalar(m);
+          c.scene.add(model.group);
+        }
         model.group.position.set(x, -depth, z);
-        c.scene.add(model.group);
         this.fish.push({ sp, lb, model, heading: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 0.6, turn: 0, depth, t: Math.random() * 10 });
       }
     }

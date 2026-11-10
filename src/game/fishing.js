@@ -204,7 +204,8 @@ export class Fishing {
     const moved = horiz(prev, this.lure) / Math.max(dt, 1e-4);
     this.moving = moved > 0.25;
     this.sinkT = reeling || this.moving ? Math.max(0, this.sinkT - BAIT.sink.fall * dt) : this.sinkT + dt;
-    this.depth += THREE.MathUtils.clamp(this.targetDepth() - this.depth, -1.2 * dt, 0.7 * dt);
+    const fall = 0.7 + 0.04 * Math.min(80, this.depth);   // heavier line out falls faster in deep water
+    this.depth += THREE.MathUtils.clamp(this.targetDepth() - this.depth, -(1.2 + 0.05 * Math.min(80, this.depth)) * dt, fall * dt);
     this.lure.y = c.waterAt(0) - (lure.bobber ? 0 : this.depth);
     const home = reeling && horiz(tip, this.lure) < 3;
     if (c.heightAt(this.lure.x, this.lure.z) > -0.05 || home) {
