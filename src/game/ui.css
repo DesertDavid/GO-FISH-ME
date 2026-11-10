@@ -207,6 +207,8 @@ table.well td { padding: 7px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0
 table.well td.v { font-variant-numeric: tabular-nums; color: var(--accent-2); }
 table.well td.b { text-align: right; white-space: nowrap; }
 table.well td.b .btn { padding: 4px 10px; font-size: 12px; margin-left: 4px; }
+.holdscroll { max-height: 34vh; overflow-y: auto; }
+.holdscroll table.well th { position: sticky; top: 0; background: rgba(12, 15, 18, 0.92); }
 .cond { width: 70px; height: 4px; background: rgba(255, 255, 255, 0.12); border-radius: 2px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 8px; }
 .cond i { display: block; height: 100%; background: #6fbf73; }
 .cond.mid i { background: #d8b440; }

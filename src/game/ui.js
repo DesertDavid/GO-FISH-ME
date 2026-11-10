@@ -772,8 +772,8 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       const btns = (access ? `<button class="btn primary" data-act="sellspecies" data-id="${h.sp}">Sell</button>` : '') + `<button class="btn" data-act="tiphold" data-id="${h.sp}">Tip out</button>`;
       return `<tr><td><b>${esc(sp.name)}</b>${h.sp === fotd ? ' <span class="badge">Fish of the day</span>' : ''}</td><td>${h.count.toLocaleString()}</td><td>${lbs(h.lb)}</td><td><div class="cond ${holdTone(h)}"><i style="width:${pct}%"></i></div><span class="small">${holdCondition(h)}</span></td><td class="v">${money(v)}</td><td class="b">${btns}</td></tr>`;
     }).join('');
-    const holdHtml = hold.length ? `<h5 class="board-h">Hold ${Math.round(holdLb(hold)).toLocaleString()} of ${hcap.toLocaleString()} lb · ${holdCount(hold).toLocaleString()} fish</h5>
-      <table class="well"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Condition</th><th>Value</th><th></th></tr>${holdRows}</table>
+    const holdHtml = hold.length ? `<h5 class="board-h">Hold ${Math.round(holdLb(hold)).toLocaleString()}${hcap ? ` of ${hcap.toLocaleString()}` : ''} lb · ${holdCount(hold).toLocaleString()} fish${hcap ? '' : ' · this boat has no hold, so nothing more goes in'}</h5>
+      <div class="holdscroll"><table class="well"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Condition</th><th>Value</th><th></th></tr>${holdRows}</table></div>
       <p class="tips">The hold keeps fish on ice and seawater, but they still soften by the hour. A wholesale lot moves the price slower than single fish, and a buyer pays for what is still fresh.</p>` : '';
     // price board: this location's fish, today's $/lb vs the usual
     const ids = Object.entries(g.loc.pool || {}).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id]) => id).filter((id) => SPECIES_BY_ID[id]);
@@ -806,6 +806,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     }).join('');
     return `<div class="m-head"><h2>Haul in!</h2><span>hold ${Math.round(have + taken).toLocaleString()} / ${h.cap.toLocaleString()} lb</span></div><table class="haul"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Value</th><th></th></tr>${body}</table>
       ${h.morphs.length ? `<p class="tips">Rare fish spotted in the haul: ${h.morphs.map((m) => `<b>${m.morph.name} ${esc(m.sp.name)}</b>`).join(', ')} (logged in your journal)</p>` : ''}
+      ${(() => { const kept = h.rows.filter((r) => r.keep).reduce((q, r) => q + r.lb, 0) - taken; return kept > 1 ? `<p class="tips warn">The hold is short ${Math.round(kept).toLocaleString()} lb of room. That goes over the side, cheapest per pound first. Release more here to choose what stays.</p>` : ''; })()}
       <p class="tips">Nothing is paid out at sea. The hold goes to a fish market, and the longer it sits the less it fetches. Best price per pound goes in first when the hold is short on room.</p>
       <div class="actions"><button class="btn gold" data-act="stow" ${taken > 0 ? '' : 'disabled'}>Stow ${Math.round(taken).toLocaleString()} lb</button><button class="btn" data-act="haulrelease">Release all</button></div>`;
   }
