@@ -165,7 +165,8 @@ export function buildScenery(loc, heightAt, patchProp) {
   group.userData.colliders = colliders;
   const veg = group.userData.veg = [];   // instanced plants the vegetation-density setting thins out
   for (const [type, count, minH, maxH] of loc.trees || []) {
-    const variants = [0, 1, 2].map(() => TREE_BUILDERS[type](rand));
+    const loose = !['snag', 'cabin', 'stilt'].includes(type);   // plants, not structures
+    const variants = Array.from({ length: loose ? 6 : 3 }, () => TREE_BUILDERS[type](rand));
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: type === 'palm' || type === 'reed' ? THREE.DoubleSide : THREE.FrontSide });
     patchProp(mat);
     const spots = [];
@@ -177,19 +178,30 @@ export function buildScenery(loc, heightAt, patchProp) {
       if (slope > (type === 'pine' || type === 'cactus' ? 3.5 : type === 'snag' ? 9 : 2)) continue;
       if (Math.hypot(x, z) < (type === 'snag' ? 90 : 40)) continue;
       if (type === 'snag' && fbm(x * 0.005, z * 0.005, 3, 33) < 0.08) continue;   // drowned groves, not an even scatter
+      // plants grow in stands with gaps between, not an even scatter: accept by a density field
+      if (loose && rand() > Math.min(1, Math.max(0.06, (fbm(x * 0.006, z * 0.006, 3, 71 + type.length) + 0.25) * 2.2))) continue;
       const y = type === 'cabin' ? Math.max(h, 0.6) : type === 'snag' ? -8.5 : h - 0.2;
-      spots.push({ x, y, z, s: type === 'snag' ? 0.88 + rand() * 0.25 : 0.7 + rand() * 0.7, r: rand() * Math.PI * 2, v: Math.floor(rand() * 3) });
+      // a few are suckers, a few are old: size is skewed small with an occasional big one
+      const big = loose && rand() < 0.06 ? 1.35 : 1;
+      spots.push({ x, y, z, s: (type === 'snag' ? 0.88 + rand() * 0.25 : (0.6 + rand() * rand() * 1.1) * big), r: rand() * Math.PI * 2, v: Math.floor(rand() * (loose ? 6 : 3)), t: rand() });
     }
     if (type === 'snag') for (const s of spots) colliders.push({ x: s.x, z: s.z, r: 0.34 * s.s });    variants.forEach((geo, v) => {
       const mine = spots.filter((s) => s.v === v);
       if (!mine.length) return;
       const mesh = new THREE.InstancedMesh(geo, mat, mine.length);
-      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), ax = new THREE.Vector3();
+      const col = new THREE.Color();
       mine.forEach((s, i) => {
         const sy = type === 'snag' ? 1 : s.s * (0.85 + rand() * 0.3);   // snags keep their waterline stain at the surface
-        m.compose(new THREE.Vector3(s.x, s.y, s.z), q.setFromAxisAngle(up, s.r), new THREE.Vector3(s.s, sy, s.s));
+        const sx = loose ? s.s * (0.82 + rand() * 0.36) : s.s, sz = loose ? s.s * (0.82 + rand() * 0.36) : s.s;
+        q.setFromAxisAngle(up, s.r);
+        if (loose && rand() < 0.4) { q2.setFromAxisAngle(ax.set(Math.cos(s.r * 3), 0, Math.sin(s.r * 3)), (rand() - 0.5) * 0.16); q.premultiply(q2); }   // lean
+        m.compose(new THREE.Vector3(s.x, s.y, s.z), q, new THREE.Vector3(sx, sy, sz));
         mesh.setMatrixAt(i, m);
+        // every tree its own tint (sun-bleached, dry, deep green), multiplied into the vertex colours
+        if (loose) { const k = 0.8 + s.t * 0.3; col.setRGB(k * (1.04 - s.t * 0.1), k, k * (0.92 + s.t * 0.1)); mesh.setColorAt(i, col); }
       });
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.computeBoundingSphere();
       mesh.layers.enable(1);
       mesh.castShadow = true;
