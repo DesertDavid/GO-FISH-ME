@@ -455,7 +455,7 @@ export class Game {
     this.keepers.update(dt, bp, this.camera.position);
     this.birds.update(dt, bp, this.nightLevel(), this.camera.position);
     this.fishLife.update(dt, bp);
-    this.audio.update(dt, REELS[this.save.equip.reel].ratio);
+    this.audio.update(dt, REELS[this.save.equip.reel].ratio, this);
 
     // clock: one real second = one game minute; nights are skipped
     this.weather.update(dt, dt / 60, this.camera, { hour: this.save.hour, day: this.save.day || 1 });
@@ -773,6 +773,7 @@ export class Game {
     f.impacts.push({ x, z, t: f.time, amp, size });
     if (f.impacts.length > 8) f.impacts.shift();
     this.fishLife?.noise(x, z, amp * size);
+    this.audio.splashAt(x, z, amp, size);
   }
 
   boatSpeed() { return this.foot ? 0 : this.boat?.speed || 0; }

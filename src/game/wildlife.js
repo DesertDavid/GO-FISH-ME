@@ -232,6 +232,7 @@ export class Wildlife {
       if (t < 4) { y = -4 + t; pitch = 0.05; }
       else if (t < 14) { y = -0.9 + Math.sin(t * 0.8) * 0.15; pitch = 0; }
       else { const k = Math.min(1, (t - 14) / 6); y = -0.9 - k * 6; pitch = -k * 1.1; }
+      if (e.spout && !m.blew && t > 4.5) { m.blew = true; c.audio?.blow(px + fx * 3.5, pz + fz * 3.5); }
       if (e.spout) {
         const s = t > 4.5 && t < 7 ? Math.sin(((t - 4.5) / 2.5) * Math.PI) : 0;
         e.spout.material.opacity = s * 0.75;
