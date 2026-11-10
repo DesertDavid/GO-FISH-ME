@@ -38,9 +38,9 @@ import { Buildings } from './buildings.js';
 import { Keepers } from './keepers.js';
 import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
 import { SPECIES_BY_ID } from './species.js';
+import { catchXp, challengeXp, tournamentXp, levelOf, levelInfo, unlocksAt, gateLevel, meets, hasPermit, permitLeft, permitPrice, PERMIT_OPTIONS, absHours, respoolCost, SHARPEN_COST, restockCost, WEAR_DEFAULT, effectiveTest } from './progress.js';
 
 const TABLES = { rods: RODS, reels: REELS, lines: LINES, lures: LURES };
-import { catchXp, challengeXp, tournamentXp, levelOf, levelInfo, unlocksAt, gateLevel, meets, hasPermit, permitLeft, permitPrice, PERMIT_OPTIONS, absHours, respoolCost, SHARPEN_COST, restockCost, WEAR_DEFAULT, effectiveTest } from './progress.js';
 const KIND_OF = { rods: 'rod', reels: 'reel', lines: 'line', lures: 'lure' };
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -879,21 +879,21 @@ export class Game {
       this.splash(at.x, at.z, 0.05, 0.5);
     }
     this.save = { ...p.res.save, cash, stats, livewell, market };
+    let xpGain = catchXp(p.f.sp, p.f.morph, p.f.lb, p.res).xp;
     // daily challenges
     const ch = recordCatch(this.save.challenges, p.f.sp, p.f.morph, p.f.lb);
     let bonus = 0;
     for (const c of ch.completed) {
       bonus += c.reward;
+      xpGain += challengeXp(c.reward);
       this.ui.toast(`Challenge complete: ${c.text}  +$${c.reward.toLocaleString()}`, 'good');
     }
     this.save = { ...this.save, challenges: ch.state, cash: this.save.cash + bonus, stats: { ...this.save.stats, earned: this.save.stats.earned + bonus } };
-    let xpGain = catchXp(p.f.sp, p.f.morph, p.f.lb, p.res).xp;
     if (bonus) this.audio.play('cash');
     this.ui.challenges(this.save.challenges);
     // tournament weigh-in (kept or released, it's weighed at the boat)
     if (this.tour && !this.tour.done && this.tour.record(p.f.sp, p.f.lb)) {
       this.ui.toast(`Weighed in: ${p.f.lb.toFixed(2)} lb for the ${this.tour.def.name}`, 'good');
-      xpGain += challengeXp(c.reward);
       this.ui.leaderboard(this.tour);
     }
     this.addXp(xpGain);
@@ -1047,6 +1047,7 @@ export class Game {
     for (const m of morphs) save = logCatch(save, m.sp.id, m.morph.id, m.sp.lb[1]).save;
     this.save = save;
     const total = rows.reduce((a, r) => a + r.value, 0);
+    this.addXp(Math.min(80, Math.round(Math.sqrt(total) / 3)));   // net hauls: small, capped XP
     this.ui.showHaul(rows, morphs, total);
   }
 
@@ -1055,17 +1056,8 @@ export class Game {
     this.audio.play('cash');
     this.ui.toast(`Sold the haul for $${Math.round(h.total).toLocaleString()}`, 'good');
     this.ui.hud();
-    this.addXp(Math.min(80, Math.round(Math.sqrt(total) / 3)));   // net hauls: small, capped XP
   }
 
-  buy(kind, id) {
-    const it = TABLES[kind][id];
-    if (!it || this.save[kind].includes(id) || this.save.cash < it.price) return;
-    this.commit({ cash: this.save.cash - it.price, [kind]: [...this.save[kind], id] });
-    this.equip(KIND_OF[kind], id);
-    this.audio.play('cash');
-    this.ui.toast(`Bought ${it.name}`, 'good');
-  }
   // one toast when a permit runs out or is about to
   permitWatch() {
     const left = permitLeft(this.save, this.loc.id), had = this.permitHad;
@@ -1146,9 +1138,19 @@ export class Game {
   }
 
 
-  equip(kind, id) {
-    if (this.fishing.busy() && kind !== 'lure') { this.ui.toast('Reel in first.', 'info'); return; }
+  buy(kind, id) {
+    const it = TABLES[kind][id];
+    if (!it || this.save[kind].includes(id) || this.save.cash < it.price) return;
     if (kind !== 'lures' && !meets(this.save, kind, id)) { this.ui.toast(`Needs angler level ${gateLevel(kind, id)}.`, 'info'); return; }
+    this.commit({ cash: this.save.cash - it.price, [kind]: [...this.save[kind], id] });
+    this.equip(KIND_OF[kind], id);
+    this.audio.play('cash');
+    this.ui.toast(`Bought ${it.name}`, 'good');
+  }
+
+  equip(kind, id) {
+    if (kind === 'lure' && this.save.wear.lost.includes(id)) { this.ui.toast(`Out of ${LURES[id].name.toLowerCase()} - restock at the tackle shop (B).`, 'info'); return; }
+    if (this.fishing.busy() && kind !== 'lure') { this.ui.toast('Reel in first.', 'info'); return; }
     this.commit({ equip: { ...this.save.equip, [kind]: id } });
     if (kind === 'reel' || kind === 'line') this.fishing.drag = null;
     this.applyGear();
@@ -1156,9 +1158,9 @@ export class Game {
   }
 
   buyBoat(id) {
-    if (kind === 'lure' && this.save.wear.lost.includes(id)) { this.ui.toast(`Out of ${LURES[id].name.toLowerCase()} - restock at the tackle shop (B).`, 'info'); return; }
     const b = BOATS[id];
     if (this.save.boats.includes(id) || this.save.cash < b.price) return;
+    if (!meets(this.save, 'boats', id)) { this.ui.toast(`Needs angler level ${gateLevel('boats', id)}.`, 'info'); return; }
     this.commit({ cash: this.save.cash - b.price, boats: [...this.save.boats, id] });
     this.audio.play('cash');
     this.ui.toast(`You bought a ${b.name}!`, 'good');
@@ -1167,7 +1169,6 @@ export class Game {
 
   async switchBoat(id) {
     if (this.fishing.busy()) { this.ui.toast('Reel in first.', 'info'); return; }
-    if (!meets(this.save, 'boats', id)) { this.ui.toast(`Needs angler level ${gateLevel('boats', id)}.`, 'info'); return; }
     if (this.net.state !== 'stowed') { this.ui.toast('Haul the net first.', 'info'); return; }
     const p = this.boat.position.clone(), yaw = this.boat.heading();
     this.boat.dispose(this.e.floaters);
@@ -1182,6 +1183,7 @@ export class Game {
   unlock(id) {
     const l = LOCATIONS[id];
     if (this.save.unlocked.includes(id) || this.save.cash < l.price) return;
+    if (!meets(this.save, 'locs', id)) { this.ui.toast(`Needs angler level ${gateLevel('locs', id)}.`, 'info'); return; }
     this.commit({ cash: this.save.cash - l.price, unlocked: [...this.save.unlocked, id] });
     this.audio.play('cash');
     this.ui.toast(`Waters opened: ${l.name}. You'll need a fishing permit there.`, 'good');
@@ -1190,7 +1192,6 @@ export class Game {
   travel(id) {
     const l = LOCATIONS[id];
     const boat = this.save.boats.includes(this.save.boat) && BOATS[this.save.boat].waters.includes(l.water) ? this.save.boat : this.save.boats.find((b) => BOATS[b].waters.includes(l.water));
-    if (!meets(this.save, 'locs', id)) { this.ui.toast(`Needs angler level ${gateLevel('locs', id)}.`, 'info'); return; }
     this.commit({ location: id, boat: boat || this.save.boat, hour: Math.max(6, Math.min(this.save.hour, 15)) });
     location.href = location.pathname;
   }
