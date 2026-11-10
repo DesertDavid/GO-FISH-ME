@@ -172,7 +172,7 @@ export class Keepers {
     return best;
   }
 
-  who() { const g = this.g; const p = g.foot || g.boat.position; return this.nearest(p.x, p.z); }
+  who() { const g = this.g; const p = g.foot || g.boat?.body?.pos; return p ? this.nearest(p.x, p.z) : null; }   // the boat has no body while a new one loads (switchBoat)
 
   update(dt, pos, cam) {
     this.t += dt;
