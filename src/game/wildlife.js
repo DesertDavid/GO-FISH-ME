@@ -186,6 +186,8 @@ export class Wildlife {
     for (let i = this.events.length - 1; i >= 0; i--) {
       const e = this.events[i];
       e.t += dt;
+      // swimmers only follow their heading for a few seconds: leave before reaching shallows or land (they'd cut through the shore)
+      { const sp = e.kind === 'whale' ? 1.6 : 6, d = e.t * sp + 8; if (-c.heightAt(e.x + Math.cos(e.heading) * d, e.z - Math.sin(e.heading) * d) < (e.kind === 'whale' ? 12 : 2.5)) e.t = e.life + 1; }
       if (e.t > e.life) { e.members.forEach((m) => this.group.remove(m.mesh)); if (e.spout) this.group.remove(e.spout); this.events.splice(i, 1); continue; }
       for (const m of e.members) this.animate(e, m, dt);
     }
