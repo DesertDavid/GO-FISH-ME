@@ -3,6 +3,7 @@
 // Gate tables live here (not in gear.js / locations.js) so those files stay free for other work.
 import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 import { LOCATIONS } from './locations.js';
+import { cleanHold } from './livewell.js';
 
 export const SAVE_VERSION = 2;
 export const MAX_LEVEL = 25;
@@ -104,6 +105,7 @@ export function upgradeSave(s) {
   if (!s || typeof s !== 'object') return s;
   const out = { ...s };
   out.wear = { ...WEAR_DEFAULT, ...(s.wear || {}), lost: Array.isArray(s.wear?.lost) ? s.wear.lost.filter((id) => LURES[id]) : [] };
+  out.hold = cleanHold(s.hold);   // net-boat hold stacks (optional; old saves have none)
   out.permits = s.permits && typeof s.permits === 'object' ? s.permits : {};
   // shopkeeper relationships (optional field; old saves just start with strangers)
   out.rapport = {};

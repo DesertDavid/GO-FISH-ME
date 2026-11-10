@@ -37,7 +37,7 @@ import { Chart, SERVICE_INFO } from './chart.js';
 import { Obstacles } from './obstacles.js';
 import { Buildings } from './buildings.js';
 import { Keepers } from './keepers.js';
-import { wellSlots, keepFish, Market, ageWell, condition } from './livewell.js';
+import { wellSlots, keepFish, Market, ageWell, condition, ageHold, holdCap, holdLb, holdValue, holdUnits, planHaul, stowStacks } from './livewell.js';
 import { SPECIES_BY_ID, rollMorph } from './species.js';
 import { catchXp, challengeXp, tournamentXp, levelOf, levelInfo, unlocksAt, gateLevel, meets, hasPermit, permitLeft, permitPrice, PERMIT_OPTIONS, absHours, respoolCost, SHARPEN_COST, restockCost, WEAR_DEFAULT, effectiveTest } from './progress.js';
 
@@ -488,6 +488,9 @@ export class Game {
     this.save.played = (this.save.played || 0) + dt;
     for (const k of ageWell(this.save.livewell, dt / 60, this.boatMods().wellSlow * (this.boatMods().shade ? 0.75 : 1))) {
       this.ui.toast(`The ${SPECIES_BY_ID[k.sp].name.toLowerCase()} in your livewell died. Sell soon - it's worth less now.`, 'bad');
+    }
+    for (const k of ageHold(this.save.hold, dt / 60, this.boatMods().wellSlow)) {
+      this.ui.toast(`The ${SPECIES_BY_ID[k.sp].name.toLowerCase()} in the hold has spoiled. Sell it for what it fetches.`, 'bad');
     }
     this.sunTimer += dt;
     // re-bake the sky every 15 s, but every 2 s around dusk and dawn so the change is smooth
@@ -1079,21 +1082,76 @@ export class Game {
     this.ui.challenges(this.save.challenges);
   }
 
+  // a net haul: journal entries now, then a panel to decide what goes in the hold
   onHaul(rows, morphs) {
     let save = this.save;
     for (const r of rows) save = logCatch(save, r.sp.id, 'normal', r.sp.lb[1]).save;
     for (const m of morphs) save = logCatch(save, m.sp.id, m.morph.id, m.sp.lb[1]).save;
     this.save = save;
-    const total = rows.reduce((a, r) => a + r.value, 0);
-    this.addXp(Math.min(80, Math.round(Math.sqrt(total) / 3)));   // net hauls: small, capped XP
-    this.ui.showHaul(rows, morphs, total);
+    const cap = holdCap(BOATS[save.boat], save, save.boat), room = Math.max(0, cap - holdLb(save.hold));
+    this.ui.showHaul(rows.map((r) => ({ ...r, id: r.sp.id, keep: true })), morphs, { cap, room });
   }
 
-  sellHaul(h) {
-    this.commit({ cash: this.save.cash + h.total, stats: { ...this.save.stats, earned: this.save.stats.earned + h.total } });
-    this.audio.play('cash');
-    this.ui.toast(`Sold the haul for $${Math.round(h.total).toLocaleString()}`, 'good');
+  // put the planned stacks in the hold; rows left out or over capacity go back over the side
+  stowHaul(rows, room) {
+    const plan = planHaul(rows, room);
+    const stacks = [];
+    let kept = 0, value = 0, left = 0;
+    rows.forEach((r, i) => {
+      const t = plan[i];
+      if (t.lb > 0) { stacks.push({ sp: r.sp.id, lb: t.lb, count: t.count }); kept += t.lb; value += r.value * (t.lb / r.lb); }
+      left += r.lb - t.lb;
+    });
+    if (stacks.length) {
+      this.commit({ hold: stowStacks(this.save.hold, stacks) });
+      this.addXp(Math.min(80, Math.round(Math.sqrt(value) / 3)));   // net hauls: small, capped XP, on what you keep
+      this.audio.play('livewell');
+    }
+    this.ui.toast(stacks.length
+      ? `${Math.round(kept).toLocaleString()} lb in the hold${left > 1 ? `, ${Math.round(left).toLocaleString()} lb back over the side` : ''}.`
+      : 'All of it back over the side.', stacks.length ? 'good' : 'info');
     this.ui.hud();
+    return { kept, left };
+  }
+
+  // sell hold stacks at the market: ids = species ids or 'all'; returns the total
+  sellHold(ids) {
+    const access = this.marketAccess();
+    if (!access) { this.ui.toast(`No buyer here. Bring the hold to a dock. ${this.nearestDockText()}`, 'info'); return 0; }
+    let save = this.save, total = 0, lb = 0;
+    const sold = [];
+    for (const s of save.hold || []) {
+      if (ids !== 'all' && !ids.includes(s.sp)) continue;
+      total += holdValue(this.market, save, s, access === 'buyer');
+      lb += s.lb;
+      sold.push(s.sp);
+      save = { ...save, market: this.market.recordSale(save, s.sp, holdUnits(s)) };
+    }
+    if (!sold.length) return 0;
+    save = { ...save, hold: save.hold.filter((s) => !sold.includes(s.sp)), cash: save.cash + total, stats: { ...save.stats, earned: save.stats.earned + total } };
+    this.save = save;
+    writeSave(save);
+    this.audio.play('cash');
+    this.ui.toast(`Sold ${Math.round(lb).toLocaleString()} lb from the hold for $${Math.round(total).toLocaleString()}`, 'good');
+    this.ui.hud();
+    return total;
+  }
+
+  discardHold(sp) {
+    const s = (this.save.hold || []).find((x) => x.sp === sp);
+    if (!s) return;
+    this.commit({ hold: this.save.hold.filter((x) => x !== s) });
+    this.ui.toast(`Tipped the ${SPECIES_BY_ID[sp].name.toLowerCase()} over the side.`, 'info');
+    this.ui.hud();
+  }
+
+  // dev hook (tests): game.devHaul(lb) forces a haul on the current net boat
+  devHaul(lb = 3000) {
+    if (!this.net.type) return false;
+    this.net.lbs = {}; this.net.total = 0;
+    this.net.addCatch(lb);
+    this.net.finish();
+    return true;
   }
 
   // one toast when a permit runs out or is about to

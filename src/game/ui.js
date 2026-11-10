@@ -4,7 +4,7 @@ import { SPECIES, SPECIES_BY_ID, MORPHS, CATALOG_SIZE } from './species.js';
 import { hintFor } from './bait.js';
 import { TUNING as BAIT } from './baitData.js';
 import { catalogCount } from './save.js';
-import { wellSlots } from './livewell.js';
+import { wellSlots, holdCap, holdLb, holdCount, holdCondition, holdTone, holdValue, holdUnits, planHaul } from './livewell.js';
 import { PALETTES, SLOTS, SLOT_LABEL, SLOT_LABEL_BOAT, WEAR_NAMES, UPGRADES, upgradesFor, upgradePrice, upgradeLevel, paintCost, customOf, cleanName, makeReg, NAME_MAX } from './boatCustom.js';
 import { BoatPreview } from './boatPreview.js';
 import { levelInfo, gateLevel, meets, unlocksAt, MAX_LEVEL, xpAt, GATES, reelSmooth, lineCastMul, permitLeft, permitText, permitPrice, PERMIT_OPTIONS, respoolCost, SHARPEN_COST, restockCost, wearWord, effectiveTest, WEAR_DEFAULT } from './progress.js';
@@ -17,7 +17,7 @@ import { ACTION_IDS, ACTION, keyLabel, rewriteKeys } from './keys.js';
 import * as U from './units.js';
 
 const $ = (id) => document.getElementById(id);
-const DEAL_ACTS = new Set(['buy', 'buyboat', 'permit', 'service', 'sellone', 'sellall', 'unlock']);
+const DEAL_ACTS = new Set(['buy', 'buyboat', 'permit', 'service', 'sellone', 'sellall', 'sellhold', 'sellspecies', 'unlock']);
 const money = (n) => '$' + Math.round(n).toLocaleString();
 const money2 = (n) => '$' + n.toFixed(2);
 const lbs = (lb) => U.weight(lb);       // fish weight in the player's units (Settings > Display)
@@ -293,7 +293,8 @@ export class UI {
     // just the bait you're fishing; speed only while under way
     const e = s.equip;
     const well = s.livewell || [], slots = wellSlots(s.boat, s), weak = well.some((k) => !k.iced && k.health > 0 && k.health < 0.35);
-    const wellTxt = well.length ? ` · <span class="${weak ? 'warn' : ''}">livewell ${well.length}/${slots}</span>` : '';
+    const hold = s.hold || [];
+    const wellTxt = (well.length ? ` · <span class="${weak ? 'warn' : ''}">livewell ${well.length}/${slots}</span>` : '') + (hold.length ? ` · <span class="${hold.some((x) => x.health < 0.35) ? 'warn' : ''}">hold ${Math.round(holdLb(hold)).toLocaleString()} lb</span>` : '');
 const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     const permitTxt = pl > 0 ? ` · <span class="${pl < 3 ? 'warn' : ''}">permit ${permitText(pl)}</span>` : ' · <span class="warn">no permit</span>';
     const wearTxt = w.line >= 0.5 ? ` · <span class="${w.line >= 0.8 ? 'warn' : ''}">line ${wearWord(w.line).toLowerCase()}</span>` : '';
@@ -749,7 +750,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
   renderLivewell() {
     const g = this.g, s = g.save, m = g.market, day = s.day || 1;
     const access = g.marketAccess(), buyer = access === 'buyer';
-    const well = s.livewell || [], slots = wellSlots(s.boat, s);
+    const well = s.livewell || [], slots = wellSlots(s.boat, s), hold = s.hold || [];
     const where = access === 'dock' ? 'At the dock market' : buyer ? 'Buyer boat on the radio (15% cut)' : `No buyer here. ${esc(g.nearestDockText())}`;
     const fotd = m.fishOfDay(day);
     const rows = well.map((k) => {
@@ -763,6 +764,17 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     // what "sell everything" pays: each fish sold drops that species' price for the next
     let total = 0, tmp = s;
     for (const k of well) { total += m.value(tmp, k, buyer); tmp = { ...tmp, market: m.recordSale(tmp, k.sp) }; }
+    let holdTotal = 0;
+    for (const h of hold) { holdTotal += holdValue(m, tmp, h, buyer); tmp = { ...tmp, market: m.recordSale(tmp, h.sp, holdUnits(h)) }; }
+    const hcap = holdCap(BOATS[s.boat], s, s.boat);
+    const holdRows = hold.map((h) => {
+      const sp = SPECIES_BY_ID[h.sp], pct = Math.round(h.health * 100), v = holdValue(m, s, h, buyer);
+      const btns = (access ? `<button class="btn primary" data-act="sellspecies" data-id="${h.sp}">Sell</button>` : '') + `<button class="btn" data-act="tiphold" data-id="${h.sp}">Tip out</button>`;
+      return `<tr><td><b>${esc(sp.name)}</b>${h.sp === fotd ? ' <span class="badge">Fish of the day</span>' : ''}</td><td>${h.count.toLocaleString()}</td><td>${lbs(h.lb)}</td><td><div class="cond ${holdTone(h)}"><i style="width:${pct}%"></i></div><span class="small">${holdCondition(h)}</span></td><td class="v">${money(v)}</td><td class="b">${btns}</td></tr>`;
+    }).join('');
+    const holdHtml = hold.length ? `<h5 class="board-h">Hold ${Math.round(holdLb(hold)).toLocaleString()} of ${hcap.toLocaleString()} lb · ${holdCount(hold).toLocaleString()} fish</h5>
+      <table class="well"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Condition</th><th>Value</th><th></th></tr>${holdRows}</table>
+      <p class="tips">The hold keeps fish on ice and seawater, but they still soften by the hour. A wholesale lot moves the price slower than single fish, and a buyer pays for what is still fresh.</p>` : '';
     // price board: this location's fish, today's $/lb vs the usual
     const ids = Object.entries(g.loc.pool || {}).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id]) => id).filter((id) => SPECIES_BY_ID[id]);
     const board = ids.map((id) => {
@@ -770,24 +782,32 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       const arrow = d > 1.08 ? '<span class="up">▲</span>' : d < 0.92 ? '<span class="down">▼</span>' : '<span class="flat">–</span>';
       return `<div class="pb"><span>${esc(sp.name)}${id === fotd ? ' <span class="badge">today</span>' : ''}</span><b>${money2(now)}/lb</b>${arrow}</div>`;
     }).join('');
-    return this.head('Livewell', `${well.length}/${slots} · ${money(s.cash)}`) + `
+    return this.head('Livewell', `${well.length}/${slots}${hold.length ? ` · hold ${Math.round(holdLb(hold)).toLocaleString()} lb` : ''} · ${money(s.cash)}`) + `
       <div class="well-where ${access ? 'on' : ''}">${where}</div>
-      ${well.length ? `<table class="well"><tr><th>Fish</th><th>Weight</th><th>Condition</th><th>Value</th><th></th></tr>${rows}</table>` : '<p class="tips">Nothing in the livewell. Keep a catch instead of selling it on the spot, then bring it to any dock.</p>'}
+      ${well.length ? `<table class="well"><tr><th>Fish</th><th>Weight</th><th>Condition</th><th>Value</th><th></th></tr>${rows}</table>` : (hold.length ? '' : '<p class="tips">Nothing in the livewell. Keep a catch instead of selling it on the spot, then bring it to any dock.</p>')}
+      ${holdHtml}
       <h5 class="board-h">Today's prices at ${esc(g.loc.name)}</h5><div class="board">${board}</div>
       <p class="tips">Fish tire in the livewell: hardy fish (bass, catfish, gar) last far longer than trout, salmon or herring. Big pelagics go on ice. Prices change at midnight, and each fish of one species you sell today lowers its price.</p>
-      <div class="actions">${access && well.length ? `<button class="btn gold" data-act="sellall">Sell everything ${money(total)}</button>` : ''}<button class="btn primary" data-act="close">Back to fishing</button></div>`;
+      <div class="actions">${access && hold.length && well.length ? `<button class="btn" data-act="sellhold">Sell the hold ${money(holdTotal)}</button>` : ''}${access && (well.length || hold.length) ? `<button class="btn gold" data-act="sellall">Sell everything ${money(total + holdTotal)}</button>` : ''}<button class="btn primary" data-act="close">Back to fishing</button></div>`;
   }
 
-  showHaul(rows, morphs, total) {
-    this.haul = { rows, morphs, total };
+  showHaul(rows, morphs, cap) {
+    this.haul = { rows, morphs, ...cap };
     this.open('haul');
   }
 
   renderHaul() {
-    const h = this.haul;
-    return `<div class="m-head"><h2>Haul in!</h2></div><table class="haul"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Value</th></tr>${h.rows.map((r) => `<tr><td>${esc(r.sp.name)}</td><td>~${r.count.toLocaleString()}</td><td>${lbs(r.lb)}</td><td>${money(r.value)}</td></tr>`).join('')}</table>
+    const h = this.haul, plan = planHaul(h.rows, h.room);
+    const taken = plan.reduce((a, t) => a + t.lb, 0), have = holdLb(this.g.save.hold);
+    const body = h.rows.map((r, i) => {
+      const t = plan[i], full = t.lb >= r.lb - 0.5, part = t.lb > 0 && !full;
+      const state = !r.keep ? 'back over the side' : t.lb <= 0 ? 'no room' : part ? `${Math.round(t.lb).toLocaleString()} lb fit` : 'aboard';
+      return `<tr><td>${esc(r.sp.name)}</td><td>~${r.count.toLocaleString()}</td><td>${lbs(r.lb)}</td><td>${money(r.value)}</td><td class="b"><button class="btn ${r.keep ? '' : 'primary'}" data-act="haulkeep" data-n="${i}">${r.keep ? 'Release' : 'Keep'}</button> <span class="small">${state}</span></td></tr>`;
+    }).join('');
+    return `<div class="m-head"><h2>Haul in!</h2><span>hold ${Math.round(have + taken).toLocaleString()} / ${h.cap.toLocaleString()} lb</span></div><table class="haul"><tr><th>Species</th><th>Count</th><th>Weight</th><th>Value</th><th></th></tr>${body}</table>
       ${h.morphs.length ? `<p class="tips">Rare fish spotted in the haul: ${h.morphs.map((m) => `<b>${m.morph.name} ${esc(m.sp.name)}</b>`).join(', ')} (logged in your journal)</p>` : ''}
-      <div class="actions"><button class="btn gold" data-act="sellhaul">Sell the haul ${money(h.total)}</button></div>`;
+      <p class="tips">Nothing is paid out at sea. The hold goes to a fish market, and the longer it sits the less it fetches. Best price per pound goes in first when the hold is short on room.</p>
+      <div class="actions"><button class="btn gold" data-act="stow" ${taken > 0 ? '' : 'disabled'}>Stow ${Math.round(taken).toLocaleString()} lb</button><button class="btn" data-act="haulrelease">Release all</button></div>`;
   }
 
   action(act, d) {
@@ -810,9 +830,14 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       case 'sellnow': this.forceClose(); g.finishCatch('sell'); break;
       case 'release': this.forceClose(); g.finishCatch('release'); break;
       case 'sellone': g.sellFish([d.id]); this.render(); break;
-      case 'sellall': g.sellFish('all'); this.render(); break;
+      case 'sellall': g.sellFish('all'); g.sellHold('all'); this.render(); break;
       case 'releaseone': g.releaseFish(d.id); this.render(); break;
-      case 'sellhaul': this.forceClose(); g.sellHaul(this.haul); break;
+      case 'haulkeep': { const r = this.haul.rows[+d.n]; if (r) r.keep = !r.keep; this.render(); break; }
+      case 'stow': this.forceClose(); g.stowHaul(this.haul.rows, this.haul.room); break;
+      case 'haulrelease': this.forceClose(); g.stowHaul(this.haul.rows.map((r) => ({ ...r, keep: false })), 0); break;
+      case 'sellhold': g.sellHold('all'); this.render(); break;
+      case 'sellspecies': g.sellHold([d.id]); this.render(); break;
+      case 'tiphold': g.discardHold(d.id); this.render(); break;
       case 'go': this.open(d.id); break;
       case 'yard-open': this.yard = { id: d.id }; this.open('yard'); break;
       case 'yard-boat': this.yard = { id: d.id }; this.yardInit(); this.render(); break;

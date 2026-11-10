@@ -22,6 +22,7 @@ export const DEFAULT_SAVE = Object.freeze({
   day: 1,
   challenges: null,
   livewell: [],      // kept fish: { id, sp, morph, lb, health, iced }
+  hold: [],          // net-boat hold stacks: { sp, lb, count, health } (livewell.js; optional)
   waypoints: {},     // { locationId: [{ id, x, z, name }] }
   market: null,     // { day, loc, sold: { speciesId: count } }
   played: 0,        // seconds of play time
