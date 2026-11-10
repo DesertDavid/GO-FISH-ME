@@ -14,12 +14,17 @@ const HULLS = {
   sport: { length: 14.0, beam: 4.6, depth: 2.5, deckDrop: 0.95, sheer: 0.2, draft: 0.38 },
   trawler: { length: 20.0, beam: 6.4, depth: 3.4, deckDrop: 1.1, sheer: 0.24, draft: 0.45 },
   seiner: { length: 26.0, beam: 8.0, depth: 3.9, deckDrop: 1.2, sheer: 0.26, draft: 0.45 },
+  kayak: { length: 3.66, beam: 0.9, depth: 0.5, deckDrop: 0.16, sheer: 0, draft: 0.25, spread: 1.2, soft: true },
+  pontoon: { length: 6.9, beam: 2.6, depth: 1.2, deckDrop: 0.5, sheer: 0, draft: 0.32, flat: true, spread: 1.06, soft: true },
+  bay: { length: 6.9, beam: 2.5, depth: 0.92, deckDrop: 0.5, sheer: 0.16, draft: 0.19, soft: true },
+  yacht: { length: 18.4, beam: 5.5, depth: 2.35, deckDrop: 0.82, sheer: 0.22, draft: 0.4, soft: true },
 };
 const RHO = 1025;
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export function deckHeight(id, x) {
   const h = HULLS[id];
+  if (h.flat) return h.depth - h.deckDrop - h.depth / 2;      // pontoon: a level deck
   const t = Math.min(1, Math.max(0, (x + h.length / 2) / h.length));
   const sheer = h.depth * (1 + h.sheer * Math.pow(sm(0.35, 1, t), 1.5));
   return sheer - h.deckDrop * (1 - 0.6 * sm(0.75, 1, t)) - h.depth / 2;   // relative to body origin (mid-depth)
@@ -81,7 +86,7 @@ export class PlayerBoat {
     for (let i = 0; i < 6; i++) {
       const t = 0.08 + (i / 5) * 0.8;
       const half = t < 0.55 ? 0.85 + 0.15 * Math.sin((t / 0.55) * Math.PI / 2) : Math.max(0.15, Math.pow(1 - Math.pow((t - 0.55) / 0.45, 1.9), 0.62));
-      for (const s of [-1, 1]) samples.push(new THREE.Vector3(-h.length / 2 + h.length * t, 0, s * h.beam * 0.32 * half));
+      for (const s of [-1, 1]) samples.push(new THREE.Vector3(-h.length / 2 + h.length * t, 0, s * h.beam * 0.32 * half * (h.spread || 1)));
     }
     const desc = {
       kind: 'boat-' + this.id, object, size: new THREE.Vector3(h.length, h.depth, h.beam),
@@ -89,7 +94,7 @@ export class PlayerBoat {
       dragScale: 0.12,
       extraForce: (b, force, torque) => this.forces(b, force, torque),
     };
-    this.body = floaters.addDesc(desc, new THREE.Vector3(pos.x, 0, pos.z), yaw);
+    this.body = floaters.addDesc(desc, new THREE.Vector3(pos.x, h.soft ? h.depth * (0.5 - h.draft) : 0, pos.z), yaw);   // `soft`: start at the resting height, so a light hull is not thrown out of the water and rolled over
     this.body.keep = true;
     return this;
   }

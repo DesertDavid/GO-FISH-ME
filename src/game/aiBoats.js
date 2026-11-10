@@ -3,10 +3,10 @@ import { PlayerBoat } from './boats.js';
 // Other anglers: a few boats that run between spots, sit and fish a while, and keep clear
 // of the player. They use the same buoyant hulls and drive forces as the player's boat.
 const FLEET = {
-  lake: ['bass', 'jon', 'skiff', 'bass'],
-  river: ['bass', 'jon', 'skiff'],
-  inshore: ['skiff', 'center', 'skiff'],
-  offshore: ['center', 'sport', 'trawler'],
+  lake: ['bass', 'jon', 'kayak', 'pontoon', 'skiff', 'bass'],
+  river: ['bass', 'jon', 'kayak', 'skiff'],
+  inshore: ['skiff', 'bay', 'center', 'skiff'],
+  offshore: ['center', 'sport', 'yacht', 'trawler'],
 };
 
 export class AIBoats {

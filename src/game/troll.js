@@ -52,7 +52,7 @@ export class Trolling {
     const back = _tb.set(-1, 0, 0).applyQuaternion(boat.quaternion).setY(0).normalize();
     for (let i = 0; i < this.rods.length; i++) {
       const { m, g } = this.rods[i];
-      const show = this.active && i < n && !(c.boat.id === 'sport' && i < 2);   // outrigger tips are poles on the sportfisher, no rod there
+      const show = this.active && i < n && !((c.boat.id === 'sport' || c.boat.id === 'yacht') && i < 2);   // outrigger tips are poles on the sportfisher, no rod there
       g.visible = show;
       if (!show) continue;
       // direction: aft and up, a little outboard
@@ -100,6 +100,7 @@ export class Trolling {
   tips() {
     const b = this.ctx.boat, h = b.hull;
     const inner = [new THREE.Vector3(-h.length * 0.3, h.depth * 0.5 + 1.5, -h.beam * 0.4), new THREE.Vector3(-h.length * 0.3, h.depth * 0.5 + 1.5, h.beam * 0.4)];   // gunwale rod holders
+    if (b.id === 'yacht') return [new THREE.Vector3(-4.5, 11.94, -8), new THREE.Vector3(-4.5, 11.94, 8), new THREE.Vector3(-h.length / 2 - 0.1, 2.3, 0), ...inner];
     if (b.id === 'sport') return [new THREE.Vector3(-2.4, 9.8, -7), new THREE.Vector3(-2.4, 9.8, 7), new THREE.Vector3(-h.length / 2, 1.6, 0), ...inner];
     return [new THREE.Vector3(-h.length / 2, h.depth * 0.6, -h.beam * 0.4), new THREE.Vector3(-h.length / 2, h.depth * 0.6, h.beam * 0.4), new THREE.Vector3(-h.length / 2 + 0.5, h.depth * 0.8, 0), ...inner];
   }

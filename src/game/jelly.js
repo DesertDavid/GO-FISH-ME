@@ -134,10 +134,11 @@ export class PlayerBody {
     A.getWorldDirection(_f);
     const yaw = Math.atan2(_f.x, _f.z);
     const onFoot = !!g.foot;
-    const feetY = onFoot ? g.footPos.y : _a.y - EYE;
+    const bspec = !onFoot ? g.boatSpec?.() : null, seated = !!bspec?.sit;   // kayak: always sitting, eye is lower
+    const feetY = onFoot ? g.footPos.y : _a.y - EYE - (seated ? bspec.eyeUp || 0 : 0);
     // sitting: at the helm of a moving boat with nothing on the line
     const busy = g.fishing.busy?.() || g.fishing.state !== 'idle';
-    const sitWant = !onFoot && Math.abs(g.boatSpeed?.() || 0) > 1.2 && !busy ? 1 : 0;
+    const sitWant = seated ? 1 : !onFoot && Math.abs(g.boatSpeed?.() || 0) > 1.2 && !busy ? 1 : 0;
     this.sit += (sitWant - this.sit) * Math.min(1, dt * 5);
     // base position, with a hop between boat and shore
     const want = _b.set(_a.x, feetY, _a.z);
@@ -161,7 +162,7 @@ export class PlayerBody {
     const idleSway = Math.sin(this.t * 1.5) * 0.012;
     const sit = this.sit, hop = airborne;
     // pelvis and legs
-    j.Hips.position.y = J.rest.Hips.y - sit * 0.28 + (hop > 0 ? 0 : idleSway * 0.3);
+    j.Hips.position.y = J.rest.Hips.y - sit * (0.28 + (seated ? bspec.sitDrop || 0 : 0)) + (hop > 0 ? 0 : idleSway * 0.3);
     for (const [s, sgn] of [['L', 1], ['R', -1]]) {
       const hipX = -sw * sgn - sit * 1.45 - hop * 0.9;
       const kneeX = Math.max(0, sw * sgn * 1.0 + 0.1 * this.walk) * 1.1 + sit * 1.45 + hop * 1.3;

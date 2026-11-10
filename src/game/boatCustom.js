@@ -41,12 +41,22 @@ export const SLOTS = {
   sport: { hull: ['topside'], stripe: ['stripe'], trim: ['trim'], bottom: ['bottom'] },
   trawler: { hull: ['steel_blue'], stripe: ['funnel'], trim: ['trim'], bottom: ['bottom'], house: ['house_white'] },
   seiner: { hull: ['steel_navy'], stripe: ['crane_yellow'], trim: ['trim'], bottom: ['bottom'], house: ['house_white'] },
+  kayak: { hull: ['topside'], stripe: ['stripe'], trim: ['trim'], bottom: ['bottom'] },
+  pontoon: { hull: ['fence_panel'], stripe: ['stripe'], trim: ['trim'], bottom: ['bottom'], house: ['seat_vinyl'] },
+  bay: { hull: ['topside'], stripe: ['stripe'], trim: ['trim'], bottom: ['bottom'], house: ['deck_nonskid'] },
+  yacht: { hull: ['topside'], stripe: ['stripe'], trim: ['trim'], bottom: ['bottom'], house: ['house_white'] },
 };
 export const SLOT_LABEL = { hull: 'Hull', stripe: 'Stripe / accent', trim: 'Trim and rails', bottom: 'Bottom paint', house: 'Wheelhouse', canopy: 'Canopy' };
-export const SLOT_LABEL_BOAT = { jon: { stripe: 'Outboard stripe', house: 'Interior' }, trawler: { stripe: 'Funnel' }, seiner: { stripe: 'Crane' } };
+export const SLOT_LABEL_BOAT = {
+  jon: { stripe: 'Outboard stripe', house: 'Interior' }, trawler: { stripe: 'Funnel' }, seiner: { stripe: 'Crane' },
+  kayak: { hull: 'Deck', stripe: 'Side band', bottom: 'Underside' },
+  pontoon: { hull: 'Fence panels', stripe: 'Fence stripe', bottom: 'Tubes', house: 'Seat vinyl' },
+  bay: { hull: 'Gelcoat', stripe: 'Cove stripe', house: 'Deck' },
+  yacht: { stripe: 'Gold cove', house: 'Superstructure' },
+};
 export const WEAR_NAMES = ['Fresh', 'Used', 'Worn', 'Weathered'];
 
-export const DEFAULT_NAMES = { jon: 'Tin Lizzie', bass: 'Bad Habit', skiff: 'Skinny Water', center: 'Second Wind', sport: 'Hooked Up', trawler: 'Northern Star', seiner: 'Harvest Moon' };
+export const DEFAULT_NAMES = { jon: 'Tin Lizzie', bass: 'Bad Habit', skiff: 'Skinny Water', center: 'Second Wind', sport: 'Hooked Up', trawler: 'Northern Star', seiner: 'Harvest Moon', kayak: 'Low Profile', pontoon: 'Lazy Susan', bay: 'Knot Today', yacht: 'Reel Therapy' };
 export const NAME_MAX = 20;
 export const cleanName = (s) => String(s ?? '').replace(/[^A-Za-z0-9 '&.!-]/g, '').replace(/\s+/g, ' ').replace(/^\s+/, '').slice(0, NAME_MAX);
 export const finalName = (s, id) => cleanName(s).trim() || DEFAULT_NAMES[id] || 'Reel World';
@@ -62,7 +72,8 @@ export const cleanReg = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9 -
 
 // ---- upgrades ----
 // tiers: [{ name, price (before boat factor), lvl }]. `boats`: where it can be fitted. `seen`: tiers that show on the model.
-const ALL = ['jon', 'bass', 'skiff', 'center', 'sport', 'trawler', 'seiner'];
+const BIG = ['jon', 'bass', 'skiff', 'pontoon', 'bay', 'center', 'sport', 'trawler', 'seiner', 'yacht'];   // everything with an engine and a deck to fit out
+const ALL = [...BIG, 'kayak'];
 export const UPGRADES = {
   sonar: { name: 'Fish finder', boats: ALL, tiers: [
     { name: 'CHIRP sonar', price: 300, lvl: 2, text: 'Sees fish 22 m around the boat (stock 14 m).' },
@@ -72,33 +83,33 @@ export const UPGRADES = {
     { name: 'GPS receiver', price: 250, lvl: 3, text: 'Waypoint memory 12 -> 30 per water.', seen: true },
     { name: 'Plotter + VHF', price: 700, lvl: 9, text: 'Waypoints 40; the chart plots bait schools.', seen: true },
   ] },
-  engine: { name: 'Engine', boats: ALL, tiers: [
+  engine: { name: 'Engine', boats: BIG, tiers: [
     { name: 'Tuned and re-propped', price: 1200, lvl: 5, text: 'Top speed +12%, quicker off the mark (+20%).', seen: true },
     { name: 'High-output power', price: 3200, lvl: 12, text: 'Top speed +25%, acceleration +45%.', seen: true },
   ] },
-  holders: { name: 'Rod holders', boats: ['jon', 'bass', 'skiff', 'center', 'sport'], tiers: [
+  holders: { name: 'Rod holders', boats: ['jon', 'bass', 'skiff', 'pontoon', 'bay', 'center', 'sport', 'yacht'], tiers: [
     { name: 'Gunwale pair', price: 150, lvl: 2, text: 'Trolling spread gets a 4th rod (more strikes).', seen: true },
     { name: 'Four holders', price: 350, lvl: 6, text: 'Trolling spread gets a 5th rod.', seen: true },
   ] },
-  livewell: { name: 'Livewell', boats: ALL, tiers: [
+  livewell: { name: 'Livewell', boats: BIG, tiers: [
     { name: 'Aerated tank', price: 300, lvl: 3, text: 'Livewell capacity +25%.', seen: true },
     { name: 'Recirculating tank', price: 800, lvl: 8, text: 'Livewell capacity +50%; fish tire a little slower.', seen: true },
   ] },
-  shade: { name: 'Bimini top', boats: ['jon', 'bass', 'skiff'], tiers: [
+  shade: { name: 'Bimini top', boats: ['jon', 'bass', 'skiff', 'pontoon'], tiers: [
     { name: 'Folding bimini', price: 260, lvl: 2, text: 'Shade over the fish box: kept fish tire 25% slower.', seen: true },
   ] },
   lights: { name: 'Lights', boats: ALL, tiers: [
     { name: 'Running lights', price: 180, lvl: 4, text: 'Red and green navigation lights glow at night.', seen: true },
     { name: 'Spotlight', price: 420, lvl: 7, text: 'Bow spotlight lights the water ahead at night.', seen: true },
   ] },
-  winch: { name: 'Anchor winch', boats: ALL, tiers: [
+  winch: { name: 'Anchor winch', boats: BIG, tiers: [
     { name: 'Manual windlass', price: 350, lvl: 3, text: 'I drops the anchor to hold position in water up to 30 m deep.', seen: true },
     { name: 'Power windlass', price: 1100, lvl: 10, text: 'I anchors in water up to 90 m deep, holds in current.', seen: true },
   ] },
 };
 export const UPGRADE_ORDER = ['sonar', 'gps', 'engine', 'holders', 'livewell', 'shade', 'lights', 'winch'];
 // bigger boats cost more to fit out
-const SIZE_FACTOR = { jon: 0.35, skiff: 0.8, bass: 1, center: 1.8, sport: 3.5, trawler: 3, seiner: 4.5 };
+const SIZE_FACTOR = { kayak: 0.2, jon: 0.35, skiff: 0.8, bass: 1, pontoon: 1.2, bay: 1.5, center: 1.8, sport: 3.5, trawler: 3, seiner: 4.5, yacht: 6.5 };
 export const upgradePrice = (boatId, upId, tier) => Math.max(15, Math.round((UPGRADES[upId].tiers[tier].price * (SIZE_FACTOR[boatId] || 1)) / 5) * 5);
 export const upgradeLevel = (upId, tier) => UPGRADES[upId].tiers[tier].lvl;
 export const upgradesFor = (boatId) => UPGRADE_ORDER.filter((u) => UPGRADES[u].boats.includes(boatId));

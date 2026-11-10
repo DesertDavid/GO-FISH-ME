@@ -70,7 +70,11 @@ export const BOATS = {
   center: { name: '28\' Center Console', price: 15000, waters: ['lake', 'river', 'inshore', 'offshore'], speed: 21, accel: 4, turn: 0.6, eye: -2.6, face: Math.PI / 2, net: null, blurb: 'Twin outboards and a T-top. Goes anywhere, including blue water.' },
   sport: { name: '45\' Sportfisher', price: 60000, waters: ['inshore', 'offshore'], speed: 16, accel: 2.4, turn: 0.38, eye: -4.6, face: Math.PI, net: null, bigGame: 1.25, blurb: 'Flybridge, outriggers, fighting chair. Built for marlin and giant tuna.' },
   trawler: { name: '65\' Stern Trawler', price: 30000, waters: ['inshore', 'offshore'], speed: 6, accel: 0.9, turn: 0.22, eye: -3.0, eyeUp: 0.5, face: Math.PI, net: 'trawl', netCap: 6000, blurb: 'Commercial trawl net and drum. Drag the net through schools at 2-4 knots.' },
+  kayak: { name: '12\' Fishing Kayak', price: 450, waters: ['lake', 'river', 'inshore'], speed: 2.2, accel: 0.9, turn: 1.7, eye: -0.12, eyeUp: -0.82, face: 0, sit: true, sitDrop: 0.45, paddle: true, quiet: 0.25, net: null, blurb: 'Paddle power only. Sits low, draws almost nothing and spooks nothing. Not much room for tackle or fish.' },
+  pontoon: { name: '22\' Fishing Pontoon', price: 7500, waters: ['lake', 'river', 'inshore'], speed: 8, accel: 1.3, turn: 0.5, eye: 0.45, face: 0, net: null, blurb: 'Two aluminum tubes and a fence; fit a bimini at the boat yard. Slow, steady and roomy enough for the whole family and the cooler.' },
+  bay: { name: '22\' Bay Boat', price: 10500, waters: ['lake', 'river', 'inshore'], speed: 20, accel: 4.2, turn: 0.8, eye: -1.6, face: 0, net: null, blurb: 'Shallow-V center console with a T-top and a casting deck. Quick, dry, and happy in a foot of water.' },
   seiner: { name: '85\' Purse Seiner', price: 85000, waters: ['offshore'], speed: 7, accel: 0.8, turn: 0.2, eye: 0.5, eyeUp: 0.8, face: Math.PI / 2, net: 'seine', netCap: 25000, blurb: 'Encircles whole schools with a purse seine. Biggest hauls in the game.' },
+  yacht: { name: '58\' Convertible', price: 250000, waters: ['inshore', 'offshore'], speed: 17, accel: 2, turn: 0.3, eye: -6.6, face: Math.PI, net: null, bigGame: 1.4, blurb: 'Flybridge, tuna tower and outriggers on a long graphite hull. The big-game flagship. Does not net anything.' },
 };
 
-export const BOAT_ORDER = ['jon', 'bass', 'skiff', 'center', 'sport', 'trawler', 'seiner'];
+export const BOAT_ORDER = ['jon', 'kayak', 'bass', 'skiff', 'pontoon', 'bay', 'center', 'sport', 'trawler', 'seiner', 'yacht'];

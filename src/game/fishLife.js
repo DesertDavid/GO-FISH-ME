@@ -167,7 +167,7 @@ export class FishLife {
     const bp = g.foot ? g.footPos : g.boat.position;
     th.x = bp.x; th.z = bp.z;
     const sp = g.boatSpeed();
-    th.r = sp > T.spook.boatMin ? Math.min(T.spook.boatRadiusMax, T.spook.boatNoise * sp * 3.2) : 0;
+    th.r = sp > T.spook.boatMin ? Math.min(T.spook.boatRadiusMax, T.spook.boatNoise * sp * 3.2) * (g.boatSpec?.().quiet ?? 1) : 0;   // a paddled kayak barely disturbs fish
     th.shadow = g.foot ? 0.9 : g.boat.hull.length * T.spook.boatHullScale * 0.5;
     th.walk = g.foot && (g.foot.speed || 0) > T.spook.walkerSpeed ? T.spook.walkerRadius * Math.min(1.5, g.foot.speed / 3) : 0;
   }

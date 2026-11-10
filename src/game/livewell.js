@@ -6,7 +6,7 @@ import { mods } from './boatCustom.js';
 // new prices each day, pays a premium for the fish of the day, and pays less for a species the
 // more of it you sell the same day.
 
-const WELL_SLOTS = { jon: 4, skiff: 6, bass: 8, center: 10, sport: 16, trawler: 20, seiner: 20 };
+const WELL_SLOTS = { jon: 4, kayak: 2, skiff: 6, bass: 8, pontoon: 12, bay: 10, center: 10, sport: 16, yacht: 22, trawler: 20, seiner: 20 };
 export const wellSlots = (boatId, save) => Math.round((WELL_SLOTS[boatId] || 6) * (save ? mods(save, boatId).wellMul : 1));
 
 // condition lost per game hour (one game hour = one real minute)

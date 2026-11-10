@@ -1,7 +1,7 @@
 // Player progress in localStorage. Every change goes through update() so callers get a new object.
 import { SAVE_VERSION, upgradeSave } from './progress.js';
 import { sanitizeCustom } from './boatCustom.js';
-import { RODS, REELS, LINES, LURES } from './gear.js';
+import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 const KEY = 'reelworld-save-v1';   // key name kept for compatibility; the data carries its own version (v)
 
 export const DEFAULT_SAVE = Object.freeze({
@@ -47,6 +47,10 @@ export function loadSave() {
     // old saves have no version: strip the defaults the merge just filled in so the upgrade sees what was really saved
     if ((data.v || 1) < SAVE_VERSION) { delete merged.xp; delete merged.wear; delete merged.permits; merged.v = 1; }
     merged.custom = sanitizeCustom(data.custom);
+    // boat ids from a newer or hand-edited file that this build does not know: fall back to the starter boat
+    if (Array.isArray(merged.boats)) merged.boats = merged.boats.filter((id) => BOATS[id]);
+    if (!BOATS[merged.boat]) merged.boat = 'jon';
+    if (!Array.isArray(merged.boats) || !merged.boats.includes(merged.boat)) merged.boats = [merged.boat, ...(merged.boats || [])];
     // gear ids that no longer exist (renamed/removed rods, a hand-edited file): fall back to the starter pieces
     for (const [k, own, table] of [['rod', 'rods', RODS], ['reel', 'reels', REELS], ['line', 'lines', LINES], ['lure', 'lures', LURES]]) {
       if (Array.isArray(merged[own])) merged[own] = merged[own].filter((id) => table[id]);

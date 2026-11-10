@@ -54,6 +54,15 @@ def('cast', 'sfx', (A, t, p, out) => {
   A.nz(t + 0.03, { f: 4800, f2: 6200, q: 7, g: 0.025 + pw * 0.02, a: 0.05, d: 0.3, out });              // line zing off the spool
   A.os(t + 0.05, { f: 2900, f2: 3500, g: 0.012, a: 0.06, d: 0.25, out });
 }, { cd: 0.2 });
+// kayak paddle: blade enters with a small slap, a pull of running water, a drip train as it lifts out
+def('paddle', 'sfx', (A, t, p, out) => {
+  const s = clamp(p, 0.3, 1);
+  A.nz(t, { f: 1900, f2: 700, q: 0.9, g: 0.05 + 0.05 * s, a: 0.004, d: 0.1, out });
+  A.os(t, { f: 150, f2: 70, g: 0.04 + 0.03 * s, a: 0.005, d: 0.12, out });
+  A.nz(t + 0.09, { f: 900, f2: 500, q: 0.6, g: 0.05 * s, a: 0.12, d: 0.35, out });
+  const n = 2 + Math.round(s * 2);
+  for (let i = 0; i < n; i++) { const f = rnd(900, 1900); A.os(t + 0.42 + i * rnd(0.06, 0.14), { f, f2: f * 0.7, g: 0.016, a: 0.002, d: 0.04, out }); }
+}, { cd: 0.4 });
 def('plop', 'sfx', (A, t, size, out) => SOUNDS.splash.fn(A, t, 0.3 * clamp(A.lureSize || 1, 0.5, 1.8), out), { cd: 0.08 });
 def('splash', 'sfx', (A, t, p, out) => {
   const s = clamp(p, 0.15, 3);
@@ -85,7 +94,7 @@ def('tick', 'sfx', (A, t, p, out) => {
   A.nz(t, { f: 1500, q: 1.5, g: 0.06, a: 0.002, d: 0.03, out });
 }, { cd: 0.05 });
 def('bump', 'sfx', (A, t, p, out) => {
-  const alu = A.boatId === 'jon' || A.boatId === 'bass' || A.boatId === 'skiff';
+  const alu = A.boatId === 'jon' || A.boatId === 'bass' || A.boatId === 'skiff' || A.boatId === 'pontoon';
   const s = clamp(p, 0.1, 1);
   A.os(t, { f: rnd(70, 100), f2: 42, g: 0.12 + 0.22 * s, a: 0.004, d: 0.3, out });
   A.nz(t, { f: 450, q: 1.2, g: 0.1 + 0.2 * s, a: 0.003, d: 0.14, out });

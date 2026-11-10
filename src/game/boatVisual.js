@@ -14,12 +14,21 @@ const SPEC = {
   trawler: { length: 20.0, beam: 6.4, depth: 3.4, deadrise: 14, transom: 0.82, bowPow: 1.5, bowRise: 0.4, sheer: 0.24, flare: 0.08, deckDrop: 1.1 },
   seiner: { length: 26.0, beam: 8.0, depth: 3.9, deadrise: 12, transom: 0.8, bowPow: 1.4, bowRise: 0.4, sheer: 0.26, flare: 0.08, deckDrop: 1.2 },
   jon: { length: 3.8, beam: 1.55, depth: 0.55, sheer: 0.2, deckDrop: 0.42, jon: true },
+  // hand-lofted hulls: tools/blender/boats_kayak.py and boats_pontoon.py
+  kayak: { length: 3.66, beam: 0.9, depth: 0.5, sheer: 0, deckDrop: 0.16, fn: (x) => {
+    const L = 3.66, u = Math.min(1, Math.abs(2 * (x + L / 2) / L - 1)), zd = 0.285 + 0.17 * Math.pow(u, 2.6) + 0.033;
+    return { half: 0.45 * Math.pow(Math.max(0.04, 1 - Math.pow(u, 2.3)), 0.55), sheer: zd, floor: zd };
+  } },
+  pontoon: { length: 6.9, beam: 2.6, depth: 1.2, sheer: 0, deckDrop: 0.5, fn: (x) => ({ half: x <= 2.55 ? 1.2 : 1.2 * Math.sqrt(Math.max(0.01, 1 - Math.pow((x - 2.55) / 0.8, 2))), sheer: 1.2, floor: 0.7 }) },
+  bay: { length: 6.9, beam: 2.5, depth: 0.92, deadrise: 15, transom: 0.9, bowPow: 1.7, bowRise: 0.55, sheer: 0.16, flare: 0.09, deckDrop: 0.5 },
+  yacht: { length: 18.4, beam: 5.5, depth: 2.35, deadrise: 21, transom: 0.88, bowPow: 1.5, bowRise: 0.52, sheer: 0.22, flare: 0.11, deckDrop: 0.82 },
 };
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 // top half-width, sheer height and deck-floor height at model x
 export function hullAt(id, x) {
   const sp = SPEC[id], t = Math.min(1, Math.max(0, (x + sp.length / 2) / sp.length));
+  if (sp.fn) return sp.fn(x);
   if (sp.jon) {
     const B = sp.beam / 2;
     const w = t < 0.5 ? B * (0.93 + 0.07 * Math.sin(t / 0.5 * Math.PI / 2)) : B * (0.05 + 0.95 * Math.pow(1 - Math.pow((t - 0.5) / 0.5, 1.6), 0.85));
@@ -58,6 +67,8 @@ function textTexture(text, font, fill, edge, px = 120) {
 const NAME_AT = {
   jon: { h: 0.62, z: 0.5, maxW: 0.42, H: 0.07 }, bass: { h: 0.78, z: 0.55, maxW: 0.9, H: 0.15 }, skiff: { h: 0.78, z: 0.5, maxW: 0.9, H: 0.14 },
   center: { side: true, x: -0.3, h: 0.8, maxW: 1.9, H: 0.17 }, sport: { h: 0.8, z: 0, maxW: 3.1, H: 0.34 }, trawler: { h: 0.8, z: 0, maxW: 4.4, H: 0.42 }, seiner: { h: 0.8, z: 0, maxW: 5.4, H: 0.5 },
+  kayak: { side: true, x: -0.17, h: 0.56, maxW: 0.55, H: 0.05 }, pontoon: { h: 0.75, z: 0, maxW: 1.7, H: 0.16 },
+  bay: { side: true, x: -0.3, h: 0.8, maxW: 1.7, H: 0.15 }, yacht: { side: true, x: -0.24, h: 0.68, maxW: 3.4, H: 0.36 },
 };
 
 const _ray = new THREE.Raycaster();
@@ -169,7 +180,7 @@ export function applyCustom(model, id, cfg, up, opts = {}) {
   const box = (w, h, d, mat, pos, rot, parent) => add(new THREE.BoxGeometry(w, h, d), mat, pos, rot, parent);
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const rail = (x, side, inset = 0.03) => { const a = hullAt(id, x); return V(x, a.sheer, side * (a.half - inset)); };
-  const eyeX = { jon: -0.9, bass: 2.0, skiff: 1.6, center: -2.6, sport: -4.6, trawler: -3, seiner: 0.5 }[id];
+  const eyeX = { jon: -0.9, bass: 2.0, skiff: 1.6, center: -2.6, sport: -4.6, trawler: -3, seiner: 0.5, kayak: -0.12, pontoon: 0.45, bay: -1.6, yacht: -6.6 }[id];
   const has = (k) => up[k] || 0;
 
   if (has('gps') >= 1) {          // GPS dome on a post
@@ -224,7 +235,7 @@ export function applyCustom(model, id, cfg, up, opts = {}) {
     if (t >= 2) box(0.16 * s, 0.1 * s, 0.025 * s, std(0x1a6d8c, 0.1, 0.4), V(0, hgt * 0.5, d / 2 + 0.01), null, g);
   }
   if (has('shade')) {             // bimini over the aft cockpit
-    const span = { jon: [-1.55, 0.15], bass: [-2.75, -0.9], skiff: [-2.45, -0.85] }[id] || [-L * 0.3, -L * 0.1];
+    const span = { jon: [-1.55, 0.15], bass: [-2.75, -0.9], skiff: [-2.45, -0.85], pontoon: [-2.9, 1.0] }[id] || [-L * 0.3, -L * 0.1];
     const aMid = hullAt(id, (span[0] + span[1]) / 2), top = aMid.floor + 2.12, wid = aMid.half * 0.9;
     const canopy = new THREE.MeshStandardMaterial({ color: pal('canopy', cfg.canopy) ?? 0x1c2a4a, roughness: 0.92, side: THREE.DoubleSide });
     patch?.(canopy); mats.push(canopy);

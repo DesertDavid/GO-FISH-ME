@@ -14,6 +14,10 @@ const ENG = {
   sport: { w: 'sawtooth', idle: 30, max: 105, cut: [300, 950], whine: [900, 1800], wg: 0.008, g: 0.11, thrum: 0.5 },
   trawler: { w: 'sawtooth', idle: 21, max: 40, cut: [190, 460], whine: [600, 900], wg: 0.004, g: 0.13, thrum: 0.9 },
   seiner: { w: 'sawtooth', idle: 18, max: 34, cut: [160, 380], whine: [500, 800], wg: 0.003, g: 0.14, thrum: 0.9 },
+  kayak: { paddle: true, w: 'sine', idle: 20, max: 20, cut: [200, 200], whine: [1000, 1000], wg: 0, g: 0, thrum: 0 },
+  pontoon: { w: 'sawtooth', idle: 38, max: 118, cut: [360, 1400], whine: [1300, 2600], wg: 0.016, g: 0.08, thrum: 0.3 },
+  bay: { w: 'sawtooth', idle: 34, max: 128, cut: [420, 1700], whine: [1500, 3100], wg: 0.022, g: 0.1, thrum: 0.3 },
+  yacht: { w: 'sawtooth', idle: 24, max: 72, cut: [220, 640], whine: [700, 1200], wg: 0.004, g: 0.12, thrum: 0.75, twin: 1 },
 };
 
 export class Beds {
@@ -118,7 +122,10 @@ export class Beds {
     set(this.hullG.gain, rn * 0.12 * hullK, 0.5);
     // ---- engine: cuts out after a few idle seconds, when anchored, and on foot
     const moving = Math.abs(S.thr) > 0.05 || S.speed > 0.6;
-    if (!foot && !S.anchored && moving) {
+    if (ENG[S.boatId]?.paddle) {            // the kayak has no engine: a paddle stroke every second or two while pushing
+      this.padT = (this.padT || 0) - step;
+      if (!foot && !S.anchored && Math.abs(S.thr) > 0.05 && this.padT <= 0) { A.play('paddle', 0.55 + 0.45 * Math.abs(S.thr)); this.padT = 1.9 - 0.95 * Math.abs(S.thr); }
+    } else if (!foot && !S.anchored && moving) {
       this.idleT = 0;
       if (!this.on) { this.on = true; this.startAt = now + 0.9; A.play('engineStart'); }
     } else this.idleT += step;
