@@ -17,6 +17,11 @@ Read this first at the start of every session. Update it whenever a feature is f
 - When a feature is done or the chat gets long: update this file, then tell the user
   "good point to start a fresh session."
 
+## Working rules (user, 2026-11-10)
+- One sub-session at a time. Heavy jobs (Blender, builds, headless browsers, image gen) use at most 75% of the CPU: 12 of 16 cores (affinity 0x0FFF), below-normal priority.
+- Test with a truly headless browser on a spare port only: never the in-app Browser pane, nothing that steals the user's mouse or focus, never touch port 5200.
+- Dev mode (`?dev=1`, `game/docs/dev-mode.md`) has a free-fly camera and boat/location pickers for testing.
+
 ## What it is
 A first-person fishing game with realistic water: three.js + Vite, built on the Ultra-Water
 ocean renderer (FFT ocean, buoyancy, sky, post-FX). 14 real locations, 145 fish species x 16
@@ -211,4 +216,7 @@ may share this folder: commit only the files you changed and `git pull --rebase`
 - Saves from Firefox don't carry into the Edge app window automatically: use Esc > Save / Load > Export, then Import in the other browser.
 
 ## Next (proposed)
-- (nothing queued)
+- Career thread: captain's log, a rival angler, a legend fish per location.
+- Underwater camera drop; photo mode with a journal gallery.
+- Hands: Classic stays default; hands2 (`?hands=2`, CC-BY-SA) and hands3 jellybean (`?hands=3`) are optional. The user wants the realistic hands replaced by one consistent look; first-person ball hands read as blobby, so a rework is open.
+- Playtest notes from the user decide the next fixes (fight feel, rods, new boats, audio were only tested headless).
