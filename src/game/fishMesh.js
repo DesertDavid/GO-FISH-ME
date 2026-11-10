@@ -366,10 +366,12 @@ export function buildFish(sp, morph, opts = {}) {
     const group = buildHero(hero, sp, morph, look, uniforms, swimPatch, opts);
     return { group, uniforms, body: b, look };
   }
-  const key = sp.id + ':' + morph.id;
+  // three skins per species and morph, picked at random: no two schools look stamped
+  const variant = Math.floor(Math.random() * 3);
+  const key = sp.id + ':' + morph.id + ':' + variant;
   let tex = textureCache.get(key);
   if (!tex) {
-    tex = paintSkin(sp, b, look);
+    tex = paintSkin(sp, b, look, variant);
     textureCache.set(key, tex);
   }
   const uniforms = { uSwim: { value: new THREE.Vector3(0, 0.025, 9) } };

@@ -73,33 +73,42 @@ function patternDraw(ctx, name, color, alpha, aspect, rand, sp) {
     case 'bars': case 'faintbars': case 'redbars': case 'calicobars': {
       const n = name === 'redbars' ? 3 : 6 + Math.floor(rand() * 3);
       fill(name === 'redbars' ? 0xc02a2a : name === 'calicobars' ? 0x6a2a50 : color, name === 'faintbars' ? 0.35 : 0.6);
+      // real bars are never on a ruler: uneven gaps, uneven widths, each one leaning a
+      // little differently, now and then one that forks, fades or is missing
+      let x = 0.17 + rand() * 0.03;
+      const step = 0.68 / n;
       for (let i = 0; i < n; i++) {
-        const x = 0.18 + (i / n) * 0.68 + rand() * 0.02, w = 0.025 + rand() * 0.02;
-        ctx.beginPath(); ctx.moveTo(x, 0.05); ctx.lineTo(x + w, 0.05); ctx.lineTo(x + w * 1.4 + 0.02, 0.7); ctx.lineTo(x + 0.02, 0.7); ctx.fill();
+        x += step * (0.6 + rand() * 0.8);
+        if (rand() < 0.07) continue;
+        const w = 0.02 + rand() * 0.03, lean = 0.01 + rand() * 0.03, bot = 0.58 + rand() * 0.14;
+        ctx.globalAlpha = 0.55 + rand() * 0.45;
+        ctx.beginPath(); ctx.moveTo(x, 0.05); ctx.lineTo(x + w, 0.05); ctx.lineTo(x + w * (1.1 + rand() * 0.6) + lean, bot); ctx.lineTo(x + lean, bot); ctx.fill();
+        if (rand() < 0.15) { ctx.beginPath(); ctx.moveTo(x + w * 0.5, 0.3); ctx.lineTo(x + w * 1.2, 0.3); ctx.lineTo(x + w * 2.4 + lean, bot - 0.08); ctx.lineTo(x + w * 1.4 + lean, bot - 0.08); ctx.fill(); }
       }
+      ctx.globalAlpha = 1;
       break;
     }
     case 'tigerbars': {
       fill(color, 0.55);
       for (let i = 0; i < 14; i++) {
-        const x = 0.15 + (i / 14) * 0.75;
+        const x = 0.15 + (i / 14) * 0.75 + (rand() - 0.5) * 0.03, ph = rand() * 6, amp = 0.008 + rand() * 0.014, end = 0.55 + rand() * 0.22;
         ctx.beginPath(); ctx.moveTo(x, 0.05);
-        for (let y = 0.05; y < 0.75; y += 0.08) ctx.lineTo(x + Math.sin(y * 14 + i) * 0.012 + y * 0.03, y);
-        ctx.lineWidth = 0.012 + rand() * 0.008; ctx.stroke();
+        for (let y = 0.05; y < end; y += 0.05) ctx.lineTo(x + Math.sin(y * 14 + ph) * amp + y * 0.03, y);
+        ctx.lineWidth = 0.008 + rand() * 0.014; ctx.stroke();
       }
       break;
     }
     case 'blotchline': case 'lateral': case 'amberstripe': case 'yellowstripe': {
       const c = name === 'amberstripe' ? 0xc8a050 : name === 'yellowstripe' ? 0xf0c020 : color;
       fill(c, name === 'lateral' ? 0.85 : 0.7);
-      if (name === 'blotchline') for (let x = 0.12; x < 0.95; x += 0.035) dot(x, 0.5 + Math.sin(x * 17) * 0.04, 6 + rand() * 6);
+      if (name === 'blotchline') for (let x = 0.12; x < 0.95; x += 0.02 + rand() * 0.035) dot(x, 0.5 + Math.sin(x * 17) * 0.04 + (rand() - 0.5) * 0.03, 4 + rand() * 8);
       else { ctx.fillRect(0.12, name === 'yellowstripe' ? 0.36 : 0.45, 0.82, name === 'lateral' ? 0.04 : 0.09); }
       break;
     }
     case 'hlines': case 'bellylines': case 'bellystripes': {
       fill(color, 0.6);
       const y0 = name === 'hlines' ? 0.2 : 0.62;
-      for (let i = 0; i < 6; i++) ctx.fillRect(0.12, y0 + i * 0.065, 0.82, 0.018);
+      for (let i = 0; i < 6; i++) { const a = 0.12 + rand() * 0.06, e = 0.8 + rand() * 0.14; ctx.fillRect(a, y0 + i * 0.065 + (rand() - 0.5) * 0.012, e - a + 0.1, 0.012 + rand() * 0.012); }
       break;
     }
     case 'specks': case 'darkspots': case 'redspots': case 'shadspots': case 'bluespots': case 'spot': case 'tips': case 'leopard': {
@@ -215,7 +224,8 @@ function mottle(ctx, look, rand) {
   ctx.restore();
 }
 
-export function paintSkin(sp, b, look) {
+// variant: 0 is the species' reference pattern, 1+ are other individuals (seeded differently)
+export function paintSkin(sp, b, look, variant = 0) {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
@@ -232,14 +242,16 @@ export function paintSkin(sp, b, look) {
   hg.addColorStop(0, css(darken(look.back, 0.2), 0.45)); hg.addColorStop(0.12, css(look.back, 0)); hg.addColorStop(0.9, css(look.fin, 0)); hg.addColorStop(1, css(look.fin, 0.4));
   ctx.fillStyle = hg; ctx.fillRect(0, 0, W, H);
 
-  const rand = rng(seedOf(sp.id));
-  mottle(ctx, look, rng(seedOf(sp.id + 'mottle')));
+  const vs = variant ? ':v' + variant : '';
+  const rand = rng(seedOf(sp.id + vs));
+  mottle(ctx, look, rng(seedOf(sp.id + 'mottle' + vs)));
   flank(ctx, () => {
     patternDraw(ctx, look.pattern, darken(look.back, 0.35), look.patternAlpha, aspect, rand, sp);
-    for (const [p, c, a] of look.overlays) patternDraw(ctx, p, c, a, aspect, rng(seedOf(sp.id + p)), sp);
+    for (const [p, c, a] of look.overlays) patternDraw(ctx, p, c, a, aspect, rng(seedOf(sp.id + p + vs)), sp);
     // lateral line
+    // lateral line: a faint, slightly wavering dashed run, not a ruled one
     ctx.fillStyle = css(darken(look.side, 0.3), 0.25);
-    ctx.fillRect(0.14, 0.33, 0.8, 0.008);
+    for (let lx = 0.14; lx < 0.94; lx += 0.05) ctx.fillRect(lx, 0.33 + Math.sin(lx * 23 + sp.id.length) * 0.006, 0.038 + rand() * 0.012, 0.006 + rand() * 0.004);
     // gill plate / gill slits
     if (b.gills) {
       ctx.fillStyle = css(darken(look.side, 0.5), 0.6);
