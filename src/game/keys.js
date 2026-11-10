@@ -34,6 +34,7 @@ export const ACTIONS = [
   ['livewell', 'Livewell and market', 'Menus', 'l'],
   ['journal', 'Journal', 'Menus', 'j'],
   ['events', 'Tournaments', 'Menus', 'e'],
+  ['trophy', 'Trophy room (at the marina)', 'Menus', ';'],
   ['help', 'Controls help', 'Menus', 'h'],
   ['settings', 'Settings', 'Menus', 'o'],
 ];

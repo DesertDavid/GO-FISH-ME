@@ -300,7 +300,7 @@ export const LORE = {
 // ---------------------------------------------------------------------------------------------------------
 // Which choices each role offers. id -> label. Order matters. 'act' names are handled in keepers.js / ui.js.
 export const CHOICES = {
-  marina: [['boats', 'Boats for sale'], ['permit', 'Permits & fees'], ['sell', 'Sell my catch'], ['tip', "What's biting?"], ['lore', 'Anything happening around here?'], ['events', 'Tournaments & challenges']],
+  marina: [['boats', 'Boats for sale'], ['trophy', 'The trophy room'], ['permit', 'Permits & fees'], ['sell', 'Sell my catch'], ['tip', "What's biting?"], ['lore', 'Anything happening around here?'], ['events', 'Tournaments & challenges']],
   bait: [['shop', 'Browse tackle'], ['permit', 'Permits & repairs'], ['tip', "What's biting?"], ['lore', 'Anything happening around here?'], ['events', 'Tournaments & challenges']],
   buyer: [['sell', 'Sell my catch'], ['tip', "What's biting?"], ['lore', 'Anything happening around here?'], ['events', 'Tournaments & challenges']],
 };

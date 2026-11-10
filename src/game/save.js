@@ -31,6 +31,10 @@ export const DEFAULT_SAVE = Object.freeze({
   wear: { line: 0, hook: 0, lost: [] },   // line/hook wear 0..1, lures lost to snags (restock at the shop)
   custom: {},         // boat customization per boat id { paint, name, registration, upgrades } (boatCustom.js); optional, filled when you use the boat yard
   permits: { okeechobee: { until: 78.5 } },   // { locationId: { until: absolute game hours } }; new anglers start with 3 days at the home lake
+  mounts: [],       // trophy wall: mounted catches (trophyData.js; optional)
+  cands: [],        // catches measured for mounting
+  locBest: {},      // personal best per species per water
+  badges: [],       // completed daily challenges
   rapport: {},      // shopkeeper standing: { 'locId.role': { visits, deals, day } } (optional; dialogue.js TIERS)
 });
 

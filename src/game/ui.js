@@ -15,6 +15,7 @@ import { MODEL_CREDITS } from './creditsData.js';
 import { SettingsPanel } from './settingsUi.js';
 import { ACTION_IDS, ACTION, keyLabel, rewriteKeys } from './keys.js';
 import * as U from './units.js';
+import { CAPACITY, trophyCount, bestPerSpecies, bestPerWater, medalCounts, PLACE, SAY } from './trophyData.js';
 
 const $ = (id) => document.getElementById(id);
 const DEAL_ACTS = new Set(['buy', 'buyboat', 'permit', 'service', 'sellone', 'sellall', 'sellhold', 'sellspecies', 'unlock']);
@@ -308,6 +309,8 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     if (this.g.fishing.state === 'caught' && panel !== 'catch') return;
     // the shop and the marina are at the docks (the chart shows where)
     if ((panel === 'shop' && !this.g.serviceHere('tackle')) || ((panel === 'marina' || panel === 'yard') && !this.g.serviceHere('boats'))) { if (this.panel) this.close(); return; }
+    if (panel === 'trophy' && !this.g.trophyAccess()) { if (this.panel) this.close(); return; }
+    if (panel === 'trophy') this.tro = { arm: null, rep: null, ...(this.tro || {}), arm: null };
     if (panel === 'yard') this.yardInit();
     if (panel === 'talk') {
       const k = this.g.keepers?.who();
@@ -348,6 +351,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     if (id === 'permit') { this.tab.shop = 'service'; this.leaveTalk(true); this.open('shop'); return; }
     if (id === 'boats') { this.leaveTalk(true); this.open('marina'); return; }
     if (id === 'sell') { this.leaveTalk(true); this.open('livewell'); return; }
+    if (id === 'trophy') { this.leaveTalk(true); this.open('trophy'); return; }
     if (id === 'evpanel') { this.leaveTalk(true); this.open('events'); return; }
     K.reply(id);
     this.talkExtra = id === 'events' ? [['evpanel', 'Show me the entries']] : null;
@@ -467,7 +471,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
 
   render() {
     const card = $('modalCard');
-    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell, talk: this.renderTalk, yard: this.renderYard }[this.panel];
+    const fn = { angler: this.renderAngler, shop: this.renderShop, tackle: this.renderTackle, marina: this.renderMarina, map: this.renderMap, chart: this.renderChart, journal: this.renderJournal, trophy: this.renderTrophy, help: this.renderHelp, catch: this.renderCatch, haul: this.renderHaul, settings: this.renderSettings, events: this.renderEvents, tourResult: this.renderTourResult, pause: this.renderPause, saves: this.renderSaves, livewell: this.renderLivewell, talk: this.renderTalk, yard: this.renderYard }[this.panel];
     if (fn) card.innerHTML = fn.call(this);
     if (this.panel === 'yard') this.yardMount();
     if (this.panel === 'chart') this.g.chart.mount();
@@ -679,7 +683,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     }).join('');
     const species = Object.keys(s.journal).length;
     const tabs = [[this.g.loc.id, 'Here'], ...LOCATION_ORDER.filter((l) => l !== this.g.loc.id).map((l) => [l, LOCATIONS[l].name]), ['all', 'All species']];
-    return this.head('Fishing Journal') + `<div class="journal-sum"><span>Species <b>${species} / ${SPECIES.length}</b></span><span>Catalog <b>${catalogCount(s)} / ${CATALOG_SIZE.toLocaleString()}</b></span><span>Fish caught <b>${s.stats.caught}</b></span><span>Earned <b>${money(s.stats.earned)}</b></span></div>` + this.tabs('journal', tabs) + `<div>${rows}</div><p class="tips">Every species comes in ${MORPHS.length} colour variants (golden, albino, piebald, calico, ghost and more). Rare variants are worth several times more.</p>`;
+    return this.head('Fishing Journal') + `<div class="journal-sum"><span>Species <b>${species} / ${SPECIES.length}</b></span><span>Catalog <b>${catalogCount(s)} / ${CATALOG_SIZE.toLocaleString()}</b></span><span>Fish caught <b>${s.stats.caught}</b></span><span>Trophies <b>${trophyCount(s)} / ${CAPACITY}</b></span><span>Earned <b>${money(s.stats.earned)}</b></span></div>` + this.tabs('journal', tabs) + `<div>${rows}</div><p class="tips">Every species comes in ${MORPHS.length} colour variants (golden, albino, piebald, calico, ghost and more). Rare variants are worth several times more.</p>`;
   }
 
   // progressive journal hints: more catches of a species reveal more (tiers in baitData TUNING.hints)
@@ -712,6 +716,43 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     return parts.length ? `<div class="hint">${parts.join('')}</div>` : '';
   }
 
+
+  // ---- trophy room: the wall, what is waiting to be mounted, and the records ----
+  renderTrophy() {
+    const g = this.g, s = g.save, T = this.tro || (this.tro = { arm: null, rep: null });
+    const mounts = s.mounts || [], cands = s.cands || [], full = mounts.length >= CAPACITY;
+    const nm = (e) => `${e.morph !== 'normal' ? esc(MORPHS.find((m) => m.id === e.morph)?.name || '') + ' ' : ''}${esc(SPECIES_BY_ID[e.sp].name)}`;
+    const when = (e) => `${e.loc && LOCATIONS[e.loc] ? esc(LOCATIONS[e.loc].name) + ', ' : ''}day ${e.day}`;
+    const tag = (e) => esc(e.tour ? `${e.tour}${e.place ? ', ' + PLACE[e.place - 1] : ''}` : (e.tags[0] || ''));
+    const wall = mounts.map((e) => {
+      const sel = T.rep === e.id, arm = T.arm === e.id;
+      const rep = full && cands.length ? `<button class="btn ${sel ? 'primary' : ''}" data-act="tro-rep" data-id="${e.id}">${sel ? 'Swapping out' : 'Swap out'}</button> ` : '';
+      const down = arm ? `<button class="btn gold" data-act="tro-down" data-id="${e.id}">Take it down for good</button>` : `<button class="btn" data-act="tro-arm" data-id="${e.id}">Take down</button>`;
+      return `<tr><td><b>${nm(e)}</b> <span class="small">${tag(e)}</span></td><td>${lbs(e.lb)} · ${inches(e.inches)}</td><td class="small">${when(e)}</td><td class="b">${rep}${down}</td></tr>`;
+    }).join('');
+    const queue = cands.map((e) => {
+      const fee = g.mountFee(e.lb), cant = s.cash < fee || (full && !T.rep);
+      const why = s.cash < fee ? 'not enough cash' : full && !T.rep ? 'pick one to swap out' : '';
+      return `<tr><td><b>${nm(e)}</b> <span class="small">${tag(e)}</span></td><td>${lbs(e.lb)} · ${inches(e.inches)}</td><td class="small">${when(e)}</td><td class="b"><button class="btn gold" data-act="tro-mount" data-id="${e.id}" ${cant ? 'disabled' : ''}>Mount ${money(fee)}</button>${why ? ` <span class="small">${why}</span>` : ''}</td></tr>`;
+    }).join('');
+    const bests = bestPerSpecies(s).slice(0, 12).map((r) => {
+      const sp = SPECIES_BY_ID[r.sp];
+      return `<tr><td>${esc(sp.name)}</td><td>${lbs(r.lb)}</td><td class="small">${Math.round(100 * r.lb / sp.lb[2])}% of record</td><td class="small">${r.loc ? esc(LOCATIONS[r.loc].name) : 'before records were kept'}</td></tr>`;
+    }).join('');
+    const water = bestPerWater(s).map((r) => `<tr><td>${esc(LOCATIONS[r.loc].name)}</td><td>${esc(SPECIES_BY_ID[r.sp].name)} ${lbs(r.lb)}</td><td class="small">${r.n} species</td><td class="small">day ${r.day}</td></tr>`).join('');
+    const m = medalCounts(s), badges = (s.badges || []).length;
+    return this.head('Trophy room', `${mounts.length} / ${CAPACITY} on the wall`) + `
+      <p class="tips">${esc(mounts.length ? (full ? SAY.full : 'The harbour master mounts replicas cast and painted from your measurements and photographs, so the fish itself can go back.') : SAY.none)}</p>
+      ${mounts.length ? `<h5 class="board-h">On the wall</h5><div class="holdscroll"><table class="well"><tr><th>Fish</th><th>Size</th><th>Where, when</th><th></th></tr>${wall}</table></div>` : ''}
+      <h5 class="board-h">Waiting to be mounted</h5>
+      ${cands.length ? `<div class="holdscroll"><table class="well"><tr><th>Fish</th><th>Size</th><th>Where, when</th><th></th></tr>${queue}</table></div>` : `<p class="tips">${esc(SAY.empty)}</p>`}
+      <h5 class="board-h">Records</h5>
+      <div class="journal-sum"><span>Gold <b>${m[0]}</b></span><span>Silver <b>${m[1]}</b></span><span>Bronze <b>${m[2]}</b></span><span>Daily jobs done <b>${badges}</b></span></div>
+      ${bests ? `<div class="holdscroll"><table class="well"><tr><th>Species, personal best</th><th>Weight</th><th></th><th>Water</th></tr>${bests}</table></div>` : '<p class="tips">No catches logged yet.</p>'}
+      ${water ? `<h5 class="board-h">Heaviest fish by water</h5><div class="holdscroll"><table class="well">${water}</table></div>` : ''}
+      <div class="actions"><button class="btn primary" data-act="close">Back to fishing</button></div>`;
+  }
+
   // every key here is read from the live bindings (Settings > Controls), so it never goes stale
   renderHelp() {
     const B = this.g.binds.map, K = (...ids) => ids.map((i) => keyLabel(B[i])).join(' ');
@@ -734,6 +775,7 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       <div class="big"><div><b>${lbs(c.lb)}</b><span>weight</span></div><div><b>${inches(c.inches)}</b><span>length</span></div><div><b style="color:var(--accent-2)">${money(c.value)}</b><span>market value</span></div></div>
       <div class="stats small">World record about ${lbs(c.sp.lb[2])}. ${c.morph.id !== 'normal' ? `Rare variant: worth ${c.morph.value}x. ` : ''}${c.fishOfDay ? 'Fish of the day at the market. ' : ''}${c.buyer ? 'Buyer boat price (15% cut). ' : ''}<b style="color:var(--amber)">+${c.xp} xp</b></div>
       ${c.isNewSpecies && c.how && LURES[c.how.lure] ? `<div class="stats small how">First of its kind: it took the <b>${esc(LURES[c.how.lure].name)}</b>${c.how.depth > 0.1 && !LURES[c.how.lure].bobber ? ` at ${U.depth(+c.how.depth, 1)}` : ''} around ${hourText(c.how.hour)}. Logged in your journal.</div>` : ''}
+      ${c.mountNote ? `<div class="stats small how">${esc(c.mountNote)}</div>` : ''}
       <div class="actions">${this.catchButtons(c)}</div>`;
   }
 
@@ -849,6 +891,10 @@ const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
       case 'yard-apply': g.applyYard(this.yard.id, this.yard.draft); this.yardInit(); this.render(); break;
       case 'yard-up': { const keep = { ...this.yard.draft }; g.buyUpgrade(this.yard.id, d.up); this.yardInit(); Object.assign(this.yard.draft, keep); this.yardView(); this.render(); break; }
       case 'sv-save': case 'sv-load': case 'sv-del': case 'sv-export': case 'sv-import': this.saveAction(act, d.n); break;
+      case 'tro-arm': this.tro.arm = this.tro.arm === d.id ? null : d.id; this.render(); break;
+      case 'tro-down': g.takeDownTrophy(d.id); this.tro.arm = null; if (this.tro.rep === d.id) this.tro.rep = null; this.render(); break;
+      case 'tro-rep': this.tro.rep = this.tro.rep === d.id ? null : d.id; this.render(); break;
+      case 'tro-mount': if (g.mountTrophy(d.id, this.tro.rep)) this.tro.rep = null; this.render(); break;
       case 'enter': g.enterTournament(d.id); this.forceClose(); break;
       case 'reset': {
         // two clicks: the first arms it

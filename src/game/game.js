@@ -24,6 +24,8 @@ import { Birds } from './birds.js';
 import { FishLife } from './fishLife.js';
 import { Trolling, TROLL_GEAR } from './troll.js';
 import { Tournament, tournamentsFor } from './tournaments.js';
+import { TrophyHall } from './trophyHall.js';
+import { noteCatch, settleTournament, addBadge, mountCand, takeDown, mountFee, mountNote, SAY } from './trophyData.js';
 import { Sonar } from './sonar.js';
 import { Compass } from './compass.js';
 import { GameAudio } from './audio.js';
@@ -38,7 +40,7 @@ import { Obstacles } from './obstacles.js';
 import { Buildings } from './buildings.js';
 import { Keepers } from './keepers.js';
 import { wellSlots, keepFish, Market, ageWell, condition, ageHold, holdCap, holdLb, holdValue, holdUnits, planHaul, stowStacks } from './livewell.js';
-import { SPECIES_BY_ID, rollMorph } from './species.js';
+import { SPECIES_BY_ID, MORPHS, rollMorph } from './species.js';
 import { catchXp, challengeXp, tournamentXp, levelOf, levelInfo, unlocksAt, gateLevel, meets, hasPermit, permitLeft, permitPrice, PERMIT_OPTIONS, absHours, respoolCost, SHARPEN_COST, restockCost, WEAR_DEFAULT, effectiveTest } from './progress.js';
 
 const TABLES = { rods: RODS, reels: REELS, lines: LINES, lures: LURES };
@@ -97,6 +99,7 @@ export class Game {
     this.buildings = new Buildings(this);
     this.scene.add(this.buildings.group);
     this.obstacles.add(this.buildings.colliders());
+    this.hall = this.buildings.hall ? new TrophyHall(this, this.buildings.hall) : null;   // trophy room contents (built only when near)
     this.obstacles.add((this.loc.stacks || []).map(([x, z, r]) => ({ x, z, r: r * 1.05 })));
     this.bumpCool = 0;
     this.market = new Market(this.loc);
@@ -210,7 +213,7 @@ export class Game {
       if (this.wantLock) this.grabPointer?.();   // last grab was refused: retry on this key
       this.keys.add(k);
       const act = this.binds.rev[k];
-      const open = { tackle: 'tackle', shop: 'shop', marina: 'marina', map: 'map', chart: 'chart', journal: 'journal', help: 'help', settings: 'settings', events: 'events' }[act];
+      const open = { tackle: 'tackle', shop: 'shop', marina: 'marina', map: 'map', chart: 'chart', journal: 'journal', help: 'help', settings: 'settings', events: 'events', trophy: 'trophy' }[act];
       if (open) { this.ui.open(open); this.keys.clear(); return; }
       if (act === 'view') { this.view = this.view === 'first' ? 'third' : 'first'; if (this.view === 'third') this.look.yaw = 0; else this.restoreLook(); }
       if (act === 'stepOff') this.toggleShore();
@@ -456,6 +459,7 @@ export class Game {
     const bp = this.foot ? this.footPos : this.boat.position;
     this.docks.update(this.nightLevel(), bp);
     this.buildings.update(dt, this.nightLevel(), bp);
+    this.hall?.update(dt, bp);
     this.shoreHintTick(dt);
     this.hotspots.update(dt, this.time, this.e.floaters, bp);
     this.ambient.update(dt, bp);
@@ -732,6 +736,7 @@ export class Game {
       if (door.services.includes('tackle')) hints.push([KL('shop'), `${door.title}: bait, tackle & permits`]);
       if (door.services.includes('boats')) hints.push([KL('marina'), 'boat dealer']);
     }
+    if (this.foot && this.view === 'first' && !this.ui.isOpen() && this.hall?.inside(this.foot)) hints.push([KL('trophy'), 'trophy room: records, mounts']);
     if (!this.ui.isOpen() && this.view === 'first' && this.keepers?.who()) hints.push([KL('talk'), `talk to ${this.keepers.who().d.name}`]);
     this.ui.shoreHint(hints);
   }
@@ -870,6 +875,7 @@ export class Game {
     }
     this.ui.showCatch({
       sp: f.sp, morph: f.morph, lb: f.lb, inches, value, iced: kept.iced, xp: catchXp(f.sp, f.morph, f.lb, res).xp,
+      mountNote: res.isNewSpecies || res.isRecord ? mountNote([res.isNewSpecies ? 'First of its kind' : 'Personal best']) : '',
       how: f.how, isNewSpecies: res.isNewSpecies, isNewMorph: res.isNewMorph, isRecord: res.isRecord,
       well: well.length, slots, cull, canSell: !!access, buyer: access === 'buyer', fishOfDay: this.market.fishOfDay(this.save.day || 1) === f.sp.id,
     });
@@ -911,6 +917,7 @@ export class Game {
     let bonus = 0;
     for (const c of ch.completed) {
       bonus += c.reward;
+      this.save = addBadge(this.save, c.text, this.save.location);
       xpGain += challengeXp(c.reward);
       this.ui.toast(`Done: ${c.text}. Paid $${c.reward.toLocaleString()}.`, 'good');
     }
@@ -918,7 +925,10 @@ export class Game {
     if (bonus) this.audio.play('cash');
     this.ui.challenges(this.save.challenges);
     // tournament weigh-in (kept or released, it's weighed at the boat)
-    if (this.tour && !this.tour.done && this.tour.record(p.f.sp, p.f.lb)) {
+    const tourFish = this.tour && !this.tour.done && this.tour.record(p.f.sp, p.f.lb);
+    // records per water, and a mount candidate for a first, a personal best or the best fish of an event
+    this.save = noteCatch(this.save, { f: p.f, inches: fishLengthM(p.f.sp, p.f.lb).inches, isNewSpecies: p.res.isNewSpecies, isRecord: p.res.isRecord, tour: tourFish ? { key: this.tour.key, name: this.tour.def.name } : null });
+    if (tourFish) {
       this.ui.toast(`Weighed in: ${p.f.lb.toFixed(2)} lb for the ${this.tour.def.name}`, 'good');
       this.ui.leaderboard(this.tour);
     }
@@ -942,6 +952,41 @@ export class Game {
     const bp = this.boat.position, n = this.docks.nearest(bp.x, bp.z);
     return n && n.dist < this.boat.hull.length / 2 + 6 && Math.abs(this.boatSpeed()) < 1.5 ? { dock: n.dock } : null;
   }
+
+  // ---------------------------------------------------------------- trophy room
+  // the wall and the records board are read (and mounts ordered) at the trophy hall beside the Marina office, at the
+  // marina's door or dock, or anywhere on water without docks (the buyer boat takes the order)
+  trophyAccess(quiet) {
+    const at = this.dockHere();
+    if (at === 'buyer') return true;
+    if (this.hall && this.foot && this.hall.dist(this.foot) < 16) return true;
+    if (at && at.dock.profile.services.includes('boats')) return true;
+    if (!quiet) {
+      const sh = this.docks.list.find((d) => d.profile.services.includes('boats'));
+      this.ui.toast(sh ? 'The trophy room is beside the marina office. Press C for the chart.' : 'There is no trophy room on this water.', 'info');
+    }
+    return false;
+  }
+
+  mountTrophy(id, replaceId) {
+    const r = mountCand(this.save, id, replaceId);
+    if (r.err) { this.ui.toast(r.err, 'info'); return false; }
+    this.save = r.save; writeSave(this.save);
+    this.audio.play('cash');
+    this.ui.toast('Mounted, $' + r.fee + '. ' + SAY.hung[Math.floor(Math.random() * SAY.hung.length)], 'good');
+    this.hall?.update(1, this.foot || this.boat.position);
+    return true;
+  }
+
+  takeDownTrophy(id) {
+    const r = takeDown(this.save, id);
+    if (r.err) { this.ui.toast(r.err, 'info'); return false; }
+    this.save = r.save; writeSave(this.save);
+    this.ui.toast(SAY.down[Math.floor(Math.random() * SAY.down.length)], 'info');
+    this.hall?.update(1, this.foot || this.boat.position);
+    return true;
+  }
+  mountFee(lb) { return mountFee(lb); }
 
   // can you use this service (sell / tackle / boats) where you are? toasts where to go if not
   serviceHere(kind) {
@@ -1019,6 +1064,7 @@ export class Game {
     if (!def || this.tour || this.save.cash < def.fee) return;
     this.commit({ cash: this.save.cash - def.fee });
     this.tour = new Tournament(def, this.loc);
+    this.tour.key = def.id + '@' + (this.save.day || 1) + '@' + this.loc.id;   // ties the event's best fish to its result (trophy candidates)
     this.tourRefresh = 0;
     this.audio.play('strike');
     this.ui.toast(`${def.name}: ${def.minutes} minutes on the clock.`, 'good');
@@ -1035,6 +1081,7 @@ export class Game {
     // finish once the clock is out, but never on top of an open catch or haul card
     if (!t.done || this.fishing.state === 'caught' || this.ui.panel === 'haul' || this.ui.panel === 'catch') return;
     const r = t.result();
+    this.save = settleTournament(this.save, t.key, r.place);
     const trophies = [...(this.save.trophies || []), { name: t.def.name, loc: this.loc.id, place: r.place, day: this.save.day || 1 }];
     this.commit({ cash: this.save.cash + r.prize, trophies, stats: { ...this.save.stats, earned: this.save.stats.earned + r.prize } });
     if (r.prize) this.audio.play('landed');
@@ -1047,6 +1094,14 @@ export class Game {
   }
 
   // fish on the trolling spread: fight it on the boat's tackle, from the cockpit
+  // dev hook (tests): land a fish straight onto the catch card, e.g. game.devLand('pike', 12.5), then game.finishCatch('release')
+  devLand(id, lb, morphId = 'normal') {
+    const sp = SPECIES_BY_ID[id], morph = MORPHS.find((m) => m.id === morphId);
+    if (!sp || !morph) return false;
+    this.onCatch({ sp, morph, lb: lb || sp.lb[1], how: { lure: this.save.equip.lure, depth: 1, hour: this.save.hour } }, () => {});
+    return true;
+  }
+
   // dev hook (tests, screenshots): hook a species right now, e.g. game.devFight('largemouth', 6)
   devFight(id, lb) {
     const f = this.fishing, sp = SPECIES_BY_ID[id];

@@ -4,6 +4,7 @@ import { Mesher, rng, house, faceMap, windowOn, doorOn, crate, barrel, pot } fro
 import { bldTexture, SignAtlas } from './bldTex.js';
 import { dockProfile } from './chart.js';
 import { buildScatter } from './bldScatter.js';
+import { hallShell, HALL } from './trophyHall.js';
 import { STYLES, LOC_STYLE, TEXT, BOARDS, FONTS, pick } from './bldStyles.js';
 
 // Buildings for every water: the shop behind each Chart dock marker (NPC buildings you walk up to:
@@ -60,6 +61,7 @@ export class Buildings {
     this.group.name = 'buildings';
     this.mats = new BldMats(g.patchProp);
     this.rects = [];           // walk blockers: oriented boxes
+    this.hall = null;          // trophy hall site { cx, cz, y0, theta } (marina only)
     this.doors = [];           // { x, z, dock, title, role }
     this.circles = [];         // boat obstacles (stilts over water, piers, towers)
     this.lights = [];
@@ -130,6 +132,7 @@ export class Buildings {
       const p = this.probe(cx, cz, theta, w, d);
       if (p.lo < (opt.minLo ?? 0.3)) continue;
       const range = p.hi - p.lo;
+      if (opt.ok && !opt.ok({ cx, cz, theta, lo: p.lo, range })) continue;
       const sc = range + extra * 0.04;
       if (!best || sc < best.sc) best = { cx, cz, theta, lo: p.lo, hi: p.hi, range, sc, side, U, V };
     }
@@ -196,6 +199,36 @@ export class Buildings {
           this.boatYard(M3, style, rand, text);
           add(M3, yd, yd.hi + 0.15);
           this.rects.push({ x: yd.cx, z: yd.cz, hw: 4.8, hd: 3.8, c: Math.cos(yd.theta), s: Math.sin(yd.theta), role: 'yard', dock: dk });
+        }
+        // the trophy hall: an open shed with the mounted fish and the records boards, on the side away from the fuel dock when there is room
+        let hs = null;
+        const clear = (c) => {   // no other building under the hall's footprint (sampled)
+          const cc = Math.cos(c.theta), sn = Math.sin(c.theta);
+          for (let i = -2; i <= 2; i++) for (let k = -1; k <= 1; k++) {
+            const lx = i * (HALL.w / 2 + 0.8) / 2, lz = k * (HALL.d / 2 + 0.6);
+            if (this.blocks(c.cx + lx * cc + lz * sn, c.cz - lx * sn + lz * cc)) return false;
+          }
+          return true;
+        };
+        for (const vx of [4, 8, 12, 16, 22, 30]) {
+          for (const sd of [-site.side, site.side]) {
+            const c = this.siteBeside(dk, HALL.w, HALL.d + 0.8, { u: 2.2, v: 3 + spec.w / 2, sides: [sd], vExtra: vx, reach: 46, ok: (c) => c.lo > 0.2 && c.range < 2.6 && clear(c) });
+            if (c) { hs = c; break; }
+          }
+          if (hs) break;
+        }
+        if (!hs) console.warn('[buildings] no trophy hall site at', this.loc.id);
+        if (hs) {
+          const M4 = new Mesher(rand, this.mats.glowAtlas.white());
+          hallShell(M4, this, style, rand, this.loc.id);
+          const hy = hs.range > 2 ? hs.lo + hs.range * 0.5 + 0.3 : hs.hi + 0.25;
+          add(M4, hs, hy);
+          const hc = Math.cos(hs.theta), hn = Math.sin(hs.theta);
+          // walls block walkers; the front stays open
+          this.rects.push({ x: hs.cx - hn * (HALL.d / 2 - 0.1), z: hs.cz - hc * (HALL.d / 2 - 0.1), hw: HALL.w / 2 + 0.3, hd: 0.3, c: hc, s: hn, role: 'hall', dock: dk });
+          for (const sx of [-1, 1]) this.rects.push({ x: hs.cx + hc * sx * (HALL.w / 2), z: hs.cz - hn * sx * (HALL.w / 2), hw: 0.25, hd: HALL.d / 2, c: hc, s: hn, role: 'hall', dock: dk });
+          this.hall = { cx: hs.cx, cz: hs.cz, y0: hy, theta: hs.theta };
+          this.lights.push({ x: hs.cx + hn * 1.6, z: hs.cz + hc * 1.6, y: hy + 2.6 });
         }
       }
       this.lights.push({ x: dpos[0], z: dpos[1], y: y0 + 2.4 });
