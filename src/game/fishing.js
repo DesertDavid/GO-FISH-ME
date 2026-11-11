@@ -6,6 +6,7 @@ import { TUNING as BAIT } from './baitData.js';
 import { RODS, REELS, LINES, LURES } from './gear.js';
 import { buildFish, fishLengthM } from './fishMesh.js';
 import { FEEL, personality, landKind, pickLine } from './fightFeel.js';
+import { chooseBehavior, fightForces, jumpThrows, nearBoat, biteRate } from './fightCore.js';
 import { FightFx } from './fightFx.js';
 import { GFX } from './gfx.js';
 import { Landing } from './landing.js';
@@ -249,15 +250,9 @@ export class Fishing {
 
   rollBite(dt, rod, lure) {
     const c = this.ctx;
-    let activity = lure.active ? (this.moving ? 1 : 0.3) : (this.moving ? 0.5 : 1);
-    if (lure.fly && rod.fly) activity *= 1.35;
     const hot = Math.max(c.hotspots ? c.hotspots.near(this.lure.x, this.lure.z, 55) : 0, c.fishLife ? c.fishLife.boilNear(this.lure.x, this.lure.z) : 0);
-    const hour = c.hour();
-    // dawn and dusk are best overall; per-species time/weather/depth/lure taste is in the match model
-    const isNight = hour < 5.2 || hour > 20.6;
-    const tod = isNight ? 0.95 : hour < 8.5 || hour > 17.5 ? 1.4 : hour > 11 && hour < 15 ? 0.85 : 1;
     const info = this.matchInfo();
-    const rate = 0.07 * activity * (1 + hot * 3.5) * tod * (c.weatherBite ? c.weatherBite() : 1) * info.rate;
+    const rate = biteRate({ lureActive: lure.active, moving: this.moving, fly: lure.fly, rodFly: rod.fly, hot, hour: c.hour(), weather: c.weatherBite ? c.weatherBite() : 1, matchRate: info.rate });
     if (Math.random() > rate * dt) return null;
     // tide: flats species like a rising tide, flatfish and cod a falling one (weather.js tideMul)
     let pick = info;
@@ -359,81 +354,12 @@ export class Fishing {
     c.rod.twitch = 0.8;
   }
 
-  chooseBehavior(f) {
-    const sp = f.sp, P = f.pers, T = f.stamina;
-    const opts = [['run', 0.38], ['circle', 0.24], ['dive', sp.depth === 'b' ? 0.25 : 0.1], ['rest', 0.1 + (1 - T) * 0.3], ['charge', 0.08],
-      ['surge', P.surge * (0.4 + T)], ['headshake', P.headshake], ['sound', P.sound * (0.5 + T)]];
-    if (sp.jump > 0 && f.jumps < P.jumpMax) opts.push(['jump', sp.jump * 0.28 * (0.4 + T) * (P.jump ? 1.6 : 1)]);
-    if (P.thrash && T < 0.75) opts.push(['thrash', P.thrash * (1.2 - T)]);
-    let sum = opts.reduce((a, o) => a + o[1], 0), r = Math.random() * sum;
-    for (const [name, w] of opts) { r -= w; if (r <= 0) { f.behavior = name; break; } }
-    const rnd = ([lo, hi]) => lo + Math.random() * (hi - lo);
-    f.bT = 1.5 + Math.random() * 3.5;
-    f.dir = Math.random() < 0.5 ? -1 : 1;
-    f.power = { run: 1, circle: 0.65, dive: 0.85, rest: 0.25, charge: 0.35, jump: 0.7, surge: FEEL.surge.power, headshake: FEEL.headshake.power, sound: FEEL.sound.power, thrash: FEEL.thrash.power }[f.behavior];
-    if (f.behavior === 'jump') { f.jumpT = 0; f.jumps++; f.bT = 1.4; }
-    else if (f.behavior === 'surge') f.bT = rnd(FEEL.surge.t);
-    else if (f.behavior === 'headshake') f.bT = rnd(FEEL.headshake.t);
-    else if (f.behavior === 'sound') f.bT = rnd(FEEL.sound.t);
-    else if (f.behavior === 'thrash') f.bT = rnd(FEEL.thrash.t);
-  }
+  chooseBehavior(f) { chooseBehavior(f, Math.random); }
 
   updateFight(dt, input) {
     const c = this.ctx, f = this.fish, { rod, reel, line } = this.gear;
     const tip = c.rod.tip;
-    f.time += dt;
-    f.bT -= dt;
-    if (f.bT <= 0) this.chooseBehavior(f);
-    const sp = f.sp;
     const D = this.dragSetting();
-    const hs = f.behavior === 'headshake' || f.behavior === 'thrash';
-    f.shake = hs ? Math.abs(Math.sin(f.time * 16)) * FEEL.headshake.shake * (0.5 + 0.5 * Math.min(1, f.lb / 20))
-      : Math.max(0, Math.sin(f.time * 9) * Math.sin(f.time * 2.3)) * (sp.fight > 0.7 ? 0.22 : 0.12);
-    const P = Math.max(0.3, 2.5 * Math.pow(f.lb, 0.75) * sp.fight * (0.22 + 0.78 * f.stamina) * f.power * (1 + f.shake));
-    const speed = (1 + Math.pow(f.lb, 0.33) * 0.9) * (0.5 + sp.fight) * f.power * (0.3 + 0.7 * f.stamina);
-    const radial = { run: 0.9, circle: 0.15, dive: 0.3, rest: 0, charge: -0.9, jump: 0.3, surge: FEEL.surge.radial, headshake: 0, sound: 0.25, thrash: 0 }[f.behavior];
-    const tang = { run: 0.4, circle: 1, dive: 0.2, rest: 0.1, charge: 0.2, jump: 0.3, surge: 0.3, headshake: 0.05, sound: 0.1, thrash: 0.5 }[f.behavior] * f.dir;
-    const reeling = input.down;
-    const retrieve = reel.ratio * 0.36;
-    let T, reelStall = false;
-    this.slip = 0;
-    f.r = Math.min(f.r, this.lineOut);
-    this.runWarn = false;
-    if (radial > 0) {
-      const want = speed * radial;
-      if (P > D) {
-        const out = want * (1 - D / P) + 0.15 * want;
-        this.lineOut += out * dt;
-        T = D;
-        // cranking while the drag slips gains nothing and twists the line toward breaking
-        if (reeling) { T = D * 1.3; this.overload += dt * 0.25; this.runWarn = true; }
-        this.slip = Math.min(1.5, out);
-        reelStall = reeling;
-      } else {
-        T = P;
-        if (reeling) { this.lineOut -= retrieve * (1 - P / D) * dt; T = Math.min(D, P + 0.3 * D); }
-      }
-      f.r = this.lineOut;
-    } else {
-      f.r = Math.max(1, f.r + speed * radial * dt);
-      if (reeling) this.lineOut = Math.max(f.r, this.lineOut - retrieve * dt * (radial < 0 ? 1.6 : 1));
-      const slack = this.lineOut - f.r;
-      if (slack > 0.5) T = Math.max(0, P * 0.15 - slack * 0.2);
-      else { T = reeling ? Math.min(D, P + 0.3 * D) : P * 0.8; this.lineOut = Math.min(this.lineOut, f.r + 0.2); if (reeling && P < D) { this.lineOut -= retrieve * (1 - P / D) * dt; f.r = this.lineOut; } }
-    }
-    // a rough drag lets go in jerks: the cheaper the reel, the harder it hits the line
-    if (radial > 0 && P > D) T *= 1 + (1 - reel.smooth) * 0.35 * Math.max(0, Math.sin(f.time * 17));
-    if (!this.gearOverride) c.wearAdd('line', fightWear(dt, T / line.test));
-    c.audio.reel(reeling);
-    c.audio.playDrag(this.slip > 0 ? Math.min(1, 0.15 + 0.55 * (T / line.test) + 0.15 * this.slip) : 0);
-    this.reelStall = reelStall;
-    this.load = Math.min(1.3, T / line.test);
-    // tension warning: loaded close to the line's limit, or the overload clock is running
-    this.warn = this.load > FEEL.warnLoad || this.overload > FEEL.warnOverload;
-    // heavier fish shake the camera and the hands more, harder on a surge or a headshake
-    const heft = Math.min(1, Math.sqrt(f.lb / FEEL.cam.lbRef));
-    const mood = f.behavior === 'headshake' || f.behavior === 'thrash' ? 1.5 : f.behavior === 'surge' ? 1.2 : f.jumpT >= 0 ? 0.3 : 1;
-    this.camShake += (Math.min(1.4, this.load * heft * mood + (this.slip > 0 ? 0.1 * heft : 0)) - this.camShake) * Math.min(1, dt * 6);
     // rod angle: pulling against the fish's side tires it faster
     const toFish = Math.atan2(f.pos.z - c.angler.position.z, f.pos.x - c.angler.position.x);
     const camDir = c.angler.getWorldDirection(_fwd);
@@ -444,25 +370,18 @@ export class Fishing {
     const against = input.steer !== 0 && fishSide !== 0 && Math.sign(input.steer) === -fishSide;
     const withIt = input.steer !== 0 && Math.sign(input.steer) === fishSide;
     const steerMul = against ? 1.9 : withIt ? 0.55 : 1;
-    // stamina
-    const strength = 2.5 * Math.pow(f.lb, 0.75) * sp.fight + 1;
     const chair = c.boatSpec().bigGame && f.lb > 80 ? 1.25 : 1;
-    // bigger fish tire proportionally slower: a bass takes ~30 s, a 400 lb marlin a few minutes
-    f.stamina -= dt * (T / strength) * 0.055 * Math.sqrt(rod.lift) * steerMul * chair / (1 + f.lb / 150);
-    if (radial > 0 && P > D) f.stamina -= dt * 0.012;
-    if (T < P * 0.3) f.stamina += dt * 0.015;
-    f.stamina = THREE.MathUtils.clamp(f.stamina, 0, 1);
-    // line strength: stretchy mono soaks up head shakes, braid doesn't
-    const spike = T * (1 + f.shake * (1 - line.stretch * 3));
-    if (spike > line.test) this.overload += dt * ((spike / line.test - 1) * 6 + 0.4);
-    else if (!this.runWarn) this.overload = Math.max(0, this.overload - dt * 0.15);
-    this.tension = T;
-    if (this.overload >= 1) return this.lose(this.runWarn ? 'wound' : this.wear.line > 0.5 ? 'snapFrayed' : 'snap');
-    if (T > rod.power * 3) return this.lose('rod');
-    if (this.lineOut > reel.cap) return this.lose('spooled');
-    // slack line lets a fish throw the hook
-    if (T < P * 0.12 && !f.thrown) this.slackT += dt; else this.slackT = Math.max(0, this.slackT - dt * 2);
-    if (this.slackT > 2.4) return this.lose('pull');
+    // the force balance, stamina, overload and loss checks live in fightCore.js (pure, seedable)
+    const lost = fightForces(this, f, { rod, reel, line }, { D, steerMul, chair }, dt, input, Math.random, this.wear.line);
+    const T = this.tension, speed = f.speedNow, tang = f.tangNow;
+    if (!this.gearOverride) c.wearAdd('line', fightWear(dt, T / line.test));
+    c.audio.reel(input.down);
+    c.audio.playDrag(this.slip > 0 ? Math.min(1, 0.15 + 0.55 * (T / line.test) + 0.15 * this.slip) : 0);
+    // heavier fish shake the camera and the hands more, harder on a surge or a headshake
+    const heft = Math.min(1, Math.sqrt(f.lb / FEEL.cam.lbRef));
+    const mood = f.behavior === 'headshake' || f.behavior === 'thrash' ? 1.5 : f.behavior === 'surge' ? 1.2 : f.jumpT >= 0 ? 0.3 : 1;
+    this.camShake += (Math.min(1.4, this.load * heft * mood + (this.slip > 0 ? 0.1 * heft : 0)) - this.camShake) * Math.min(1, dt * 6);
+    if (lost) return this.lose(lost);
     // position
     f.theta += (speed * tang) / Math.max(3, f.r) * dt;
     const bottom = Math.max(0.6, -c.heightAt(f.pos.x, f.pos.z));
@@ -490,7 +409,7 @@ export class Fishing {
       const hJ = 0.8 + Math.pow(f.lb, 0.2) * 0.6;
       f.pos.y = c.waterAt(1) + Math.sin(Math.PI * Math.min(1, f.jumpT)) * hJ - 0.2;
       if (f.jumpT < dt * 2) { c.splash(f.pos.x, f.pos.z, 0.12, f.len * 0.6); c.audio.play('splash'); this.fx.burst('splash', _v.set(f.pos.x, c.waterAt(1), f.pos.z), 14, null, 1.3); this.kick(0.25); c.ui.toast(`${f.sp.name} clears the water.`, 'info'); }
-      if (!f.thrown && f.jumpT > 0.3 && T > line.test * 0.65 && Math.random() < 0.45) {
+      if (jumpThrows(f, T, line.test, Math.random)) {
         f.thrown = true;
         return this.lose('thrown');
       }
@@ -502,10 +421,9 @@ export class Fishing {
     f.roll += ((tired ? FEEL.roll * (0.6 + 0.4 * Math.sin(f.time * 3)) : 0) - f.roll) * Math.min(1, dt * 3);
     // landing
     const land = c.boatLength() * 0.35 + 2.5;
-    if (f.r < land) {
-      if (f.stamina < FEEL.land.stamina) return this.startLanding();
-      if (f.behavior !== 'run') { f.behavior = 'run'; f.bT = 2.5; f.power = 1; f.dir = Math.random() < 0.5 ? 1 : -1; f.theta += Math.PI * 0.2; c.ui.toast(c.boatLength() ? 'It has seen the boat and is running.' : 'It has seen you and is running.', 'info'); }
-    }
+    const near = nearBoat(f, land, Math.random);
+    if (near === 'land') return this.startLanding();
+    if (near === 'bolt') c.ui.toast(c.boatLength() ? 'It has seen the boat and is running.' : 'It has seen you and is running.', 'info');
     c.ui.fightTick({ warn: this.warn, slip: this.slip, behavior: f.behavior, tension: T, test: line.test, drag: D, maxDrag: reel.drag, lineOut: this.lineOut, cap: reel.cap, stamina: f.stamina, fishSide, overload: this.overload, runWarn: this.runWarn });
   }
 
