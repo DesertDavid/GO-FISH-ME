@@ -46,6 +46,7 @@ export class Chart {
     const out = [];
     (this.g.docks.list || []).forEach((d, i) => {
       const p = dockProfile(i);
+      if (d.landing) p.name = `${d.landing} ${p.name}`;   // a real landing: Clewiston Marina, Pahokee Bait shop
       d.profile = p;
       out.push({ x: d.end.x, z: d.end.z, dock: d, name: p.name, services: p.services });
     });

@@ -103,42 +103,63 @@ export class Docks {
     const out = [];
     const sx = start.x, sz = start.z;
     const maxR = Math.min(2400, loc.size * 0.5);
-    for (let r = 30; r < maxR && out.length < MAX_DOCKS; r += 10) {
+    // one candidate: a shore point (cx, cz) -> a dock that reaches fishable water, or null
+    const tryAt = (cx, cz) => {
+      const h = H(cx, cz);
+      if (h < -9 || h > 1.5) return null;
+      const gx = H(cx + 2, cz) - H(cx - 2, cz), gz = H(cx, cz + 2) - H(cx, cz - 2), gl = Math.hypot(gx, gz);
+      if (gl < 0.02) return null;
+      const dx = -gx / gl, dz = -gz / gl;
+      // find the waterline: that's where the dock starts (rocky shores drop off steeply)
+      let x = cx, z = cz, found = false;
+      const sgn = h > 0 ? 1 : -1;   // on land: walk seaward to the edge; in water: walk landward
+      for (let t = 0; t < 12; t += 0.5) {
+        const px = cx + dx * t * sgn, pz = cz + dz * t * sgn;
+        if ((H(px, pz) > 0) === (sgn < 0)) { x = px; z = pz; found = true; break; }
+      }
+      if (!found) return null;
+      if (sgn > 0) { x -= dx * 0.5; z -= dz * 0.5; }
+      // solid land behind, but not a sheer wall
+      const back = H(x - dx * RAMP, z - dz * RAMP);
+      if (H(x - dx * 6, z - dz * 6) < 0.3 || back > 6) return null;
+      const deck = THREE.MathUtils.clamp(back * 0.75, DECK_Y, 2.4);
+      // march out to fishable water
+      let len = 0;
+      for (let t = 2; t <= 60; t += 1) {
+        const px = x + dx * t, pz = z + dz * t;
+        const c = H(px, pz), sl = H(px - dz * 3, pz + dx * 3), sr = H(px + dz * 3, pz - dx * 3);
+        if (c > 0.2 || sl > 0.4 || sr > 0.4) break;
+        if (c < -1.8 && t >= 10) { len = t; break; }
+      }
+      if (!len) return null;
+      // the head needs open water all round
+      const ex = x + dx * (len + HEAD_D), ez = z + dz * (len + HEAD_D);
+      if (H(ex, ez) > -1.2 || H(ex - dz * HEAD_W * 0.6, ez + dx * HEAD_W * 0.6) > -0.8 || H(ex + dz * HEAD_W * 0.6, ez - dx * HEAD_W * 0.6) > -0.8) return null;
+      return { x, z, dx, dz, len, deck, yaw: Math.atan2(-dz, dx) };
+    };
+    if (loc.landings) {
+      // real towns and landings on the rim: the closest workable shore to each one
+      for (const L of loc.landings) {
+        let site = null;
+        for (let r = 0; r <= 170 && !site; r += 8) {
+          const n = r === 0 ? 1 : Math.ceil((Math.PI * 2 * r) / 10);
+          for (let k = 0; k < n && !site; k++) {
+            const a = (k / n) * Math.PI * 2;
+            site = tryAt(L.x + Math.cos(a) * r, L.z + Math.sin(a) * r);
+            if (site && out.some((d) => Math.hypot(d.x - site.x, d.z - site.z) < 60)) site = null;
+          }
+        }
+        if (site) { site.landing = L.name; out.push(site); }
+      }
+    }
+    // everywhere else: walk the coast outward from the start
+    for (let r = 30; r < maxR && out.length < MAX_DOCKS && !loc.landings; r += 10) {
       const step = 14 / r;
       for (let a = 0; a < Math.PI * 2 && out.length < MAX_DOCKS; a += step) {
         const cx = sx + Math.cos(a) * r, cz = sz + Math.sin(a) * r;
-        const h = H(cx, cz);
-        if (h < -9 || h > 1.5) continue;
         if (out.some((d) => Math.hypot(d.x - cx, d.z - cz) < 220)) continue;
-        const gx = H(cx + 2, cz) - H(cx - 2, cz), gz = H(cx, cz + 2) - H(cx, cz - 2), gl = Math.hypot(gx, gz);
-        if (gl < 0.02) continue;
-        const dx = -gx / gl, dz = -gz / gl;
-        // find the waterline: that's where the dock starts (rocky shores drop off steeply)
-        let x = cx, z = cz, found = false;
-        const sgn = h > 0 ? 1 : -1;   // on land: walk seaward to the edge; in water: walk landward
-        for (let t = 0; t < 12; t += 0.5) {
-          const px = cx + dx * t * sgn, pz = cz + dz * t * sgn;
-          if ((H(px, pz) > 0) === (sgn < 0)) { x = px; z = pz; found = true; break; }
-        }
-        if (!found) continue;
-        if (sgn > 0) { x -= dx * 0.5; z -= dz * 0.5; }
-        // solid land behind, but not a sheer wall
-        const back = H(x - dx * RAMP, z - dz * RAMP);
-        if (H(x - dx * 6, z - dz * 6) < 0.3 || back > 6) continue;
-        const deck = THREE.MathUtils.clamp(back * 0.75, DECK_Y, 2.4);
-        // march out to fishable water
-        let len = 0;
-        for (let t = 2; t <= 60; t += 1) {
-          const px = x + dx * t, pz = z + dz * t;
-          const c = H(px, pz), sl = H(px - dz * 3, pz + dx * 3), sr = H(px + dz * 3, pz - dx * 3);
-          if (c > 0.2 || sl > 0.4 || sr > 0.4) break;
-          if (c < -1.8 && t >= 10) { len = t; break; }
-        }
-        if (!len) continue;
-        // the head needs open water all round
-        const ex = x + dx * (len + HEAD_D), ez = z + dz * (len + HEAD_D);
-        if (H(ex, ez) > -1.2 || H(ex - dz * HEAD_W * 0.6, ez + dx * HEAD_W * 0.6) > -0.8 || H(ex + dz * HEAD_W * 0.6, ez - dx * HEAD_W * 0.6) > -0.8) continue;
-        out.push({ x, z, dx, dz, len, deck, yaw: Math.atan2(-dz, dx) });
+        const site = tryAt(cx, cz);
+        if (site) out.push(site);
       }
     }
     out.forEach((d) => {

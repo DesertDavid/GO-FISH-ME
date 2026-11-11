@@ -30,6 +30,17 @@ const base = {
   trees: [], hotspots: 6, birds: true,
 };
 
+// north = -z, east = +x. Landings sit on the rim; islands are marsh/grass patches inside it.
+const OKEE_LANDINGS = [
+  { name: 'Clewiston', x: -250, z: 1015 }, { name: 'Pahokee', x: 880, z: 520 }, { name: 'Moore Haven', x: -930, z: 520 },
+  { name: 'Port Mayaca', x: 960, z: -380 }, { name: 'Buckhead Ridge', x: -740, z: -760 }, { name: 'Canal Point', x: 1020, z: 120 }, { name: 'Okeechobee', x: 40, z: -1040 },
+];
+const OKEE_ISLANDS = [[-440, -430, 150], [230, -740, 120], [-340, 470, 150], [640, 560, 120], [150, 850, 140]];   // Horse, Hog, Observation, Kreamer, Ritta
+const OKEE_ROUTE = [[960, -330], [1000, 200], [820, 560], [520, 790], [100, 930], [-250, 960]];   // Okeechobee Waterway, Port Mayaca to Clewiston
+const OKEE_KISS = [[260, -1090], [190, -900], [150, -760]];   // the Kissimmee River's mouth
+const segDist = (px, pz, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (pz - a[1]) * dz) / (dx * dx + dz * dz))); return Math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t); };
+const pathDist = (x, z, P) => { let m = 1e9; for (let i = 0; i < P.length - 1; i++) m = Math.min(m, segDist(x, z, P[i], P[i + 1])); return m; };
+
 export const LOCATIONS = {
   okeechobee: {
     ...base, id: 'okeechobee', name: 'Lake Okeechobee', region: 'Florida, USA', water: 'lake', price: 0,
@@ -39,39 +50,47 @@ export const LOCATIONS = {
     // low flats of tall water grass (about 0.2-0.8 m up) with ragged edges, open water and winding
     // boat trails between them, a continuous marsh blanket toward the far shore, and the trees
     // only on a few hammocks and along the far tree line
-    trees: [['cypress', 360, 1.25, 7], ['palm', 140, 1.15, 6], ['sawgrass', 70000, -0.35, 1.0, 650], ['bulrush', 4500, -0.9, 0.7, 700], ['lily', 7000, -1.5, -0.4, 650]],
+    trees: [['cypress', 360, 1.25, 7], ['palm', 140, 1.15, 6], ['sawgrass', 80000, -0.35, 1.0, 1150], ['bulrush', 6000, -0.9, 0.7, 1150], ['lily', 9000, -1.5, -0.4, 1150]],
+    landings: OKEE_LANDINGS,
     height(x, z) {
       const mix = (a, b, t) => a + (b - a) * t;
-      const r = Math.hypot(x, z);
-      const lake = -3.0 - 1.4 * (0.5 + fbm(x * 0.01, z * 0.01, 3, 9));
-      const d = fbm(x * 0.035 + 7, z * 0.035 - 3, 3, 11);
-      const c = fbm(x * 0.0042 + 2, z * 0.0042 - 5, 4, 5);
-      const e = c + 0.16 * d + 0.05 * fbm(x * 0.12, z * 0.12, 2, 19);
+
+      const r = Math.hypot(x, z), th = Math.atan2(z, x);
+      const Rth = 1040 + 70 * Math.sin(2 * th + 0.6) + 45 * Math.sin(3 * th + 2.0) + 60 * fbm(Math.cos(th) * 1.5 + 4, Math.sin(th) * 1.5 - 2, 3, 71);
+      const d = r - Rth;
+      const west = Math.max(0, Math.cos(th + 2.6)), south = Math.max(0, Math.cos(th - 1.45));
+      const W = 90 + 330 * Math.pow(west, 1.3) + 160 * south * south;   // width of the littoral marsh
+      let lc = 0; for (const L of OKEE_LANDINGS) lc = Math.max(lc, sm(190, 70, Math.hypot(x - L.x, z - L.z)));
+      const lake0 = -2.6 - 1.1 * (0.5 + fbm(x * 0.01, z * 0.01, 3, 9));
+      const lake = mix(lake0, -1.2, sm(-240, -10, d) * (1 - lc));
+      const dd = fbm(x * 0.035 + 7, z * 0.035 - 3, 3, 11);
+      let e = fbm(x * 0.0042 + 2, z * 0.0042 - 5, 4, 5) + 0.16 * dd + 0.05 * fbm(x * 0.12, z * 0.12, 2, 19);
+      e += 0.38 * sm(-W - 120, -W * 0.5, d) - 0.37;
+      for (const [cx, cz, rad] of OKEE_ISLANDS) e += 0.6 * Math.exp(-(((x - cx) ** 2 + (z - cz) ** 2) / (rad * rad)));
       const THR = 0.05, clear = sm(110, 430, r);
-      const isl = sm(THR - 0.02, THR + 0.05, e) * clear;
-      const shelf = sm(THR - 0.2, THR, e) * clear;
-      // boat trails: thin winding bands (zero crossings of low-frequency noise), only through mats
-      const tr = Math.abs(fbm(x * 0.0058 - 3, z * 0.0058 + 8, 3, 23));
-      const tr2 = Math.abs(fbm(x * 0.011 + 5, z * 0.011 - 9, 3, 29));
+      const isl = sm(THR - 0.02, THR + 0.05, e) * clear * (1 - lc);
+      const shelf = sm(THR - 0.2, THR, e) * clear * (1 - lc);
+      const tr = Math.abs(fbm(x * 0.0058 - 3, z * 0.0058 + 8, 3, 23)), tr2 = Math.abs(fbm(x * 0.011 + 5, z * 0.011 - 9, 3, 29));
       const trail = Math.max(1 - sm(0.016, 0.05, tr), (1 - sm(0.012, 0.036, tr2)) * 0.9);
-      let h = mix(lake, -1.0 + 0.25 * d, shelf);
-      const grass = 0.38 + 0.4 * d;
-      h = mix(h, grass, isl);
-      const pool = sm(0.5, 0.62, fbm(x * 0.028 + 50, z * 0.028 + 20, 3, 37)) * isl;
-      h = mix(h, -0.9, pool);
-      const hm = sm(0.30, 0.42, fbm(x * 0.007 + 40, z * 0.007 - 11, 3, 61)) * isl;
-      h += 0.9 * hm;
-      h = mix(h, -1.8 + 0.3 * d, trail * sm(0.05, 0.4, shelf));
-      // far shore: continuous marsh blanket, then the tree line
-      const coast = -(x * 0.8 + z * 0.6) - 700 + 160 * fbm(x * 0.002, z * 0.002, 3, 2);
-      const land = sm(-70, 40, coast);
-      if (land > 0) {
-        let m = 0.4 + 0.45 * d;
-        m = mix(m, -0.9, sm(0.42, 0.55, fbm(x * 0.02 + 90, z * 0.02 - 30, 3, 41)) * (1 - sm(150, 300, coast)));
-        m = mix(m, -1.7, Math.max(1 - sm(0.016, 0.05, tr), 1 - sm(0.012, 0.036, tr2)) * (1 - sm(120, 260, coast)) * sm(0, 40, coast));
-        const up = sm(260, 460, coast);
-        m += up * (1.2 + (coast - 260) * 0.008 + 1.6 * fbm(x * 0.02, z * 0.02, 3, 4));
-        h = mix(h, m, land);
+      let h = mix(lake, -1.0 + 0.25 * dd, shelf);
+      h = mix(h, 0.38 + 0.4 * dd, isl);
+      h = mix(h, -0.9, sm(0.5, 0.62, fbm(x * 0.028 + 50, z * 0.028 + 20, 3, 37)) * isl);
+      h += 0.9 * sm(0.30, 0.42, fbm(x * 0.007 + 40, z * 0.007 - 11, 3, 61)) * isl;
+      h = mix(h, -1.8 + 0.3 * dd, trail * sm(0.05, 0.4, shelf));
+      // the Okeechobee Waterway and the Kissimmee's mouth: dredged channels through the grass
+      const wd = pathDist(x, z, OKEE_ROUTE), kd = pathDist(x, z, OKEE_KISS);
+      h = Math.min(h, mix(h, -3.0, 1 - sm(14, 34, wd)) , mix(h, -2.4, 1 - sm(10, 26, kd)));
+      // rim: marsh margin, the rim canal, the levee, then flat farmland
+      const landA = sm(-25 + 17 * lc, 40 - 26 * lc, d);
+      if (landA > 0) {
+        let m = 0.4 + 0.45 * dd;
+        m = mix(m, -0.9, sm(0.42, 0.55, fbm(x * 0.02 + 90, z * 0.02 - 30, 3, 41)) * (1 - sm(60, 130, d)) * (1 - lc));
+        m = mix(m, -1.7, Math.max(1 - sm(0.016, 0.05, tr), 1 - sm(0.012, 0.036, tr2)) * (1 - sm(60, 120, d)) * sm(0, 30, d) * (1 - lc));
+        m = mix(m, -2.4, 1 - sm(10, 24, Math.abs(d - 128)));                          // rim canal
+        m += 3.3 * Math.exp(-(((d - 215) / 40) ** 2));                               // levee
+        m += sm(250, 340, d) * (1.6 + 0.5 * fbm(x * 0.01, z * 0.01, 3, 4));         // farmland behind
+        m = Math.max(m, mix(0.4, 0.9, lc) * (1 - sm(40, 100, d)) * lc + m * (1 - lc));  // firm banks at the landings
+        h = mix(h, m, landA);
       }
       return h;
     },

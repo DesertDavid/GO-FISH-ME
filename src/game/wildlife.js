@@ -145,11 +145,13 @@ export class Wildlife {
   spawnGators() {
     const c = this.ctx;
     const want = this.kinds[0] === 'gator' ? 6 : 2;
-    for (let i = 0, tries = 0; i < want && tries < 300; tries++) {
-      const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 500;
+    for (let i = 0, tries = 0; i < want && tries < 1500; tries++) {
+      const marsh = c.loc.id === 'okeechobee';   // gators lie along the grass edges of the big marsh lake
+      const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * (marsh ? 1000 : 500);
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       const d = -c.heightAt(x, z);
       if (d < 0.6 || d > 4) continue;
+      if (marsh && ![[30, 0], [-30, 0], [0, 30], [0, -30]].some(([ox, oz]) => c.heightAt(x + ox, z + oz) > 0.1)) continue;
       const m = this.make('gator');
       m.position.set(x, -0.06, z);
       m.scale.setScalar(0.7 + Math.random() * 0.6);

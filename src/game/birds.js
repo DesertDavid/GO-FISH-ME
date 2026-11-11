@@ -116,7 +116,7 @@ export class Birds {
     const kinds = WADERS[id] || [];
     if (kinds.length) {
       for (let tries = 0; tries < 1500 && this.spots.length < 12; tries++) {
-        const a = r() * Math.PI * 2, rad = 25 + r() * 450;
+        const a = r() * Math.PI * 2, rad = 25 + r() * (id === 'okeechobee' ? 950 : 450);
         const x = st.x + Math.cos(a) * rad, z = st.z + Math.sin(a) * rad, h = H(x, z);
         if (h > -0.08 || h < -0.5) continue;
         let shore = false;

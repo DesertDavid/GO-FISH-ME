@@ -157,6 +157,7 @@ export class Buildings {
     const text = TEXT[this.loc.id] || TEXT.default;
     list.forEach((dk, i) => {
       const prof = dockProfile(i);
+      if (dk.landing) prof.name = `${dk.landing} ${prof.name}`;   // real landings: Clewiston Marina, Pahokee Bait shop
       dk.profile = prof;
       const role = i === 0 ? 'marina' : i === 1 ? 'bait' : 'buyer';
       const rand = rng(this.loc.id.length * 131 + i * 977 + 5);

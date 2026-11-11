@@ -233,7 +233,7 @@ const PLANS = {
     if (m) { const cl = S.cluster('mill', m.x, m.z, 70); S.populate(cl, { n: 2, kinds: [[1, plant({ stackH: 55, tanks: 3 })]], face: 'down', gap: 10, range: 1.8 }); }
     for (let i = 0; i < 3; i++) { const f = S.find({ rmin: 700, rmax: 1500, hmin: 0.8, r: 50, need: 6 }); if (f) { const cl = S.cluster('farm', f.x, f.z, 50); S.populate(cl, { n: 4, kinds: [[1, barn], [2, dw('cracker', { w: [8, 11] })], [1, siloKind]], face: 'down', gap: 6, range: 1.6 }); } }
     // Herbert Hoover Dike: the long earth levee between lake and town, with a pump station
-    const nx = -0.8, nz = -0.6, d0 = 820, tx = -0.6, tz = 0.8;
+    const nx = -0.8, nz = -0.6, d0 = 1290, tx = -0.6, tz = 0.8;
     const cl = S.cluster('levee', nx * d0, nz * d0, 1600, { big: true });
     levee(S, cl.M, [nx * d0 - tx * 1450, nz * d0 - tz * 1450], [nx * d0 + tx * 1450, nz * d0 + tz * 1450], { crest: 5.5 });
   },
