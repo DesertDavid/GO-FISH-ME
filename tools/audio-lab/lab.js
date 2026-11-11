@@ -64,7 +64,9 @@ window.renderOffline = async (items, world = {}) => {
   }
   A.beds.update(1, S);
   const buf = await ctx.startRendering();
-  return { res: marks.map((m) => ({ ...m, ...stats(buf, m.at, m.end) })), all: stats(buf, 0, total), wav: wav(buf) };
+  const d0 = buf.getChannelData(0), win = Math.floor(SR * 0.5), env = [];
+  for (let i = 0; i + win <= d0.length; i += win) { let q = 0; for (let k = i; k < i + win; k++) q += d0[k] * d0[k]; env.push(+(10 * Math.log10(q / win + 1e-12)).toFixed(1)); }
+  return { env, res: marks.map((m) => ({ ...m, ...stats(buf, m.at, m.end) })), all: stats(buf, 0, total), wav: wav(buf) };
 };
 
 // real-time run with a fake game: samples live node counts, collects errors

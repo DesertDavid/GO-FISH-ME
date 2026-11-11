@@ -188,7 +188,7 @@ def('hullSlap', 'sfx', (A, t, p, out) => {
 def('lap', 'amb', (A, t, p, out) => {
   if (!A.claim('lap', 4, t + 1.5)) return;
   const s = clamp(p, 0.05, 1.5), dock = A.S.atDock;
-  A.nz(t, { f: dock ? 380 : 520, q: 0.8, type: 'lowpass', g: 0.04 + 0.07 * s, a: 0.2, d: rnd(0.5, 0.9), out });
+  A.nz(t, { f: dock ? 320 : 420, q: 0.6, type: 'lowpass', g: 0.025 + 0.045 * s, a: 0.35, d: rnd(0.7, 1.2), out });
   const n = 1 + ((Math.random() * 3) | 0);
   for (let i = 0; i < n; i++) { const f = rnd(500, 1200); A.os(t + 0.15 + i * rnd(0.05, 0.14), { f, f2: f * 1.6, g: 0.01 * s, a: 0.004, d: 0.04, out }); }
   if (dock) A.os(t + 0.1, { f: 210, f2: 260, g: 0.02 * s, a: 0.01, d: 0.16, out, lp: 600 });               // hollow glup under the planks
@@ -196,9 +196,8 @@ def('lap', 'amb', (A, t, p, out) => {
 def('surf', 'amb', (A, t, p, out) => {
   if (!A.claim('surf', 3, t + 7)) return;
   const s = clamp(p, 0.1, 1.5);
-  A.nz(t, { f: 650, q: 0.5, type: 'lowpass', g: 0.14 * s, a: 2.2, d: 3.8, out });
-  A.nz(t + 0.4, { f: 2600, q: 0.6, type: 'highpass', g: 0.04 * s, a: 2.2, d: 3.4, out });
-  A.nz(t + 3.2, { f: 1100, q: 0.5, type: 'bandpass', g: 0.05 * s, a: 0.6, d: 3, out });                    // the backwash
+  A.nz(t, { f: 480, q: 0.5, type: 'lowpass', g: 0.09 * s, a: 3, d: 4.5, out });        // low wash, no hiss layer
+  A.nz(t + 3.4, { f: 380, q: 0.5, type: 'lowpass', g: 0.035 * s, a: 1, d: 3.5, out });   // the backwash
 }, { cd: 3 });
 def('creak', 'sfx', (A, t, p, out) => {
   if (!A.claim('creak', 2, t + 1)) return;

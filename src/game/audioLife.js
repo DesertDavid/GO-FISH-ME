@@ -54,7 +54,7 @@ export class Life {
 
     // ---- the water itself
     const still = foot || S.speed < 1.5;
-    const lapRate = (0.25 + 1.1 * S.waveH) * (still ? 1 : 0.4) * (foot ? (S.nearShore ? 1.3 : 0.3) : 1) * (S.atDock ? 1.5 : 1);
+    const lapRate = (0.08 + 0.4 * S.waveH) * (still ? 1 : 0.4) * (foot ? (S.nearShore ? 1.3 : 0.3) : 1) * (S.atDock ? 1.5 : 1);
     this.every('lap', dt, lapRate, () => A.play('lap', clamp(0.3 + S.waveH * 0.6 + (S.atDock ? 0.2 : 0), 0.2, 1.3)));
     if (!foot && S.speed > 0.8) {
       const rate = clamp(S.speed * (0.12 + 0.55 * S.waveH) * 0.45, 0, 6);
@@ -62,9 +62,8 @@ export class Life {
     } else if (!foot && S.waveH > 0.5) {
       this.every('slap', dt, (S.waveH - 0.4) * 0.8 * (S.anchored ? 1 : 0.6), () => A.play('hullSlap', 0.15 + S.waveH * 0.25));
     }
-    if (cfg.surf) this.every('surf', dt, near * cfg.surf * 0.1 * (0.5 + 0.5 * Math.min(1.4, S.waveH + 0.3)), () => {
-      const p = this.around(S, 50, 110, 1);
-      A.play('surf', 0.5 + near * 0.6, { x: p.x, z: p.z, ref: 25 });
+    if (cfg.surf) this.every('surf', dt, near * cfg.surf * 0.06 * (0.5 + 0.5 * Math.min(1.4, S.waveH + 0.3)), () => {
+      A.play('surf', 0.5 + near * 0.6);   // centred: a random left/right bearing per crash sounded like static panning
     });
     // creaks and the bilge pump when it gets rough
     const sway = clamp(S.waveH * 0.6 + S.squall, 0, 1.4);

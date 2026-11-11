@@ -44,7 +44,7 @@ export class Beds {
     for (const [hz, d] of [[0.071, 0.22], [0.19, 0.1]]) { const o = osc('sine', hz); o.connect(gain(d, this.gustG.gain)); }
     this.howlG = gain(0, A.ambIn); this.howl = filt('bandpass', 600, 16, this.howlG);
     src(A.pink, 3.1).connect(this.howl);
-    { const o = osc('sine', 0.13); o.connect(gain(70, this.howl.frequency)); }
+    { const o = osc('sine', 0.13); o.connect(gain(35, this.howl.frequency)); }
     // ---- rain: hiss on the water, patter, a roar when it is heavy, drumming on the hull
     this.rainG = gain(0, A.ambIn); src(A.white, 0.2).connect(filt('highpass', 2500, 0.7, this.rainG));
     this.patG = gain(0, A.ambIn); src(A.crackle, 0.9).connect(filt('bandpass', 1900, 0.6, this.patG));
@@ -74,11 +74,10 @@ export class Beds {
     }
     if (cfg.insects) {
       this.cicG = gain(0, A.ambIn);
-      const nz = src(A.white, 0.6), bp = filt('bandpass', 5800, 2.5), am = gain(0.5);
-      nz.connect(bp); bp.connect(am); am.connect(this.cicG);
+      const nz = src(A.pink, 0.6), bp = filt('bandpass', 5200, 7), am = gain(0.5), sw = gain(0.9);
+      nz.connect(bp); bp.connect(am); am.connect(sw); sw.connect(this.cicG);
       const l = osc('sine', 88), lg = gain(0.5, am.gain); l.connect(lg);
-      const sw = osc('sine', 0.17), swg = gain(0.18, this.cicG.gain); sw.connect(swg);
-      this.cicSw = swg;
+      const so = osc('sine', 0.09); so.connect(gain(0.1, sw.gain));        // slow swell: +-10% of its own level
     }
     // ---- machinery: the Gulf rig, marina generators and compressors
     if (cfg.rig || cfg.marina) {
@@ -149,7 +148,7 @@ export class Beds {
     set(this.whineG.gain, run ? e.wg * this.r * this.r : 0, 0.2);
     // ---- insects
     if (this.crickG) set(this.crickG.gain, cfg.crickets * clamp((S.night - 0.15) / 0.55, 0, 1) * 0.02 * (1 - S.rain), 1.5);
-    if (this.cicG) { set(this.cicG.gain, cfg.insects * Math.pow(day, 1.5) * 0.05 * (1 - S.rain * 0.8) * (1 - S.fog * 0.3), 1.5); }
+    if (this.cicG) { set(this.cicG.gain, cfg.insects * Math.pow(day, 1.5) * 0.03 * (1 - S.rain * 0.8) * (1 - S.fog * 0.3), 1.5); }
     if (this.machG) {
       let k;
       if (cfg.rig) k = clamp(1 - Math.hypot(S.px - 260, S.pz + 420) / 800, 0, 1);
