@@ -17,6 +17,12 @@ VIEWS = {
  'boulder_metcalf_bays': (-900, 120, 150, -900, 0, 520),
  'narrow_east_causeway': (1500, 80, -100, 1950, 0, -300),
  'north_shore_slopes': (-300, 25, -150, -300, 90, -800),
+ 'trees_pine_fir_south': (-250, -1, 520, -250, 18, 760),
+ 'trees_oak_juniper_north': (-600, -1, -820, -600, 12, -1050),
+ 'trees_east_dry': (1500, -1, 200, 1700, 8, 400),
+ 'trees_close_a': (-300, -1, 560, -300, 8, 600),
+ 'trees_close_b': (-100, -1, 640, -60, 8, 680),
+ 'trees_close_c': (-520, -1, 520, -480, 8, 560),
  'south_slope_forest': (-300, 20, 150, -300, 80, 700),
 }
 only = [s for s in a.only.split(',') if s]
@@ -32,6 +38,7 @@ with sync_playwright() as p:
     if not page.evaluate('game.dev.fly'): page.evaluate('game.dev.toggleFly(true)')
     for name, (x, y, z, lx, ly, lz) in VIEWS.items():
         if only and name not in only: continue
+        if y == -1: y = page.evaluate(f'game.heightAt({x},{z}) + 3')
         yaw = math.atan2(-(lx - x), -(lz - z)); dist = math.hypot(lx - x, lz - z); pitch = math.atan2(ly - y, dist)
         page.evaluate(f"(() => {{ const d = game.dev; d.pos.set({x},{y},{z}); d.yaw = {yaw}; d.pitch = {pitch}; d.vel.set(0,0,0); }})()")
         page.evaluate("window.__step(45, 0.033)"); time.sleep(0.5)

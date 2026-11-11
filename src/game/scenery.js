@@ -56,6 +56,41 @@ function blade(bx, bz, ang, h, w, arch, c0, c1, c2, seg = 2) {
   return g.toNonIndexed();
 }
 
+// ---- organic tree parts: ragged skirts, bark and foliage gradients -------------------------------------
+// a drooping conifer tier: open cone, ragged rim that sags, dark inside to light tips
+function tier(r, h, y, rand, cBase, cTip, seg = 9, sag = 0.35) {
+  const g = new THREE.ConeGeometry(r, h, seg, 1, true), p = g.attributes.position, n = p.count, col = new Float32Array(n * 3), cb = new THREE.Color(cBase), ct = new THREE.Color(cTip), c = new THREE.Color();
+  const jit = []; for (let i = 0; i < seg + 1; i++) jit.push(1 + (rand() - 0.5) * 0.42);
+  for (let i = 0; i < n; i++) {
+    let x = p.getX(i), yy = p.getY(i), z = p.getZ(i); const t = Math.min(1, Math.max(0, (yy + h / 2) / h)), a = Math.atan2(z, x), j = jit[Math.floor(((a + Math.PI) / (Math.PI * 2)) * seg) % (seg + 1)];
+    const rim = 1 - Math.min(1, t * 2); x *= 1 + (j - 1) * rim; z *= 1 + (j - 1) * rim; yy -= rim * rim * sag * (0.4 + j * 0.6);
+    p.setXYZ(i, x, yy + y + h / 2, z);
+    c.copy(cb).lerp(ct, Math.pow(t, 0.8)).multiplyScalar(0.88 + rand() * 0.24); col.set([c.r, c.g, c.b], i * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.deleteAttribute('uv'); g.computeVertexNormals();
+  { const q = g.attributes.normal; for (let i = 0; i < q.count; i++) { const nx = q.getX(i) * 0.6, ny = q.getY(i) * 0.6 + 0.55, nz = q.getZ(i) * 0.6, l = Math.hypot(nx, ny, nz) || 1; q.setXYZ(i, nx / l, ny / l, nz / l); } }   // soften: lean the normals up so the underside is not black
+  return g.toNonIndexed();
+}
+// a tapered trunk / limb with a bark gradient (dark at the base), optionally leaned
+function limb(r0, r1, len, rand, c0, c1, lean = [0, 0], base = [0, 0, 0], seg = 6) {
+  const g = new THREE.CylinderGeometry(r1, r0, len, seg, 3).translate(0, len / 2, 0), p = g.attributes.position, col = new Float32Array(p.count * 3), a = new THREE.Color(c0), b = new THREE.Color(c1), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) { const t = p.getY(i) / len; c.copy(a).lerp(b, t).multiplyScalar(0.85 + rand() * 0.3); col.set([c.r, c.g, c.b], i * 3); }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.deleteAttribute('uv');
+  g.rotateZ(lean[0]).rotateX(lean[1]).translate(base[0], base[1], base[2]);
+  return g.index ? g.toNonIndexed() : g;
+}
+// a foliage clump: flattened lumpy blob, dark underside and a lit top
+function clump(r, x, y, z, rand, cLow, cHigh, squash = 0.62, detail = 0) {
+  const g = blob(r, detail, rand, squash).toNonIndexed(), p = g.attributes.position, col = new Float32Array(p.count * 3), nn = new Float32Array(p.count * 3), lo = new THREE.Color(cLow), hi = new THREE.Color(cHigh), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const px = p.getX(i), py = p.getY(i), pz = p.getZ(i), t = Math.min(1, Math.max(0, (py / (r * squash) + 1) / 2));
+    c.copy(lo).lerp(hi, t).multiplyScalar(0.9 + rand() * 0.2); col.set([c.r, c.g, c.b], i * 3);
+    const ny = py / Math.max(squash, 0.3) + r * 0.25, l = Math.hypot(px, ny, pz) || 1; nn[i * 3] = px / l; nn[i * 3 + 1] = ny / l; nn[i * 3 + 2] = pz / l;   // rounded, softly lit volume instead of flat facets
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nn, 3)); g.deleteAttribute('uv'); g.translate(x, y, z);
+  return g;
+}
+
 const CONIFERS = new Set(['jeffrey', 'whitefir', 'cedar', 'lodgepole']);
 const TREE_BUILDERS = {
   // tall arching water grass (sawgrass / maidencane): a fan of ribbons, olive at the root, green-yellow to tan at the tips
@@ -99,30 +134,6 @@ const TREE_BUILDERS = {
     }
     return mergeGeometries(parts);
   },
-  // San Bernardino Mountains forest (Big Bear): Jeffrey / ponderosa pine, white fir, incense cedar,
-  // lodgepole, quaking aspen, alder and maple by the water, black and canyon live oak
-  jeffrey(rand) {
-    const parts = [paint(new THREE.CylinderGeometry(0.22, 0.4, 12, 6).translate(0, 6, 0), 0x8a5a3c, 0.2, rand)];   // orange-brown plated bark
-    for (let i = 0; i < 6; i++) {
-      const y = 6 + i * 1.1 + rand() * 0.6, a = rand() * Math.PI * 2, r = 0.5 + (6 - i) * 0.18;
-      parts.push(paint(blob(1.3 + rand() * 0.6, 0, rand, 0.7).translate(Math.cos(a) * r, y, Math.sin(a) * r), i % 2 ? 0x41602e : 0x4a6a34, 0.3, rand));   // open tufted crown of long needles
-    }
-    parts.push(paint(blob(1.3, 0, rand, 0.8).translate(0, 12.6, 0), 0x4a6a34, 0.3, rand));
-    return mergeGeometries(parts);
-  },
-  whitefir(rand) {
-    const parts = [paint(new THREE.CylinderGeometry(0.2, 0.34, 3, 6).translate(0, 1.5, 0), 0x6a5a4a)];
-    for (let i = 0; i < 6; i++) {
-      const r = 2.5 - i * 0.37, y = 2.2 + i * 1.7;
-      parts.push(paint(new THREE.ConeGeometry(r, 3.2, 8).translate(0, y, 0), 0x35604e, 0.25, rand));   // dense, blue-green
-    }
-    return mergeGeometries(parts);
-  },
-  cedar(rand) {
-    const parts = [paint(new THREE.CylinderGeometry(0.2, 0.36, 3, 6).translate(0, 1.5, 0), 0x7a4a34)];
-    for (let i = 0; i < 4; i++) parts.push(paint(new THREE.ConeGeometry(1.5 - i * 0.2, 4.4, 7).translate(0, 3 + i * 2.3, 0), 0x2c4a2a, 0.25, rand));   // narrow dark column
-    return mergeGeometries(parts);
-  },
   lodgepole(rand) {
     const parts = [paint(new THREE.CylinderGeometry(0.12, 0.22, 11, 5).translate(0, 5.5, 0), 0x6a5a48)];
     for (let i = 0; i < 4; i++) parts.push(paint(new THREE.ConeGeometry(1.15 - i * 0.18, 2.8, 6).translate(0, 7 + i * 1.7, 0), 0x4c6a34, 0.3, rand));
@@ -138,27 +149,78 @@ const TREE_BUILDERS = {
     for (let i = 0; i < 3; i++) parts.push(paint(blob(2.1, 1, rand, 0.95).translate((rand() - 0.5) * 2, 5.4 + rand() * 1.2, (rand() - 0.5) * 2), i % 2 ? 0x4e7a30 : 0x5d8a34, 0.3, rand));
     return mergeGeometries(parts);
   },
+  // ---- San Bernardino Mountains natives (Big Bear): Jeffrey pine, white fir, incense cedar, black / canyon live oak,
+  // juniper, manzanita, scrub oak chaparral, sagebrush, Mojave yucca, willow -------------------------------------
+  // Jeffrey pine: tall bare plated-orange trunk, a few heavy limbs, open tufts of long blue-green needles
+  jeffrey(rand) {
+    const H = 11 + rand() * 4, parts = [limb(0.42, 0.14, H, rand, 0x5a3a28, 0xa86a3e, [(rand() - 0.5) * 0.06, 0])];
+    const nb = 6;
+    for (let i = 0; i < nb; i++) {
+      const t = i / nb, y = H * (0.5 + t * 0.48), a = rand() * 6.283, len = 1.6 * (1.15 - t * 0.7) + rand() * 0.6, cx = Math.cos(a) * len, cz = Math.sin(a) * len;
+      for (let k = 0; k < 1; k++) parts.push(clump(1.35 - t * 0.35 + rand() * 0.4, cx, y + 0.25 + rand() * 0.5, cz, rand, 0x3a5a3a, 0x7a9a58, 0.5));
+    }
+    parts.push(clump(1.1, 0, H + 0.35, 0, rand, 0x40623e, 0x86a460, 0.9));
+    return mergeGeometries(parts);
+  },
+  // white fir: dense regular tiers of blue-green boughs, ragged skirts, grey bark
+  whitefir(rand) {
+    const parts = [limb(0.3, 0.1, 5, rand, 0x4a4238, 0x6a6258)], n = 9;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1), r = 2.7 * (1 - t) ** 0.9 + 0.35, hh = 2.3 - t * 0.7;
+      parts.push(tier(r, hh, 1.6 + i * 1.28, rand, 0x3a6a52, 0x82ac90, 9, 0.55));
+    }
+    parts.push(tier(0.3, 1.4, 1.6 + n * 1.28, rand, 0x4a7a62, 0x92b8a0, 6, 0.1));
+    return mergeGeometries(parts);
+  },
+  // incense cedar: a narrow flame-shaped column, flat sprays, rusty fibrous trunk
+  cedar(rand) {
+    const parts = [limb(0.38, 0.12, 3, rand, 0x5a2e22, 0x7a4a34)], n = 7;
+    for (let i = 0; i < n; i++) { const t = i / (n - 1), r = 1.55 * (1 - t * 0.78) + 0.2; parts.push(tier(r, 2.3 - t * 0.6, 1.4 + i * 1.55, rand, 0x2e5a30, 0x6a9a50, 8, 0.35)); }
+    return mergeGeometries(parts);
+  },
+  // black oak / canyon live oak: short fork, wide domed crown of dense clumps
   oak(rand) {
-    const parts = [paint(new THREE.CylinderGeometry(0.3, 0.48, 3.2, 6).translate(0, 1.6, 0), 0x4a3c2e)];
-    for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + rand(); parts.push(paint(blob(2.3, 1, rand, 0.7).translate(Math.cos(a) * 1.7, 4 + rand() * 0.8, Math.sin(a) * 1.7), i % 2 ? 0x37552a : 0x44632e, 0.3, rand)); }
+    const parts = [limb(0.42, 0.28, 2.4, rand, 0x2e241c, 0x4a3c30), limb(0.22, 0.12, 2.4, rand, 0x3a2e24, 0x54463a, [0.55, 0.1], [0, 1.9, 0]), limb(0.22, 0.12, 2.4, rand, 0x3a2e24, 0x54463a, [-0.5, -0.25], [0, 1.9, 0]), limb(0.2, 0.1, 2.2, rand, 0x3a2e24, 0x54463a, [0.05, -0.6], [0, 1.9, 0])];
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * 6.283 + rand(), r = 1.2 + rand() * 1.5; parts.push(clump(1.9 + rand() * 0.9, Math.cos(a) * r, 3.9 + rand() * 1.1, Math.sin(a) * r, rand, 0x233d22, 0x5a7c36, 0.68)); }
+    parts.push(clump(2.2, 0, 5.4, 0, rand, 0x2c4a28, 0x6a8c3e, 0.7));
     return mergeGeometries(parts);
   },
-  // California / Utah juniper and pinyon of the dry east side: a squat, shaggy, grey-green crown on a twisted trunk
+  // California / Utah juniper: a twisted shaggy trunk and bare limbs, grey-green scale foliage in tufts
   juniper(rand) {
-    const parts = [paint(new THREE.CylinderGeometry(0.22, 0.4, 2.2, 5).translate(0, 1.1, 0), 0x6a4e3a)];
-    for (let i = 0; i < 3; i++) { const a = rand() * 6.28; parts.push(paint(blob(1.5 + rand() * 0.5, 1, rand, 0.85).translate(Math.cos(a) * 0.8, 2.6 + rand() * 1.2, Math.sin(a) * 0.8), i % 2 ? 0x5a6a42 : 0x66744a, 0.35, rand)); }
+    const parts = [limb(0.4, 0.2, 2.6, rand, 0x4a3a2c, 0x7a5e44, [0.12, 0.05]), limb(0.2, 0.1, 2.2, rand, 0x5a4636, 0x84684c, [-0.5, 0.2], [0, 1.6, 0], 5), limb(0.18, 0.1, 2, rand, 0x5a4636, 0x84684c, [0.45, -0.3], [0, 1.4, 0], 5)];
+    for (let i = 0; i < 5; i++) { const a = rand() * 6.283, r = 0.4 + rand() * 1.1; parts.push(clump(1.1 + rand() * 0.6, Math.cos(a) * r, 2.6 + rand() * 1.5, Math.sin(a) * r, rand, 0x43553a, 0x7f9166, 0.8)); }
     return mergeGeometries(parts);
   },
-  // chaparral: manzanita / scrub oak / ceanothus, a low tough mound of grey-green and red-brown
+  // scrub oak / ceanothus chaparral: a dense domed mound
   chaparral(rand) {
     const parts = [];
-    for (let i = 0; i < 4; i++) { const a = rand() * 6.28, r = rand() * 0.8; parts.push(paint(blob(0.9 + rand() * 0.5, 1, rand, 0.75).translate(Math.cos(a) * r, 0.7 + rand() * 0.4, Math.sin(a) * r), [0x62703f, 0x77743f, 0x5a6638, 0x84603a][i % 4], 0.35, rand)); }
+    for (let i = 0; i < 6; i++) { const a = rand() * 6.283, r = rand() * 0.9; parts.push(clump(0.75 + rand() * 0.55, Math.cos(a) * r, 0.5 + rand() * 0.55, Math.sin(a) * r, rand, 0x40502c, [0x7e8a4a, 0x8a9050, 0x6a7c40][i % 3], 0.8)); }
     return mergeGeometries(parts);
   },
-  // willow / cottonwood along the water: a loose, pale-green weeping crown
+  // manzanita: smooth mahogany limbs, glossy olive leaf clusters, an occasional pink blossom head
+  manzanita(rand) {
+    const parts = [];
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * 6.283 + rand() * 0.5, lean = 0.35 + rand() * 0.45; parts.push(limb(0.07, 0.035, 1.7 + rand() * 0.8, rand, 0x5a1e14, 0x8a3a24, [-Math.cos(a) * lean, Math.sin(a) * lean], [0, 0, 0], 4)); }
+    for (let i = 0; i < 6; i++) { const a = rand() * 6.283, r = 0.5 + rand() * 0.9; parts.push(clump(0.55 + rand() * 0.35, Math.cos(a) * r, 1.0 + rand() * 0.9, Math.sin(a) * r, rand, 0x3a5030, [0x7a9448, 0x8aa050][i % 2], 0.75)); }
+    if (rand() < 0.35) parts.push(clump(0.28, rand() - 0.5, 1.9, rand() - 0.5, rand, 0xd9b0b0, 0xf2dede, 0.9, 0));
+    return mergeGeometries(parts);
+  },
+  // sagebrush / white sage: a low silvery-grey mound
+  sage(rand) {
+    const parts = [];
+    for (let i = 0; i < 5; i++) { const a = rand() * 6.283, r = rand() * 0.6; parts.push(clump(0.4 + rand() * 0.3, Math.cos(a) * r, 0.28 + rand() * 0.3, Math.sin(a) * r, rand, 0x707a64, [0xaab29c, 0x9ca894, 0xb4baa8][i % 3], 0.7)); }
+    return mergeGeometries(parts);
+  },
+  // Mojave yucca of the dry east side: a rosette of stiff pale blades on a short trunk
+  yucca(rand) {
+    const top = 1.2 + rand() * 0.8, parts = [limb(0.16, 0.1, top, rand, 0x5a4a34, 0x8a7656, [0.05, 0], [0, 0, 0], 5)];
+    for (let i = 0; i < 18; i++) { const a = (i / 18) * 6.283 + rand() * 0.3; parts.push(blade(Math.cos(a) * 0.05, Math.sin(a) * 0.05, a, 0.95 + rand() * 0.5, 0.07, 0.35 + rand() * 0.25, 0x5a6a3a, 0x8a9a5a, 0xc0b078, 2).translate(0, top, 0)); }
+    return mergeGeometries(parts);
+  },
+  // willow / cottonwood by the water: a forked trunk under a loose crown with hanging fronds
   willow(rand) {
-    const parts = [paint(new THREE.CylinderGeometry(0.16, 0.3, 3.6, 5).translate(0, 1.8, 0), 0x6a5e46)];
-    for (let i = 0; i < 4; i++) { const a = rand() * 6.28; parts.push(paint(blob(1.8 + rand() * 0.4, 1, rand, 0.85).translate(Math.cos(a) * 1.4, 3.6 + rand() * 1.0, Math.sin(a) * 1.4), i % 2 ? 0x7a9a46 : 0x8aa64e, 0.3, rand)); }
+    const parts = [limb(0.3, 0.16, 3.6, rand, 0x4a4030, 0x6a604a, [0.15, 0]), limb(0.16, 0.08, 2.6, rand, 0x5a5040, 0x7a6e56, [-0.6, 0.1], [0, 2.8, 0], 5)];
+    for (let i = 0; i < 5; i++) { const a = rand() * 6.283, r = 0.9 + rand() * 1.1; parts.push(clump(1.5 + rand() * 0.5, Math.cos(a) * r, 4.3 + rand() * 1.0, Math.sin(a) * r, rand, 0x5a7a38, 0xa0bc58, 0.7)); }
     return mergeGeometries(parts);
   },
   birch(rand) {
@@ -312,6 +374,7 @@ export function buildScenery(loc, heightAt, patchProp) {
     const variants = Array.from({ length: loose ? 6 : 3 }, () => TREE_BUILDERS[type](rand));
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: type === 'palm' || type === 'reed' || mat_ ? THREE.DoubleSide : THREE.FrontSide });
     patchProp(mat);
+    if (loose && !mat_) mat.emissive.setRGB(0.012, 0.022, 0.012);   // sky-lit green in the shade: tiers shadowed by the tier above are not pure black
     if (type !== 'lily' && mat_) swayMaterial(mat);
     const spots = [];
     for (let i = 0; i < count * (mat_ ? 5 : 12) && spots.length < count; i++) {
@@ -321,7 +384,7 @@ export function buildScenery(loc, heightAt, patchProp) {
       if (h < minH || h > maxH) continue;
       if (only && !only(x, z, h)) continue;   // optional place rule (aspect, side of the lake)
       const slope = Math.abs(heightAt(x + 4, z) - h) + Math.abs(heightAt(x, z + 4) - h);
-      if (!mat_ && slope > (type === 'pine' || type === 'cactus' || type === 'juniper' || type === 'chaparral' || type === 'oak' || CONIFERS.has(type) ? 3.5 : type === 'snag' ? 9 : 2)) continue;
+      if (!mat_ && slope > (type === 'pine' || type === 'cactus' || type === 'juniper' || type === 'chaparral' || type === 'manzanita' || type === 'sage' || type === 'yucca' || type === 'oak' || CONIFERS.has(type) ? 3.5 : type === 'snag' ? 9 : 2)) continue;
       if (Math.hypot(x, z) < (type === 'snag' ? 90 : 40)) continue;
       if (type === 'snag' && fbm(x * 0.005, z * 0.005, 3, 33) < 0.08) continue;   // drowned groves, not an even scatter
       // plants grow in stands with gaps between, not an even scatter: accept by a density field
