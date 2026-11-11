@@ -28,6 +28,7 @@ uniform float uCausticStrength;
 uniform float uFogDensity;
 uniform float uFogBank;   // 0..1 fog bank: the haze turns a flat pearl grey instead of the horizon sky
 uniform float uSnowLine;
+uniform float uMarsh;
 uniform float uRockLine;
 uniform vec3 uRockTint;
 ${CAUSTICS_GLSL}
@@ -82,6 +83,10 @@ const ALBEDO = /* glsl */`
   float sandLine = 2.4 + 1.6 * n3 + 0.8 * n1;
   vec3 albedo = mix(seabed, sand, smoothstep(-0.05, 0.05, hgt));
   albedo = mix(albedo, grass, smoothstep(sandLine, sandLine + 1.5, hgt) * smoothstep(0.62, 0.8, flat_));
+  // marsh lakes (Okeechobee): the low flats are mats of olive and tan grass over dark peat, not sand
+  vec3 marshCol = mix(vec3(0.17, 0.24, 0.08), vec3(0.35, 0.35, 0.14), n1) * (0.78 + 0.4 * n2) * (0.9 + 0.2 * n3);
+  marshCol = mix(vec3(0.15, 0.13, 0.08) * (0.8 + 0.5 * n1), marshCol, smoothstep(-0.5, 0.1, hgt));   // dark peat under the water and in the pools
+  albedo = mix(albedo, marshCol, uMarsh * (1.0 - smoothstep(5.0, 9.0, hgt)));
   albedo = mix(albedo, rock, smoothstep(0.78, 0.62, flat_) * smoothstep(-6.0, 1.0, hgt));
   albedo = mix(albedo, rock * 1.1, smoothstep(uRockLine, uRockLine + 14.0, hgt + n1 * 8.0));
   // snow on the high peaks (alpine lakes, fjords), held only on the gentler slopes
@@ -89,6 +94,7 @@ const ALBEDO = /* glsl */`
 #endif
   // wet band above the waterline, plus where the swash has run (dries over seconds)
   vec3 sw = swash(vWPos.xz, hgt);
+  sw *= 1.0 - uMarsh;   // no swash film on a marsh: the flats are matted grass, not wet sand
   float wet = max(1.0 - smoothstep(0.35, 1.3 + 0.5 * n1, hgt), sw.z);
   // water filling the pores darkens sand and deepens its colour (light bounces more
   // times inside the grains before it escapes, so each tint compounds): roughly the
@@ -192,6 +198,7 @@ const LIGHTS_BEGIN = THREE.ShaderChunk.lights_fragment_begin
 
 const ROUGH = /* glsl */`
   roughnessFactor = mix(mix(roughnessFactor, 0.32, wet * smoothstep(-0.05, 0.05, hgt)), 0.2, film);
+  roughnessFactor = mix(roughnessFactor, 1.0, 0.85 * uMarsh * (1.0 - smoothstep(-0.4, 0.2, -hgt)));
 `;
 
 // caustics focused by the actual waves (Caustics.js); mean 1, so they only redistribute
@@ -371,6 +378,7 @@ export function createTerrain({ sky, caustics, floatShadow, water, absorption, r
     uFogDensity: { value: LOC.fog },
     uFogBank: { value: 0 },
     uSnowLine: { value: LOC.snowLine ?? 5000 },
+    uMarsh: { value: LOC.marsh ? 1 : 0 },
     uRockLine: { value: LOC.rockLine ?? 38 },
     uRockTint: { value: new THREE.Color().fromArray(LOC.rockTint ?? [1, 1, 1]) },
   };

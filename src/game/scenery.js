@@ -33,7 +33,63 @@ const blob = (r, detail, rand, squash = 1) => {
   return g;
 };
 
+// a tapered ribbon (blade of grass): base point, lean direction, height, width, arch; colours base -> tip
+function blade(bx, bz, ang, h, w, arch, c0, c1, c2, seg = 2) {
+  const pos = [], col = [], idx = [];
+  const dx = Math.cos(ang), dz = Math.sin(ang), px = -dz, pz = dx;
+  const k0 = new THREE.Color(c0), k1 = new THREE.Color(c1), k2 = new THREE.Color(c2), c = new THREE.Color();
+  for (let i = 0; i <= seg; i++) {
+    const t = i / seg, out = arch * h * t * t, y = h * (1 - 0.18 * t * t) * t, ww = w * (1 - t) * 0.5 + (i === seg ? 0 : 0.002);
+    const x = bx + dx * out, z = bz + dz * out;
+    c.copy(t < 0.5 ? k0.clone().lerp(k1, t * 2) : k1.clone().lerp(k2, (t - 0.5) * 2));
+    if (i === seg) { pos.push(x, y, z); col.push(c.r, c.g, c.b); } else {
+      pos.push(x - px * ww, y, z - pz * ww, x + px * ww, y, z + pz * ww); col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+  }
+  for (let i = 0; i < seg - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const a = (seg - 1) * 2; idx.push(a, a + 1, a + 2);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g.toNonIndexed();
+}
+
 const TREE_BUILDERS = {
+  // tall arching water grass (sawgrass / maidencane): a fan of ribbons, olive at the root, green-yellow to tan at the tips
+  sawgrass(rand) {
+    const parts = [], n = 12;
+    const tips = [[0x4a5a24, 0x86983a, 0xb4ae62], [0x55652a, 0x94a444, 0xc2b66c], [0x46561f, 0x7c9034, 0xa8a45a]][Math.floor(rand() * 3)];
+    for (let i = 0; i < n; i++) {
+      const a = rand() * Math.PI * 2, r = rand() * 0.55, h = 0.7 + rand() * 0.55;
+      parts.push(blade(Math.cos(a) * r, Math.sin(a) * r, a + (rand() - 0.5) * 0.9, h, 0.09 + rand() * 0.06, 0.25 + rand() * 0.5, tips[0], tips[1], tips[2], 1));
+    }
+    return mergeGeometries(parts);
+  },
+  // bulrush / cattail: straight dark stems with brown seed heads, a few leaf blades
+  bulrush(rand) {
+    const parts = [];
+    for (let i = 0; i < 5; i++) {
+      const h = 1.7 + rand() * 1.1, a = rand() * Math.PI * 2, r = rand() * 0.3, lean = (rand() - 0.5) * 0.14;
+      const stem = new THREE.CylinderGeometry(0.012, 0.022, h, 3, 1, true).translate(0, h / 2, 0).rotateZ(lean).translate(Math.cos(a) * r, 0, Math.sin(a) * r);
+      parts.push(paint(stem, 0x56702e, 0.25, rand));
+      if (i % 2 === 0) parts.push(paint(new THREE.CylinderGeometry(0.03, 0.03, 0.26, 5, 1, true).translate(0, h - 0.3, 0).rotateZ(lean).translate(Math.cos(a) * r, 0, Math.sin(a) * r), 0x5a3c22, 0.2, rand));
+    }
+    for (let i = 0; i < 3; i++) { const a = rand() * Math.PI * 2; parts.push(blade(Math.cos(a) * 0.15, Math.sin(a) * 0.15, a, 1.2 + rand() * 0.8, 0.07, 0.25 + rand() * 0.3, 0x435a22, 0x6f8a36, 0x9aa456)); }
+    return mergeGeometries(parts);
+  },
+  // spatterdock / lily pads floating flat on the water, an occasional yellow bloom
+  lily(rand) {
+    const parts = [], n = 4 + Math.floor(rand() * 4);
+    for (let i = 0; i < n; i++) {
+      const r = 0.2 + rand() * 0.22, a = rand() * Math.PI * 2, d = rand() * 1.1;
+      const pad = new THREE.CircleGeometry(r, 9, rand() * 6, Math.PI * 2 - 0.55).rotateX(-Math.PI / 2).rotateY(rand() * 6).translate(Math.cos(a) * d, 0, Math.sin(a) * d);
+      parts.push(paint(pad, rand() < 0.5 ? 0x3c6a2a : 0x56802f, 0.3, rand));
+    }
+    if (rand() < 0.4) parts.push(paint(new THREE.SphereGeometry(0.07, 6, 4).scale(1, 0.7, 1).translate((rand() - 0.5) * 0.8, 0.05, (rand() - 0.5) * 0.8), 0xe0c030));
+    return mergeGeometries(parts);
+  },
   pine(rand) {
     const parts = [paint(new THREE.CylinderGeometry(0.18, 0.3, 4, 6).translate(0, 2, 0), 0x4a3424)];
     for (let i = 0; i < 5; i++) {
@@ -157,6 +213,29 @@ const TREE_BUILDERS = {
   },
 };
 
+// wind sway for marsh grass: the top of each clump leans and rocks, phased by where it stands
+const swayUniform = { value: 0 };
+function swayMaterial(mat) {
+  const prev = mat.onBeforeCompile, key = mat.customProgramCacheKey;
+  mat.onBeforeCompile = (shader, r) => {
+    prev?.(shader, r);
+    shader.uniforms.uSway = swayUniform;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', 'uniform float uSway;\n#include <common>')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+#ifdef USE_INSTANCING
+      vec2 swp = instanceMatrix[3].xz;
+#else
+      vec2 swp = vec2(0.0);
+#endif
+      float swg = sin(uSway * 1.4 + swp.x * 0.11 + swp.y * 0.07) * 0.6 + sin(uSway * 2.3 + swp.y * 0.19) * 0.25;
+      float swh = position.y * position.y;
+      transformed.x += swg * swh * 0.04;
+      transformed.z += cos(uSway * 1.1 + swp.x * 0.09) * 0.5 * swh * 0.03;`);
+  };
+  mat.customProgramCacheKey = () => (key ? key.call(mat) : '') + 'sway';
+}
+
 export function buildScenery(loc, heightAt, patchProp) {
   const group = new THREE.Group();
   const rand = rng(loc.id.length * 7919 + 13);
@@ -164,26 +243,30 @@ export function buildScenery(loc, heightAt, patchProp) {
   const colliders = [];
   group.userData.colliders = colliders;
   const veg = group.userData.veg = [];   // instanced plants the vegetation-density setting thins out
-  for (const [type, count, minH, maxH] of loc.trees || []) {
+  for (const [type, count, minH, maxH, radius] of loc.trees || []) {
     const loose = !['snag', 'cabin', 'stilt'].includes(type);   // plants, not structures
+    const mat_ = ['sawgrass', 'bulrush', 'lily'].includes(type);   // marsh plants: dense mats, no slope limit, wind sway
     const variants = Array.from({ length: loose ? 6 : 3 }, () => TREE_BUILDERS[type](rand));
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: type === 'palm' || type === 'reed' ? THREE.DoubleSide : THREE.FrontSide });
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: type === 'palm' || type === 'reed' || mat_ ? THREE.DoubleSide : THREE.FrontSide });
     patchProp(mat);
+    if (type !== 'lily' && mat_) swayMaterial(mat);
     const spots = [];
-    for (let i = 0; i < count * 12 && spots.length < count; i++) {
-      const x = (rand() * 2 - 1) * half, z = (rand() * 2 - 1) * half;
+    for (let i = 0; i < count * (mat_ ? 5 : 12) && spots.length < count; i++) {
+      let x = (rand() * 2 - 1) * half, z = (rand() * 2 - 1) * half;
+      if (radius) { const a = rand() * Math.PI * 2, rr = Math.sqrt(rand()) * radius; x = Math.cos(a) * rr; z = Math.sin(a) * rr; }
       const h = heightAt(x, z);
       if (h < minH || h > maxH) continue;
       const slope = Math.abs(heightAt(x + 4, z) - h) + Math.abs(heightAt(x, z + 4) - h);
-      if (slope > (type === 'pine' || type === 'cactus' ? 3.5 : type === 'snag' ? 9 : 2)) continue;
+      if (!mat_ && slope > (type === 'pine' || type === 'cactus' ? 3.5 : type === 'snag' ? 9 : 2)) continue;
       if (Math.hypot(x, z) < (type === 'snag' ? 90 : 40)) continue;
       if (type === 'snag' && fbm(x * 0.005, z * 0.005, 3, 33) < 0.08) continue;   // drowned groves, not an even scatter
       // plants grow in stands with gaps between, not an even scatter: accept by a density field
-      if (loose && rand() > Math.min(1, Math.max(0.06, (fbm(x * 0.006, z * 0.006, 3, 71 + type.length) + 0.25) * 2.2))) continue;
-      const y = type === 'cabin' ? Math.max(h, 0.6) : type === 'snag' ? -8.5 : h - 0.2;
+      if (type === 'lily' && fbm(x * 0.02, z * 0.02, 3, 83) < -0.05) continue;   // pads grow in patches
+      if (loose && !(mat_ && type !== 'lily') && rand() > Math.min(1, Math.max(0.06, (fbm(x * 0.006, z * 0.006, 3, 71 + type.length) + 0.25) * 2.2))) continue;
+      const y = type === 'cabin' ? Math.max(h, 0.6) : type === 'snag' ? -8.5 : type === 'lily' ? 0.05 : h - 0.2;
       // a few are suckers, a few are old: size is skewed small with an occasional big one
       const big = loose && rand() < 0.06 ? 1.35 : 1;
-      spots.push({ x, y, z, s: (type === 'snag' ? 0.88 + rand() * 0.25 : (0.6 + rand() * rand() * 1.1) * big), r: rand() * Math.PI * 2, v: Math.floor(rand() * (loose ? 6 : 3)), t: rand() });
+      spots.push({ x, y, z, s: (type === 'snag' ? 0.88 + rand() * 0.25 : mat_ ? 1.0 + rand() * 0.8 : (0.6 + rand() * rand() * 1.1) * big), r: rand() * Math.PI * 2, v: Math.floor(rand() * (loose ? 6 : 3)), t: rand() });
     }
     if (type === 'snag') for (const s of spots) colliders.push({ x: s.x, z: s.z, r: 0.34 * s.s });    variants.forEach((geo, v) => {
       const mine = spots.filter((s) => s.v === v);
@@ -195,7 +278,7 @@ export function buildScenery(loc, heightAt, patchProp) {
         const sy = type === 'snag' ? 1 : s.s * (0.85 + rand() * 0.3);   // snags keep their waterline stain at the surface
         const sx = loose ? s.s * (0.82 + rand() * 0.36) : s.s, sz = loose ? s.s * (0.82 + rand() * 0.36) : s.s;
         q.setFromAxisAngle(up, s.r);
-        if (loose && rand() < 0.4) { q2.setFromAxisAngle(ax.set(Math.cos(s.r * 3), 0, Math.sin(s.r * 3)), (rand() - 0.5) * 0.16); q.premultiply(q2); }   // lean
+        if (loose && !mat_ && rand() < 0.4) { q2.setFromAxisAngle(ax.set(Math.cos(s.r * 3), 0, Math.sin(s.r * 3)), (rand() - 0.5) * 0.16); q.premultiply(q2); }   // lean
         m.compose(new THREE.Vector3(s.x, s.y, s.z), q, new THREE.Vector3(sx, sy, sz));
         mesh.setMatrixAt(i, m);
         // every tree its own tint (sun-bleached, dry, deep green), multiplied into the vertex colours
@@ -204,7 +287,8 @@ export function buildScenery(loc, heightAt, patchProp) {
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       mesh.computeBoundingSphere();
       mesh.layers.enable(1);
-      mesh.castShadow = true;
+      mesh.castShadow = !mat_;
+      if (mat_ && type !== 'lily') mesh.onBeforeRender = () => { swayUniform.value = performance.now() / 1000; };
       group.add(mesh);
       if (!['snag', 'cabin', 'stilt'].includes(type)) veg.push({ mesh, n: mine.length });
     });

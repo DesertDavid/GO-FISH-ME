@@ -35,15 +35,45 @@ export const LOCATIONS = {
     ...base, id: 'okeechobee', name: 'Lake Okeechobee', region: 'Florida, USA', water: 'lake', price: 0,
     blurb: 'Big shallow lake. Bass and panfish in the grass, gators optional.',
     wind: 4, fetch: 8, waveScale: 0.55, waterLook: WATER.murkyGreen, sky: { turbidity: 3.2, clouds: 0.45 },
-    trees: [['cypress', 900, 0.4, 6], ['palm', 260, 0.6, 5], ['reed', 2600, -0.4, 0.9]],
+    marsh: true,
+    // low flats of tall water grass (about 0.2-0.8 m up) with ragged edges, open water and winding
+    // boat trails between them, a continuous marsh blanket toward the far shore, and the trees
+    // only on a few hammocks and along the far tree line
+    trees: [['cypress', 360, 1.25, 7], ['palm', 140, 1.15, 6], ['sawgrass', 70000, -0.35, 1.0, 650], ['bulrush', 4500, -0.9, 0.7, 700], ['lily', 7000, -1.5, -0.4, 650]],
     height(x, z) {
-      const n = fbm(x * 0.008 + 2, z * 0.008 - 5, 3, 5);
+      const mix = (a, b, t) => a + (b - a) * t;
+      const r = Math.hypot(x, z);
+      const lake = -3.0 - 1.4 * (0.5 + fbm(x * 0.01, z * 0.01, 3, 9));
+      const d = fbm(x * 0.035 + 7, z * 0.035 - 3, 3, 11);
+      const c = fbm(x * 0.0042 + 2, z * 0.0042 - 5, 4, 5);
+      const e = c + 0.16 * d + 0.05 * fbm(x * 0.12, z * 0.12, 2, 19);
+      const THR = 0.05, clear = sm(110, 430, r);
+      const isl = sm(THR - 0.02, THR + 0.05, e) * clear;
+      const shelf = sm(THR - 0.2, THR, e) * clear;
+      // boat trails: thin winding bands (zero crossings of low-frequency noise), only through mats
+      const tr = Math.abs(fbm(x * 0.0058 - 3, z * 0.0058 + 8, 3, 23));
+      const tr2 = Math.abs(fbm(x * 0.011 + 5, z * 0.011 - 9, 3, 29));
+      const trail = Math.max(1 - sm(0.016, 0.05, tr), (1 - sm(0.012, 0.036, tr2)) * 0.9);
+      let h = mix(lake, -1.0 + 0.25 * d, shelf);
+      const grass = 0.38 + 0.4 * d;
+      h = mix(h, grass, isl);
+      const pool = sm(0.5, 0.62, fbm(x * 0.028 + 50, z * 0.028 + 20, 3, 37)) * isl;
+      h = mix(h, -0.9, pool);
+      const hm = sm(0.30, 0.42, fbm(x * 0.007 + 40, z * 0.007 - 11, 3, 61)) * isl;
+      h += 0.9 * hm;
+      h = mix(h, -1.8 + 0.3 * d, trail * sm(0.05, 0.4, shelf));
+      // far shore: continuous marsh blanket, then the tree line
       const coast = -(x * 0.8 + z * 0.6) - 700 + 160 * fbm(x * 0.002, z * 0.002, 3, 2);
-      let h = -3.0 - 1.4 * (0.5 + fbm(x * 0.01, z * 0.01, 3, 9));
-      const island = sm(0.28, 0.4, n) * sm(140, 260, Math.hypot(x, z));
-      h = h + (0.6 + (n - 0.28) * 5 - h) * island;
-      const land = sm(-40, 60, coast);
-      return h + (0.8 + coast * 0.004 + 1.2 * fbm(x * 0.02, z * 0.02, 3, 4) - h) * land;
+      const land = sm(-70, 40, coast);
+      if (land > 0) {
+        let m = 0.4 + 0.45 * d;
+        m = mix(m, -0.9, sm(0.42, 0.55, fbm(x * 0.02 + 90, z * 0.02 - 30, 3, 41)) * (1 - sm(150, 300, coast)));
+        m = mix(m, -1.7, Math.max(1 - sm(0.016, 0.05, tr), 1 - sm(0.012, 0.036, tr2)) * (1 - sm(120, 260, coast)) * sm(0, 40, coast));
+        const up = sm(260, 460, coast);
+        m += up * (1.2 + (coast - 260) * 0.008 + 1.6 * fbm(x * 0.02, z * 0.02, 3, 4));
+        h = mix(h, m, land);
+      }
+      return h;
     },
     pool: { largemouth: 30, bluegill: 22, redear: 10, blackcrappie: 10, channelcat: 8, bluecat: 3, flathead: 2, bowfin: 5, longnosegar: 4, tilapia: 6, pickerel: 3, pumpkinseed: 5, spotted: 2, carp: 2, alligatorgar: 0.5, warmouth: 5, floridagar: 5, oscar: 3, americaneel: 1.5 },
     net: null,
