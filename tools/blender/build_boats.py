@@ -302,7 +302,7 @@ def common_mats(top, bottom, stripe, deck, trim=0x9aa3ab):
     }
 
 # ---------------------------------------------------------------- jon boat (riveted aluminium)
-JON = dict(length=3.8, beam=1.55, depth=0.55, deckDrop=0.42, sheer=0.20)
+JON = dict(length=3.8, beam=1.72, depth=0.55, deckDrop=0.42, sheer=0.20)
 
 def jon_sections(t):
     """t 0 stern..1 bow. Returns (top half-width, bottom half-width, bottom z, sheer z)."""

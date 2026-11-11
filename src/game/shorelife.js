@@ -142,7 +142,7 @@ const clamp = THREE.MathUtils.clamp, lerp = THREE.MathUtils.lerp, sm = THREE.Mat
 const SEG = 8;
 
 // ---- boats ------------------------------------------------------------------------------
-const HULL = { jon: [3.8, 1.55, 0.55, 0.17, 0.42], bass: [6.2, 2.35, 0.78, 0.32, 0.18], skiff: [5.6, 2.1, 0.62, 0.3, 0.2], center: [8.6, 2.8, 1.35, 0.34, 0.75] };   // length, beam, depth, draft, deckDrop
+const HULL = { jon: [3.8, 1.72, 0.55, 0.17, 0.42], bass: [6.2, 2.35, 0.78, 0.32, 0.18], skiff: [5.6, 2.1, 0.62, 0.3, 0.2], center: [8.6, 2.8, 1.35, 0.34, 0.75] };   // length, beam, depth, draft, deckDrop
 const BOAT_SETS = { lake: ['jon', 'bass', 'skiff'], river: ['jon', 'skiff', 'skiff'], inshore: ['skiff', 'center', 'skiff'], offshore: ['center', 'skiff'] };
 function fishGeometry() {
   const body = new THREE.SphereGeometry(0.5, 8, 5).scale(0.17, 0.065, 0.045);

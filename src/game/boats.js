@@ -7,7 +7,10 @@ import { applyCustom } from './boatVisual.js';
 // Player boats: the Blender-built GLB on a buoyant rigid body (scene/floaters.js), with
 // throttle + rudder forces. Hull dims mirror tools/blender/build_boats.py.
 const HULLS = {
-  jon: { length: 3.8, beam: 1.55, depth: 0.55, deckDrop: 0.42, sheer: 0.2, draft: 0.17 },
+  // jon: wider and steadied. inertiaK = roll/pitch moment of inertia multiplier (period about 0.6 s -> 1.2 s: a loaded boat, not a toy),
+  // rollDamp / pitchDamp = damping rates in 1/s (see forces()), gm = extra metacentric height in m, waterSmooth = time constant in s of the
+  // wave heights the hull feels, so short chop does not shake it
+  jon: { length: 3.8, beam: 1.72, depth: 0.55, deckDrop: 0.42, sheer: 0.2, draft: 0.17, spread: 1.1, inertiaK: 6, rollDamp: 6, pitchDamp: 6, gm: 0.12, waterSmooth: 0.4 },
   bass: { length: 6.2, beam: 2.35, depth: 0.78, deckDrop: 0.18, sheer: 0.12, draft: 0.32 },
   skiff: { length: 5.6, beam: 2.1, depth: 0.62, deckDrop: 0.2, sheer: 0.14, draft: 0.3 },
   center: { length: 8.6, beam: 2.8, depth: 1.35, deckDrop: 0.75, sheer: 0.16, draft: 0.34 },
@@ -38,6 +41,7 @@ function loadModel(id) {
 }
 
 const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _q = new THREE.Quaternion();
+const _qi = new THREE.Quaternion(), _wl = new THREE.Vector3(), _tq = new THREE.Vector3(), _up = new THREE.Vector3();
 
 export class PlayerBoat {
   constructor(id) {
@@ -90,11 +94,11 @@ export class PlayerBoat {
     }
     const desc = {
       kind: 'boat-' + this.id, object, size: new THREE.Vector3(h.length, h.depth, h.beam),
-      volume, density: RHO * h.draft, samples, cellHeight: h.depth,
+      volume, density: RHO * h.draft, samples, cellHeight: h.depth, waterSmooth: h.waterSmooth, inertiaK: h.inertiaK,
       dragScale: 0.12,
       extraForce: (b, force, torque) => this.forces(b, force, torque),
     };
-    this.body = floaters.addDesc(desc, new THREE.Vector3(pos.x, h.soft ? h.depth * (0.5 - h.draft) : 0, pos.z), yaw);   // `soft`: start at the resting height, so a light hull is not thrown out of the water and rolled over
+    this.body = floaters.addDesc(desc, new THREE.Vector3(pos.x, h.depth * (0.5 - h.draft), pos.z), yaw);   // start at the resting height: dropping a hull in from the surface line threw it 15 degrees over for ten seconds
     this.body.keep = true;
     return this;
   }
@@ -115,6 +119,15 @@ export class PlayerBoat {
     const fwd = _f.set(1, 0, 0).applyQuaternion(b.quat).setY(0).normalize();
     const right = _r.set(-fwd.z, 0, fwd.x);
     const vF = b.vel.dot(fwd), vL = b.vel.dot(right);
+    const H = this.hull;
+    if (b.wet && (H.rollDamp || H.gm)) {
+      // a steadier small boat: damp roll (about the bow axis) and pitch, and add a little righting moment, as if the weight sat lower
+      _qi.copy(b.quat).invert();
+      _wl.copy(b.angVel).applyQuaternion(_qi);
+      _tq.set(-(H.rollDamp || 0) * _wl.x / b.invInertia.x, 0, -(H.pitchDamp || 0) * _wl.z / b.invInertia.z).applyQuaternion(b.quat);
+      torque.add(_tq);
+      if (H.gm) { _up.set(0, 1, 0).applyQuaternion(b.quat); torque.x -= _up.z * m * 9.81 * H.gm; torque.z += _up.x * m * 9.81 * H.gm; }
+    }
     if (b.wet) {
       let a = 0;
       if (c.throttle > 0) a = s.accel * c.throttle * Math.max(0, 1 - vF / s.speed) * 1.6;

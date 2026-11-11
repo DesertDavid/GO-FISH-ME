@@ -13,7 +13,7 @@ const SPEC = {
   sport: { length: 14.0, beam: 4.6, depth: 2.5, deadrise: 17, transom: 0.9, bowPow: 1.6, bowRise: 0.45, sheer: 0.2, flare: 0.07, deckDrop: 0.95 },
   trawler: { length: 20.0, beam: 6.4, depth: 3.4, deadrise: 14, transom: 0.82, bowPow: 1.5, bowRise: 0.4, sheer: 0.24, flare: 0.08, deckDrop: 1.1 },
   seiner: { length: 26.0, beam: 8.0, depth: 3.9, deadrise: 12, transom: 0.8, bowPow: 1.4, bowRise: 0.4, sheer: 0.26, flare: 0.08, deckDrop: 1.2 },
-  jon: { length: 3.8, beam: 1.55, depth: 0.55, sheer: 0.2, deckDrop: 0.42, jon: true },
+  jon: { length: 3.8, beam: 1.72, depth: 0.55, sheer: 0.2, deckDrop: 0.42, jon: true },
   // hand-lofted hulls: tools/blender/boats_kayak.py and boats_pontoon.py
   kayak: { length: 3.66, beam: 0.9, depth: 0.5, sheer: 0, deckDrop: 0.16, fn: (x) => {
     const L = 3.66, u = Math.min(1, Math.abs(2 * (x + L / 2) / L - 1)), zd = 0.285 + 0.17 * Math.pow(u, 2.6) + 0.033;

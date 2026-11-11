@@ -23,6 +23,7 @@ class Body {
     // solid-box inertia; good enough for every prop shape here
     this.invInertia = new THREE.Vector3(
       12 / (m * (s.y * s.y + s.z * s.z)), 12 / (m * (s.x * s.x + s.z * s.z)), 12 / (m * (s.x * s.x + s.y * s.y)));
+    if (desc.inertiaK) { this.invInertia.x /= desc.inertiaK; this.invInertia.z /= desc.inertiaK; }   // slower roll and pitch (heavier ends / loaded boat)
     this.pos = new THREE.Vector3();
     this.vel = new THREE.Vector3();
     this.quat = new THREE.Quaternion();
@@ -133,7 +134,9 @@ export class Floaters {
         if (k >= query.resultCount) return;
         const h = r[k * 4], dx = r[k * 4 + 1], dz = r[k * 4 + 2];
         const w = b.water, ld = b.lastDisp;
-        w[i * 4] = h;
+        // small hulls ask for a smoothed surface (desc.waterSmooth = time constant in s): chop shorter than that does not rock them
+        const tau = b.desc.waterSmooth;
+        w[i * 4] = tau && dtR > 1e-4 && !Number.isNaN(ld[i * 3]) ? w[i * 4] + (h - w[i * 4]) * (1 - Math.exp(-dtR / tau)) : h;
         if (dtR > 1e-4 && !Number.isNaN(ld[i * 3])) {
           // water velocity from the change in displacement at a fixed point. At steep
           // fronts that overstates particle speed (the front sweeps past), so clamp to
