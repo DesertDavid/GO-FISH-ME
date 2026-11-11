@@ -27,6 +27,7 @@ const SPAWN = {
   okeechobee: [['duck', 5], ['duckwalk', 2], ['deer', 2]],
   woods: [['duck', 5], ['duckwalk', 2], ['moose', 2], ['wolf', 1], ['bear', 1], ['deer', 2], ['bluebird', 2]],
   tahoe: [['duck', 4], ['duckwalk', 2], ['deer', 2], ['bluebird', 1]],
+  bigbear: [['duck', 4], ['duckwalk', 2], ['deer', 3], ['bluebird', 2], ['bear', 1]],
   columbia: [['duck', 4], ['moose', 2], ['bear', 1], ['deer', 2]],
   chesapeake: [['duck', 5], ['duckwalk', 2], ['pelican', 3], ['deer', 1], ['bluebird', 2]],
   fjord: [['duck', 4], ['wolf', 1]],

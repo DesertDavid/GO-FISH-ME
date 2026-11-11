@@ -19,6 +19,7 @@ const WATER = {
   deepBlue: { absorption: [0.45, 0.06, 0.028], scatter: [0.0, 0.028, 0.075], foam: [0.66, 0.78, 0.86], turbidity: 0.025 },
   northSea: { absorption: [0.62, 0.15, 0.12], scatter: [0.004, 0.02, 0.028], foam: [0.72, 0.78, 0.8], turbidity: 0.06 },
   brackish: { absorption: [0.7, 0.3, 0.72], scatter: [0.03, 0.05, 0.032], foam: [0.76, 0.78, 0.68], turbidity: 0.22 },
+  bigbear: { absorption: [0.5, 0.1, 0.16], scatter: [0.004, 0.044, 0.04], foam: [0.72, 0.8, 0.8], turbidity: 0.06 },
   kariba: { absorption: [0.6, 0.25, 0.48], scatter: [0.016, 0.04, 0.034], foam: [0.76, 0.8, 0.72], turbidity: 0.1 },
   mekong: { absorption: [0.5, 0.62, 0.95], scatter: [0.07, 0.055, 0.03], foam: [0.82, 0.76, 0.62], turbidity: 0.32 },
   pacific: { absorption: [0.45, 0.055, 0.03], scatter: [0.0, 0.034, 0.07], foam: [0.68, 0.8, 0.86], turbidity: 0.025 },
@@ -40,6 +41,28 @@ const OKEE_ROUTE = [[960, -330], [1000, 200], [820, 560], [520, 790], [100, 930]
 const OKEE_KISS = [[260, -1090], [190, -900], [150, -760]];   // the Kissimmee River's mouth
 const segDist = (px, pz, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (pz - a[1]) * dz) / (dx * dx + dz * dz))); return Math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t); };
 const pathDist = (x, z, P) => { let m = 1e9; for (let i = 0; i < P.length - 1; i++) m = Math.min(m, segDist(x, z, P[i], P[i + 1])); return m; };
+
+// ---- Big Bear Lake ------------------------------------------------------------------------
+// Real lake: ~7 mi east-west, 2,971 acres, 72 ft deep at the dam (west end), 35 ft average,
+// shallow at the east end, ~6,750 ft up in the San Bernardino Mountains. Drawn at about 3:1
+// along the lake and 2:1 across so it stays playable; x east, z south (north = -z), the dam
+// at x = -1950 and Big Bear City at the east end.
+const bbKnots = (K, x) => { if (x <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (x <= K[i][0]) return K[i - 1][1] + (K[i][1] - K[i - 1][1]) * sm(K[i - 1][0], K[i][0], x); return K[K.length - 1][1]; };
+const bbGauss = (x, c, w) => Math.exp(-(((x - c) / w) ** 2));
+const BB_WIDTH = [[-1945, 0], [-1900, 100], [-1850, 160], [-1500, 270], [-1000, 300], [-600, 220], [-200, 210], [300, 290], [800, 380], [1300, 430], [1700, 300], [1850, 200], [1900, 100], [1935, 0]];   // half-width of the water
+const BB_DEPTH = [[-1945, 18], [-1700, 22], [-1200, 18], [-700, 13], [-200, 9], [300, 7], [800, 6], [1300, 4.2], [1700, 2.4], [1935, 1.2]];     // max depth (m) across each section: 72 ft at the dam
+const BB_LANDINGS = [
+  { name: 'Pine Knot', x: -420, z: 195 }, { name: "Holloway's", x: 200, z: 305 }, { name: 'Fawnskin', x: -420, z: -430 },
+  { name: 'Big Bear City', x: 1880, z: 40 }, { name: "Gray's Landing", x: -1700, z: -212 }, { name: 'Pleasure Point', x: -1100, z: 314 }, { name: 'Lighthouse Camp', x: -900, z: -395 },
+];
+function bbShore(x, z) {
+  const zc = 55 * Math.sin(x / 620) - 30 * Math.sin(x / 1500 + 1), dz = z - zc, north = dz < 0;
+  let w = x > -1945 && x < 1935 ? bbKnots(BB_WIDTH, x) : 0;
+  // Grout Bay and Fawnskin (north), Boulder / Papoose / Metcalf bays (south)
+  w += north ? 150 * bbGauss(x, -380, 230) + 60 * bbGauss(x, -1000, 200) : 110 * bbGauss(x, -250, 190) + 170 * bbGauss(x, 850, 300) + 80 * bbGauss(x, -1000, 200) + 70 * bbGauss(x, 1450, 220);
+  if (w > 0) w += 56 * fbm(x * 0.006 + 3, z * 0.006, 3, 71);
+  return { s: w - Math.abs(dz), w, zc };
+}
 
 export const LOCATIONS = {
   okeechobee: {
@@ -308,6 +331,38 @@ export const LOCATIONS = {
     pool: { stripedmarlin: 6, bluemarlin: 1, blackmarlin: 0.8, sailfish: 3, mahi: 14, yellowfin: 10, wahoo: 6, skipjack: 8, roosterfish: 8, sierra: 12, yellowtail: 10, pargo: 8, cabrilla: 8, mako: 1, bonito: 10 },
     net: { sardine: 50, anchovy: 28, skipjack: 10, sierra: 6, yellowtail: 3, bonito: 6 },
   },
+  bigbear: {
+    ...base, id: 'bigbear', name: 'Big Bear Lake', region: 'California, USA', water: 'lake', price: 3500, size: 4800,
+    blurb: 'A seven-mile mountain reservoir at 6,750 ft in the San Bernardino Mountains: stocked trout, bass in the coves, pines to the water.',
+    wind: 5, fetch: 12, waveScale: 0.5, waterLook: WATER.bigbear, sky: { turbidity: 1.5, clouds: 0.25 }, fog: 1 / 22000, rockLine: 430, rockTint: [0.97, 0.91, 0.84],
+    trees: [['pine', 12000, 1.5, 380, 2300], ['birch', 500, 0.8, 40]],
+    landings: BB_LANDINGS,
+    height(x, z) {
+      const mix = (a, b, t) => a + (b - a) * t;
+
+      const { s, w, zc } = bbShore(x, z);
+      const D = bbKnots(BB_DEPTH, x);
+      let h;
+      if (s > 0) {
+        const u = Math.min(1, s / Math.max(w, 1));
+        h = -(D * (1 - Math.pow(1 - u, 2.3)) + 0.25 * (s > 3 ? 1 : s / 3)) + 0.4 * fbm(x * 0.03, z * 0.03, 2, 5);
+        h = Math.min(h, -0.05);
+        // China Island: a small granite islet in the east basin
+        const di = Math.hypot(x - 1120, z - 90);
+        h += 20 * Math.exp(-((di / 38) ** 2)) * (0.8 + 0.5 * fbm(x * 0.05, z * 0.05, 2, 9));
+      } else {
+        const dist = -s;
+        h = 0.35 + 0.045 * Math.min(dist, 40) + 0.028 * Math.min(Math.max(0, dist - 40), 900) + 2.5 * fbm(x * 0.012, z * 0.012, 3, 7);
+        const thr = 420 + 700 * sm(400, 1700, x) + 500 * fbm(x * 0.0015 + 9, z * 0.0015, 3, 13);   // the valley floor is wider toward Big Bear City
+        const wall = sm(thr, thr + 1000, dist) * (230 + 230 * ridged(x * 0.0018, z * 0.0018, 5, 9));
+        h += wall + sm(1950, 2350, Math.abs(x)) * (200 + 180 * ridged(x * 0.002 + 5, z * 0.002, 4, 11));   // the valley closes at both ends
+        h += 14 * ridged(x * 0.006, z * 0.006, 4, 21) * sm(60, 400, dist);   // ridges and rock bands on the slopes
+      }
+      return h;
+    },
+    pool: { rainbow: 34, brown: 6, largemouth: 14, smallmouth: 6, channelcat: 10, bluegill: 14, pumpkinseed: 6, blackcrappie: 10, carp: 8 },
+    net: null,
+  },
 };
 
 // ---- bathymetry --------------------------------------------------------------------------
@@ -345,7 +400,7 @@ for (const [id, o] of Object.entries(DEEP)) {
   L.height = (x, z) => deepen(raw(x, z), x, z, o);
 }
 
-export const LOCATION_ORDER = ['okeechobee', 'woods', 'tahoe', 'columbia', 'chesapeake', 'keys', 'mekong', 'amazon', 'kariba', 'fjord', 'gulf', 'cabo', 'reef', 'bering'];
+export const LOCATION_ORDER = ['okeechobee', 'woods', 'tahoe', 'columbia', 'chesapeake', 'keys', 'mekong', 'amazon', 'kariba', 'fjord', 'gulf', 'cabo', 'reef', 'bering', 'bigbear'];
 
 // A start point in open water near the origin (spiral search).
 export function findStart(loc) {

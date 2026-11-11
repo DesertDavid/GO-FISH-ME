@@ -13,7 +13,7 @@ import { GFX } from './gfx.js';
 const clamp = THREE.MathUtils.clamp, lerp = THREE.MathUtils.lerp, sm = THREE.MathUtils.smoothstep;
 
 // who lives where
-const WADERS = { okeechobee: ['egret', 'heron'], woods: ['heron'], tahoe: ['heron'], columbia: ['heron'], chesapeake: ['heron'], keys: ['egret', 'heron'], amazon: ['egret'], kariba: ['heron', 'egret'], mekong: ['egret', 'heron'], fjord: ['heron'] };
+const WADERS = { okeechobee: ['egret', 'heron'], woods: ['heron'], tahoe: ['heron'], bigbear: ['heron'], columbia: ['heron'], chesapeake: ['heron'], keys: ['egret', 'heron'], amazon: ['egret'], kariba: ['heron', 'egret'], mekong: ['egret', 'heron'], fjord: ['heron'] };
 const PELICANS = { keys: 'brown', gulf: 'brown', cabo: 'brown', chesapeake: 'brown', okeechobee: 'white', reef: 'white' };
 const NO_GULLS = new Set(['amazon', 'mekong', 'kariba']);
 

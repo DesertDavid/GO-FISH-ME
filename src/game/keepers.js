@@ -13,7 +13,7 @@ import { tournamentsFor } from './tournaments.js';
 // come from the real bite model (bait.js); the relationship is saved in save.rapport.
 
 const SKIN = [0xe2b896, 0xc89270, 0x9a6a4c, 0x6e4a36, 0xf0d2b6];
-const COLD = new Set(['fjord', 'bering', 'woods', 'tahoe', 'columbia']);
+const COLD = new Set(['fjord', 'bering', 'woods', 'tahoe', 'bigbear', 'columbia']);
 const HOT = new Set(['keys', 'amazon', 'mekong', 'kariba', 'okeechobee', 'reef', 'cabo', 'gulf']);
 const clamp = THREE.MathUtils.clamp;
 const pick = (r, a) => a[Math.floor(r() * a.length) % a.length];

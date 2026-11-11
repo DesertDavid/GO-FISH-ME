@@ -13,7 +13,7 @@ export const STYLES = {
   cabo: { wall: 'stucco', wcols: [0xf0e8d8, 0xe8d4b0, 0xd8a878, 0xe2c8a0, 0xdeb090], roof: 'flat', rtex: 'conc', rcols: [0xd0c8b8], trim: 0xd8a24a, pitch: 0.3, over: 0.4, found: 0.8, ftex: 'stone', fcol: 0xb0a088, porch: { rail: false, roof: false }, front: 'step', shutters: 0x2e6a8a, door: 0x2a5a78, fcolWall: 0xe0d4bc },
   reef: { wall: 'clap', wcols: [0xf2f0e6, 0xcfe4e0, 0xe8dcc0, 0xb8d8d4], roof: 'gable', rtex: 'tin', rcols: [0xb04a3a, 0x3a7a68, 0x8a9498], trim: 0xffffff, pitch: 0.4, over: 0.9, found: 0.5, piles: { depth: 1.4 }, porch: { rail: true, roof: true }, front: 'none', shutters: 0x1f6a78 },
 };
-export const LOC_STYLE = { okeechobee: 'cracker', woods: 'log', tahoe: 'chalet', columbia: 'columbia', chesapeake: 'chesapeake', keys: 'conch', mekong: 'stilt', amazon: 'palm', kariba: 'kariba', fjord: 'rorbu', cabo: 'cabo', reef: 'reef' };
+export const LOC_STYLE = { okeechobee: 'cracker', woods: 'log', tahoe: 'chalet', bigbear: 'chalet', columbia: 'columbia', chesapeake: 'chesapeake', keys: 'conch', mekong: 'stilt', amazon: 'palm', kariba: 'kariba', fjord: 'rorbu', cabo: 'cabo', reef: 'reef' };
 
 // signs: [main, sub] per role; local language where the place has one
 export const TEXT = {
@@ -27,6 +27,7 @@ export const TEXT = {
   keys: { marina: ['KEYS MARINA', 'Bait · Tackle · Boats · Fuel'], bait: ['BAIT & TACKLE', 'Live shrimp · Pilchards · Ice'], buyer: ['FISH MARKET', 'Fresh catch · Stone crab'], fuel: 'FUEL', open: 'OPEN' },
   columbia: { marina: ['RIVER MARINA', 'Tackle · Boat sales · Fuel'], bait: ['SALMON & STEELHEAD', 'Eggs · Tackle · Licences'], buyer: ['SMOKED SALMON', 'Fresh & smoked · Sturgeon'], fuel: 'FUEL', open: 'OPEN' },
   woods: { marina: ['RESORT & MARINA', 'Minnows · Leeches · Tackle · Boats'], bait: ['MINNOWS & LEECHES', 'Walleye bait · Licences'], buyer: ['FISH HOUSE', 'Walleye · Perch · Whitefish'], fuel: 'GAS', open: 'OPEN' },
+  bigbear: { marina: ['BIG BEAR MARINA', 'Boat rentals · Fuel · Tackle'], bait: ['PINE KNOT BAIT & TACKLE', 'Power bait · Crawlers · Licences'], buyer: ['LAKE FISH CO.', 'Trout & bass bought daily'], fuel: 'FUEL', open: 'OPEN' },
   tahoe: { marina: ['TAHOE MARINA', 'Tackle · Boat sales · Fuel'], bait: ['TACKLE & BAIT', 'Mackinaw gear · Licences'], buyer: ['LAKE FISH CO.', 'Trout bought daily'], fuel: 'FUEL', open: 'OPEN' },
   kariba: { marina: ['KARIBA MARINA', 'Tackle · Boat hire · Diesel'], bait: ['FISH & TACKLE', 'Tigerfish gear · Bait'], buyer: ['KAPENTA MARKET', 'Fresh fish daily'], fuel: 'DIESEL', open: 'OPEN' },
   reef: { marina: ['REEF MARINA', 'Charters · Tackle · Fuel'], bait: ['BAIT & TACKLE', 'Reef gear · Ice'], buyer: ['FISH MARKET', 'Coral trout · Spanish mackerel'], fuel: 'FUEL', open: 'OPEN' },

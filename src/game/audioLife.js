@@ -4,6 +4,7 @@
 export const AMB = {
   okeechobee: { insects: 0.7, crickets: 0.8, frogs: 'bull', frogRate: 1, songbird: 0.6, owl: 0.5, wind: 0.8 },
   woods: { crickets: 0.8, songbird: 0.8, loon: 1, owl: 0.7, wind: 0.7 },
+  bigbear: { crickets: 0.5, songbird: 0.7, owl: 0.6, wind: 0.9 },
   tahoe: { crickets: 0.5, songbird: 0.6, owl: 0.5, wind: 0.9 },
   columbia: { crickets: 0.3, songbird: 0.3, owl: 0.4, wind: 1.35 },
   chesapeake: { gulls: 0.8, crickets: 0.4, surf: 0.15, marina: 0.8, traffic: 0.8, halyards: 1, wind: 1 },

@@ -241,6 +241,12 @@ const PLANS = {
     for (let i = 0; i < 3; i++) village(S, 'lodge', { rmin: 250, rmax: 1300, hmin: 1, hmax: 14, shore: 90, r: 100, need: 5 }, 9, [[3, dw('log', { w: [6, 9], d: [5, 7] })], [1, dw('chalet', { w: [10, 14], d: [7, 9], floors: 2 })]], { slope: 3.6, range: 3 });
     for (let i = 0; i < 5; i++) village(S, 'cabins', { rmin: 200, rmax: 1500, hmin: 1, hmax: 12, shore: 80, r: 40, need: 4 }, 2, [[1, dw('log', { w: [5, 8], d: [4, 6] })]], { slope: 3.6, range: 3, gap: 8 });
   },
+  bigbear(S) {
+    // log cabins and chalets through the pines, the Village on the south shore, a ski lodge on the Bear Mountain side
+    const A = { rmin: 250, rmax: 2100, hmin: 1, hmax: 90, slope: 4, shore: 150 };
+    for (let i = 0; i < 6; i++) village(S, 'shore', { ...A, r: 120, need: 6 }, 14, [[3, dw('log', { w: [7, 11], d: [5, 8] })], [2, dw('chalet', { w: [9, 13], d: [7, 10], floors: 2 })], [1, th('chesapeake', { brick: false })]], { range: 4, slope: 4.5, gap: 5 });
+    const f = S.find({ rmin: 900, rmax: 2300, hmin: 60, hmax: 220, r: 40, need: 4, slope: 4 }); if (f) { const cl = S.cluster('ski', f.x, f.z, 40); S.populate(cl, { n: 3, kinds: [[1, dw('chalet', { w: [14, 20], d: [9, 12], floors: 2 })]], face: 'down', hmin: 60, range: 5, slope: 5, gap: 6 }); }
+  },
   tahoe(S) {
     const A = { rmin: 650, rmax: 1450, hmin: 1, hmax: 160, slope: 4, shore: 140 };
     for (let i = 0; i < 4; i++) village(S, 'shore', { ...A, r: 130, need: 6 }, 16, [[3, dw('chalet', { w: [9, 14], d: [7, 10], floors: 2 })], [2, dw('log', { w: [7, 10], d: [5, 8] })], [1, th('chesapeake', { brick: false })]], { range: 4, slope: 4.5, gap: 5 });

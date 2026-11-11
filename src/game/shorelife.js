@@ -45,7 +45,7 @@ const SKIN = [0xe2b896, 0xc89270, 0x9a6a4c, 0x6e4a36, 0xf0d2b6];
 const BOTTOMS = [0x3a4a62, 0x6a5c44, 0x2e3236, 0x7c7a62, 0x4a5240];
 const TOPS = [0x7a8a62, 0xb4583c, 0x3e5a7a, 0xd6d0be, 0x6a6c70, 0xa89040, 0x4a6a5a, 0xc67a3a, 0x8a3a3a];
 const PARKAS = [0xc4532a, 0x2e4a6a, 0x55604a, 0xc2a02c, 0x6a3a3a, 0x444a52];
-const COLD = new Set(['fjord', 'bering', 'woods', 'tahoe', 'columbia']);
+const COLD = new Set(['fjord', 'bering', 'woods', 'tahoe', 'bigbear', 'columbia']);
 const HOT = new Set(['keys', 'amazon', 'mekong', 'kariba', 'okeechobee', 'reef', 'cabo', 'gulf']);
 const pick = (r, a) => a[Math.floor(r() * a.length) % a.length];
 

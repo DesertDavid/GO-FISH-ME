@@ -25,6 +25,11 @@ export const KEEPERS = {
     bait: K('Beth Calloway', 'Bait & tackle', { skin: 0, hair: 0x9a8a6a, hat: 'cap', hi: 'Mackinaw gear is on the left wall. Be honest about how deep you plan to go.', back: 'Hey, you. Kokanee are moving, if you want that.' }),
     buyer: K('Tomás Ibarra', 'Fish buyer', { skin: 2, hair: 0x2a2220, hat: 'beanie', hi: 'Trout and mackinaw, whatever the lake gives. Keep them cold and I will treat you right.', back: 'Ice is ready. Put it on the scale.' }),
   },
+  bigbear: {
+    marina: K('Hal Brewer', 'Harbour master', { skin: 0, hair: 0xb0b0a8, age: 'old', hat: 'cap', hi: "Welcome to Big Bear. Mind the afternoon wind, it funnels down the valley and the lake goes from glass to chop in ten minutes.", back: 'Back up the mountain. Pines are good company, the wind less so.' }),
+    bait: K('Rosa Delgado', 'Bait & tackle', { skin: 2, hair: 0x2a2220, hat: 'beanie', hi: 'Power bait for the stockers, crawlers for the bluegill, and a thermos if you forgot yours.', back: 'Trout are up shallow this morning, if you want to hear it.' }),
+    buyer: K('Tom Whitaker', 'Fish buyer', { skin: 0, hair: 0x5a4030, hat: 'cap', hi: 'Trout, bass, catfish, I take what the lake gives. Keep them cold and bring them in fresh.', back: 'Ice is on. Put them on the scale.' }),
+  },
   columbia: {
     marina: K('Rhonda Whitaker', 'Harbour master', { skin: 0, hair: 0x9a8a6a, hat: 'cap', hi: 'The river does what it wants. I only keep the dock. Mind the wind when it funnels through the Gorge.', back: 'Back in one piece. Good.' }),
     bait: K('Eli Standing Bear', 'Bait & tackle', { skin: 3, hair: 0x161412, hat: 'cap', hi: 'Sand shrimp, herring, spinners. My family fished this river long before the dams, so ask me anything.', back: 'Steelhead are moving. I tied a few for you.' }),
@@ -139,6 +144,7 @@ export const ANGLER_HI_LOC = {
   okeechobee: ['Watch for gators on the bank, they like the warm concrete.', 'Specks are on the edge of the grass.'],
   woods: ['Walleye like the edge of the weeds. Ask Jean-Luc.', 'Border patrol waves, so wave back.'],
   tahoe: ['I can see my bobber forty feet down. Clearest water there is.', 'Cold? That is the lake telling you to stay.'],
+  bigbear: ['Stocked rainbows school up where the creeks come in. Ask at the bait shop.', 'Bass hold in the coves by the boulders. Fish them slow.'],
   columbia: ['If the wind hits sixty you are done for the day.', 'Steelhead is a gentleman fish. Takes a little patience.'],
   amazon: ['Cuidado with the current, it pulls harder than it looks.', 'Pegou algo? No? Me neither.'],
   keys: ['Tide is turning, so that is when the bonefish move.', 'Sunscreen. Trust me.'],
@@ -184,6 +190,16 @@ export const LORE = {
     ['marina', 'Winter storms close the passes. Summer ones close the lake. Weather decides here.'],
     ['buyer', 'Rainbow trout I buy, and lake trout if they are legal. Fish from cold water like this has firm flesh, and I can tell it blind.'],
     ['buyer', 'In summer the beaches are packed. Come in the shoulder season, when the lake is yours alone.'],
+  ],
+  bigbear: [
+    ['bait', 'The lake is stocked with rainbow trout every season, so the fish you catch in spring may be a few weeks out of a hatchery truck.'],
+    ['bait', 'Bass like the rocky coves and the boulders along the south shore. Slow soft plastics, nothing flashy.'],
+    ['bait', 'Catfish gather at the east end, near the causeway. Cut bait on the bottom at dusk.'],
+    ['marina', 'The first dam here was built in 1884, a single granite arch. The newer one downstream is from 1912, and the old stones are still down there under the water.'],
+    ['marina', 'It is deepest by the dam, about seventy feet. At the east end you can wade out and still be in water to your knees.'],
+    ['marina', 'Winter freezes the shallows some years, and the snow reaches the shoreline. We close the docks, not the town.'],
+    ['buyer', 'Rainbow trout I buy. Largemouth too, though people here mostly let the big ones go.'],
+    ['buyer', 'Fawnskin on the north shore is the quiet side. Big Bear City at the east end is where the weekend crowd lands.'],
   ],
   columbia: [
     ['bait', 'White sturgeon live here, some taller than a man. By law they go back, and the law is right, because they are very old.'],

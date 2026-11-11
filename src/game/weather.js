@@ -36,6 +36,7 @@ const EVENTS = {
   chesapeake: { fog: 1.6, squall: 0.6, pm: 1 },
   woods: { fog: 0.8, squall: 0.5, pm: 1 },
   tahoe: { fog: 0.15, squall: 0.3 },
+  bigbear: { fog: 0.2, squall: 0.8, pm: 1 },
   columbia: { fog: 1, squall: 0.3 },
   okeechobee: { fog: 0.6, squall: 1.2, pm: 1 },
   keys: { fog: 0.1, squall: 1, pm: 1 },
