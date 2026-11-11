@@ -371,7 +371,7 @@ export class GameAudio {
     S.foot = !!g.foot; S.boatId = boat?.id || 'jon';
     this.boatId = S.boatId; this.hullLen = boat?.hull?.length || 5;
     S.speed = Math.abs(boat?.speed || 0); S.maxSpeed = (boat?.spec?.speed || 8) * (boat?.mods?.speed || 1);
-    S.thr = this.thr; S.anchored = !!boat?.anchored;
+    S.thr = this.thr; S.anchored = !!boat?.anchored; S.engOff = boat ? boat.engineOn === false : false;
     S.paused = g.ui.isOpen(); S.under = g.view === 'under';
     S.hour = g.save.hour; S.night = g.nightLevel();
     S.loc = loc.id;

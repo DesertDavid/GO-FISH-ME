@@ -157,10 +157,11 @@ export class PlayerBody {
     const yaw = Math.atan2(_f.x, _f.z);
     const onFoot = !!g.foot;
     const bspec = !onFoot ? g.boatSpec?.() : null, seated = !!bspec?.sit;   // kayak: always sitting, eye is lower
-    const feetY = onFoot ? g.footPos.y : _a.y - EYE - (seated ? bspec.eyeUp || 0 : 0);
+    const dk = !onFoot ? g.deck : null, dseat = dk?.seat && !dk.seat.fixed ? dk.seat : null;   // walking the deck / sitting on a bench
+    const feetY = onFoot ? g.footPos.y : _a.y - (dseat ? dseat.eye : EYE) - (seated ? bspec.eyeUp || 0 : 0);
     // sitting: at the helm of a moving boat with nothing on the line
     const busy = g.fishing.busy?.() || g.fishing.state !== 'idle';
-    const sitWant = seated ? 1 : !onFoot && Math.abs(g.boatSpeed?.() || 0) > 1.2 && !busy ? 1 : 0;
+    const sitWant = seated || dseat ? 1 : !onFoot && !dk && Math.abs(g.boatSpeed?.() || 0) > 1.2 && !busy ? 1 : 0;
     this.sit += (sitWant - this.sit) * Math.min(1, dt * 5);
     // base position, with a hop between boat and shore
     const want = _b.set(_a.x, feetY, _a.z);

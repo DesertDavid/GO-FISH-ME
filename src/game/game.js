@@ -11,6 +11,8 @@ import { setUnits, dist as fmtDist } from './units.js';
 import { TUNE as FISH_TUNE } from './fishTune.js';
 import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 import { PlayerBoat } from './boats.js';
+import { DECKS, EYE_STAND, standable, stepOn, floorUp, nearSeat, nearClimb } from './boatDeck.js';
+import { deckHeight } from './boats.js';
 import { customOf, mods as boatModsOf, upgradePrice, upgradeLevel, UPGRADES, paintCost, finalName } from './boatCustom.js';
 import { Rod } from './rod.js';
 import { PlayerBody } from './jelly.js';
@@ -80,6 +82,8 @@ export class Game {
     this.time = 0;
     this.sunTimer = 0;
     this.holstered = false;           // rod put away (X)
+    if (typeof window !== 'undefined') window.__decks = DECKS;   // dev/test hook
+    this.deck = null;                 // walking the boat: { x, z, level, seat } in boat space (null = at the helm)
     this.foot = null;                 // on foot: { x, z, y, speed } (docks and shore)
     this.footPos = new THREE.Vector3();
   }
@@ -239,6 +243,8 @@ export class Game {
         else if (this.view === 'first') { this.tp = false; this.view = 'third'; this.look.yaw = 0; }
         else { this.view = 'first'; this.tp = false; this.restoreLook(); }
       }
+      if (act === 'deck') this.deckKey();
+      if (act === 'engine') this.toggleEngine();
       if (act === 'stepOff') { this.fishCam.exit(); this.toggleShore(); }
       if (act === 'talk') { this.ui.open('talk'); this.keys.clear(); return; }
       if (act === 'livewell') { this.ui.open('livewell'); this.keys.clear(); return; }
@@ -442,9 +448,12 @@ export class Game {
     const c = this.boat.control;
     const throttleTarget = (k('forward') ? 1 : 0) - (k('back') ? 1 : 0);
     const camOn = this.fishCam?.active;   // the fish cam is hanging: W/S run its cable, the boat sits still
-    c.throttle += ((this.foot || camOn ? 0 : throttleTarget) - c.throttle) * Math.min(1, dt * 3);
-    c.steer = fighting || this.foot || camOn ? 0 : (k('right') ? 1 : 0) - (k('left') ? 1 : 0);
+    c.throttle += ((this.foot || camOn || this.deck || !this.boat.engineOn ? 0 : throttleTarget) - c.throttle) * Math.min(1, dt * 3);
+    c.steer = fighting || this.foot || camOn || this.deck ? 0 : (k('right') ? 1 : 0) - (k('left') ? 1 : 0);
     if (this.foot) this.walk(dt, k, fighting);
+    if (this.deck) this.deckWalk(dt, k, fighting);
+    this.deckEye();
+    this.windDrift();
     if (k('lookLeft')) this.look.yaw += dt * 1.6;
     if (k('lookRight')) this.look.yaw -= dt * 1.6;
     if (k('lookUp')) this.look.pitch = Math.min(1.1, this.look.pitch + dt * 1.2);
@@ -660,6 +669,80 @@ export class Game {
     cam.lookAt(target.x, Math.min(target.y, surf - 0.2), target.z);
   }
 
+  // ---------------------------------------------------------------- walking the boat (decks, seats, ladders)
+  // The eye is a point in boat space: it rides the hull as it pitches and rolls, and the helm camera code does the rest.
+  deckWalk(dt, k, fighting) {
+    const d = this.deck, id = this.boat.id;
+    const fwd = (k('forward') ? 1 : 0) - (k('back') ? 1 : 0), side = (k('right') ? 1 : 0) - (k('left') ? 1 : 0);
+    if (d.seat) { if ((fwd || side) && !fighting && !DECKS[id].seats.some((s) => s.fixed)) this.deckStand(); return; }
+    d.speed = 0;
+    if (fighting || this.fishing.state === 'charging' || this.ui.isOpen() || this.view !== 'first' || (!fwd && !side)) return;
+    const y = this.look.yaw, run = k('sprint') ? 2.6 : 1.5;
+    let mx = Math.cos(y) * fwd + Math.sin(y) * side, mz = -Math.sin(y) * fwd + Math.cos(y) * side;
+    const l = Math.hypot(mx, mz); mx /= l; mz /= l;
+    const r = stepOn(id, d.level, d.x, d.z, mx * run * dt, mz * run * dt);
+    d.speed = Math.hypot(r.x - d.x, r.z - d.z) / dt; d.x = r.x; d.z = r.z;
+    d.bob = (d.bob || 0) + dt * d.speed * 2.2;
+  }
+
+  // where the camera wants to be in boat space this frame (helm, standing on the deck, or seated)
+  deckEye() {
+    const b = this.boat, id = b.id, spec = b.spec, d = this.deck;
+    if (!d) { b.eyeTo.set(spec.eye, deckHeight(id, spec.eye) + 1.68 + (spec.eyeUp || 0), 0); return; }
+    const bob = d.speed ? Math.sin((d.bob || 0) * 2) * 0.02 : 0;
+    b.eyeTo.set(d.x, deckHeight(id, d.x) + floorUp(id, d.level, d.x) + (d.seat ? d.seat.eye : EYE_STAND) + bob, d.z);
+  }
+
+  windDrift() {
+    const b = this.boat, w = this.loc.wind * (this.weather?.cur?.windMul ?? 1) * 0.045, a = (this.loc.windDir ?? 0) * Math.PI / 180;
+    b.drift.x = Math.sin(a) * w; b.drift.z = -Math.cos(a) * w;
+  }
+
+  // what the deck key would do from here: the nearest of the helm, a seat or a ladder
+  deckTarget() {
+    const b = this.boat, d = this.deck, id = b.id;
+    if (!d || d.seat) return null;
+    const c = [];
+    const dh = d.level === 0 ? Math.hypot(d.x - b.spec.eye, d.z) : 99;
+    if (dh < 0.55) c.push({ kind: 'helm', d: dh - 0.01 });
+    const s = nearSeat(id, d.level, d.x, d.z); if (s) c.push({ kind: 'seat', d: Math.hypot(s.x - d.x, s.z - d.z), obj: s });
+    const l = nearClimb(id, d.level, d.x, d.z); if (l) c.push({ kind: 'climb', d: Math.hypot(l.x - d.x, l.z - d.z) - 0.01, obj: l });
+    if (!c.length && dh < 1.7) c.push({ kind: 'helm', d: dh });
+    c.sort((p, q) => p.d - q.d);
+    return c[0] || null;
+  }
+
+  deckStand() { if (this.deck?.seat && !this.deck.seat.fixed) { const d = this.deck, y = d.seat.yaw; d.seat = null; const nx = d.x + Math.cos(y) * 0.6, nz = d.z - Math.sin(y) * 0.6; if (standable(this.boat.id, d.level, nx, nz)) { d.x = nx; d.z = nz; } this.ui.toast('Standing', 'info'); } }
+
+  // the walk / sit / climb / return-to-helm key
+  deckKey() {
+    const b = this.boat, id = b.id, D = DECKS[id], d = this.deck;
+    if (this.foot || this.fishCam?.active || this.view !== 'first') return;
+    if (D.walk === false) { this.ui.toast('A kayak is too tippy to stand in. Stay seated.', 'info'); return; }
+    if (this.fishing.state === 'fight' || this.fishing.state === 'caught') { this.ui.toast('Land the fish first.', 'info'); return; }
+    if (!d) {
+      if (this.net.state !== 'stowed') { this.ui.toast('Haul the net first.', 'info'); return; }
+      this.deck = { x: b.spec.eye, z: 0, level: 0, seat: null, speed: 0 };
+      this.ui.toast('Off the helm. WASD to walk the deck; the boat will not steer until you are back.', 'info');
+      return;
+    }
+    if (d.seat) { this.deckStand(); return; }
+    const t = this.deckTarget();
+    if (t?.kind === 'helm') { this.deck = null; this.ui.toast('At the helm', 'info'); return; }
+    if (t?.kind === 'seat') { const s = t.obj; d.seat = s; d.x = s.x; d.z = s.z; this.look.yaw = s.yaw; this.look.pitch = -0.1; this.ui.toast(`Sitting on ${s.label}. Move to stand.`, 'info'); return; }
+    if (t?.kind === 'climb') { const c = t.obj; d.level = c.to[0]; d.x = c.to[1]; d.z = c.to[2]; return; }
+    this.ui.toast('Walk to a seat, a ladder, or back to the helm.', 'info');
+  }
+
+  toggleEngine() {
+    const b = this.boat;
+    if (this.foot) { this.ui.toast('The engine is on the boat.', 'info'); return; }
+    b.engineOn = !b.engineOn;
+    const paddle = !!b.spec.paddle;
+    this.ui.toast(b.engineOn ? (paddle ? 'Paddle out' : 'Engine started') : (paddle ? 'Paddle stowed. You will drift.' : 'Engine off. The boat coasts and drifts.'), 'info');
+    this.ui.hud();
+  }
+
   // ---------------------------------------------------------------- on foot (docks and shore)
   groundAt(x, z) { return this.docks.deckAt(x, z) ?? this.heightAt(x, z); }
   standable(x, z) { return (this.docks.deckAt(x, z) !== null || this.heightAt(x, z) > -0.55) && !this.shore?.blocks(x, z) && !this.buildings?.blocks(x, z); }
@@ -774,6 +857,7 @@ export class Game {
     }
     const bp = this.boat.position;
     this.moor = { x: bp.x, z: bp.z };
+    this.deck = null;
     this.foot = { x: spot.x, z: spot.z, speed: 0 };
     this.look.yaw = spot.yaw;
     this.look.pitch = -0.06;
@@ -801,6 +885,17 @@ export class Game {
     }
     const KL = (a) => keyLabel(this.binds.map[a]);
     const hints = text ? [[KL('stepOff'), text]] : [];
+    if (this.view === 'first' && !this.foot && !this.ui.isOpen() && !this.fishing.busy()) {
+      const bd = DECKS[this.boat.id], d = this.deck;
+      if (!d) { if (bd.walk !== false) hints.push([KL('deck'), 'walk the deck']); }
+      else if (d.seat) hints.push([KL('deck'), 'stand up']);
+      else {
+        const t = this.deckTarget();
+        if (t?.kind === 'helm') hints.push([KL('deck'), 'back to the helm']);
+        else if (t?.kind === 'seat') hints.push([KL('deck'), `sit on ${t.obj.label}`]);
+        else if (t?.kind === 'climb') hints.push([KL('deck'), t.obj.label]);
+      }
+    }
     if (this.view === 'first' && !this.fishing.busy() && !this.ui.isOpen() && this.save.livewell.length && this.marketAccess() === 'dock') hints.push([KL('livewell'), 'sell your catch at the dock']);
     // at a shop door on foot: what this building sells (B tackle & permits, Y boats)
     const door = this.foot && this.view === 'first' && !this.ui.isOpen() ? this.buildings?.doorNear(this.foot.x, this.foot.z) : null;
@@ -1406,7 +1501,7 @@ export class Game {
     this.boat = await new PlayerBoat(id).create(this.e.floaters, this.patchProp, p, yaw, this.boatCust(id));
     old.dispose(this.e.floaters);
     this.look.yaw = BOATS[id].face || 0;
-    this.foot = null; this.moor = null;
+    this.foot = null; this.moor = null; this.deck = null;
     this.ui.toast(`Now running the ${BOATS[id].name}`, 'good');
     this.ui.hud();
   }

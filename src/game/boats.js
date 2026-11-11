@@ -58,6 +58,10 @@ export class PlayerBoat {
     this.cust = null;                     // { cfg, up } from the boat yard (boatCustom.js); null = stock paint
     this.mods = boatMods({}, id);         // upgrade effects (speed, accel, anchor...)
     this.anchored = null;                 // { depth } while the anchor is down
+    this.engineOn = true;                 // engine / motor / paddling can be switched off (game.toggleEngine)
+    this.drift = { x: 0, z: 0 };          // wind drift (m/s) while the engine is off, set by the game
+    this.eyeCur = new THREE.Vector3(this.spec.eye, deckHeight(id, this.spec.eye) + 1.68 + (this.spec.eyeUp || 0), 0);   // the angler's eye in boat space (helm, or walking the deck)
+    this.eyeTo = this.eyeCur.clone();
     this.fx = null;                       // visual handle from applyCustom (night lights, anchor chain)
   }
 
@@ -130,7 +134,8 @@ export class PlayerBoat {
     }
     if (b.wet) {
       let a = 0;
-      if (c.throttle > 0) a = s.accel * c.throttle * Math.max(0, 1 - vF / s.speed) * 1.6;
+      if (!this.engineOn) a = 0;
+      else if (c.throttle > 0) a = s.accel * c.throttle * Math.max(0, 1 - vF / s.speed) * 1.6;
       else if (c.throttle < 0) a = s.accel * c.throttle * 0.5 * Math.max(0, 1 + vF / (s.speed * 0.3));
       force.addScaledVector(fwd, m * a);
       // hull drag (quadratic) + keel resisting sideways slip
@@ -166,10 +171,13 @@ export class PlayerBoat {
     const b = this.body;
     this.gustT += dt;
     if (this.anchored && Math.abs(this.control.throttle) > 0.2) this.raiseAnchor();
-    if (current && (current[0] || current[1]) && !(this.anchored && this.mods.holdsInCurrent)) {
-      b.vel.x += (current[0] - b.vel.x) * 0.02 * dt * 10 * (this.control.throttle ? 0 : 1);
-      b.vel.z += (current[1] - b.vel.z) * 0.02 * dt * 10 * (this.control.throttle ? 0 : 1);
+    const cx = (current ? current[0] : 0) + (this.engineOn ? 0 : this.drift.x), cz = (current ? current[1] : 0) + (this.engineOn ? 0 : this.drift.z);
+    if ((cx || cz) && !(this.anchored && this.mods.holdsInCurrent)) {
+      const k = 0.02 * dt * 10 * (this.control.throttle && this.engineOn ? 0 : 1);
+      b.vel.x += (cx - b.vel.x) * k;
+      b.vel.z += (cz - b.vel.z) * k;
     }
+    this.eyeCur.lerp(this.eyeTo, 1 - Math.exp(-dt * 8));   // smooth walk-up, sit-down and climb transitions
     const fwd = _f.set(1, 0, 0).applyQuaternion(b.quat).setY(0).normalize();
     this.speed = b.vel.dot(fwd);
     // wake: ripple rings + spray off the stern while under way
@@ -191,8 +199,7 @@ export class PlayerBoat {
 
   // world-space standing point for the first-person camera
   eyeWorld(out) {
-    const x = this.spec.eye;
-    out.set(x, deckHeight(this.id, x) + 1.68 + (this.spec.eyeUp || 0), 0).applyQuaternion(this.body.quat).add(this.body.pos);
+    out.copy(this.eyeCur).applyQuaternion(this.body.quat).add(this.body.pos);
     return out;
   }
 

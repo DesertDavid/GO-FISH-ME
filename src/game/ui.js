@@ -303,7 +303,7 @@ export class UI {
 const pl = permitLeft(s, loc.id), w = s.wear || WEAR_DEFAULT;
     const permitTxt = pl > 0 ? ` · <span class="${pl < 3 ? 'warn' : ''}">permit ${permitText(pl)}</span>` : ' · <span class="warn">no permit</span>';
     const wearTxt = w.line >= 0.5 ? ` · <span class="${w.line >= 0.8 ? 'warn' : ''}">line ${wearWord(w.line).toLowerCase()}</span>` : '';
-    $('gearLine').innerHTML = `<b>${esc(LURES[e.lure].name)}</b>${g.troll?.active ? ' · trolling spread out' : ''}${wellTxt}${wearTxt}${permitTxt}`;
+    $('gearLine').innerHTML = `<b>${esc(LURES[e.lure].name)}</b>${g.troll?.active ? ' · trolling spread out' : ''}${g.boat?.engineOn === false ? (g.boat.spec.paddle ? ' · paddle stowed' : ' · engine off') : ''}${g.deck?.seat ? ' · seated' : ''}${wellTxt}${wearTxt}${permitTxt}`;
     const sp = U.speed(g.boatSpeed());
     $('boatInfo').hidden = Math.abs(g.boatSpeed()) * 1.944 < 1;
     $('boatInfo').innerHTML = `<b>${sp.v.toFixed(0)}</b>${sp.u}`;

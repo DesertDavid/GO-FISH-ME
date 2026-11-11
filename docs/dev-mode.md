@@ -46,6 +46,8 @@ Verified headlessly: `localStorage` (save, slots, settings) is byte-identical be
 
 `?dev=1&loc=<id>&boat=<id>&hour=<0-24>&fly=1&up=1` (all optional) start a dev session straight in a place. In the console: `game.dev` (`toggleFly()`, `spawnBoat(id)`, `setWeather(id)`, `teleport(i)`, `spots()`, ...), plus the older `game.devLand(id, lb)`, `game.devFight(id, lb)`, `game.devHaul(lb)`, `game.weather.force('fog'|'squall'|'clear')` and `window.__step(n, dt)`.
 
+`window.__decks` (every boat's walkable levels, seats and ladders), `game.deckKey()` (leave the helm / sit / climb / return), `game.deck` (null at the helm, else `{x, z, level, seat}` in boat space), `game.toggleEngine()`; `tools/deck_walk.py` drives them headlessly.
+
 ## Where it lives
 
 `src/game/dev.js` (state, camera, actions), `devPanel.js` (HTML), `dev.css`; small hooks in `game.js` (`this.dev`), `weather.js` (`devLevel`, `devRain`, `devTide`), `save.js` / `saveSlots.js` (`isFrozen`), `keys.js`, `settings.js`, `ui.js`.

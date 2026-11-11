@@ -123,12 +123,12 @@ export class Beds {
     const moving = Math.abs(S.thr) > 0.05 || S.speed > 0.6;
     if (ENG[S.boatId]?.paddle) {            // the kayak has no engine: a paddle stroke every second or two while pushing
       this.padT = (this.padT || 0) - step;
-      if (!foot && !S.anchored && Math.abs(S.thr) > 0.05 && this.padT <= 0) { A.play('paddle', 0.55 + 0.45 * Math.abs(S.thr)); this.padT = 1.9 - 0.95 * Math.abs(S.thr); }
-    } else if (!foot && !S.anchored && moving) {
+      if (!foot && !S.anchored && !S.engOff && Math.abs(S.thr) > 0.05 && this.padT <= 0) { A.play('paddle', 0.55 + 0.45 * Math.abs(S.thr)); this.padT = 1.9 - 0.95 * Math.abs(S.thr); }
+    } else if (!foot && !S.anchored && !S.engOff && moving) {
       this.idleT = 0;
       if (!this.on) { this.on = true; this.startAt = now + 0.9; A.play('engineStart'); }
     } else this.idleT += step;
-    if (this.on && (foot || S.anchored || this.idleT > 6)) this.on = false;
+    if (this.on && (foot || S.anchored || S.engOff || this.idleT > 6)) this.on = false;
     const e = ENG[S.boatId] || ENG.jon;
     if (this.engBoat !== S.boatId) {
       this.engBoat = S.boatId;

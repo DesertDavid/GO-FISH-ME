@@ -8,6 +8,8 @@ export const ACTIONS = [
   ['left', 'Steer left / rod against the fish / step left', 'Move', 'a'],
   ['right', 'Steer right / rod against the fish / step right', 'Move', 'd'],
   ['sprint', 'Hurry on foot', 'Move', 'shift'],
+  ['deck', 'Leave the helm / sit / stand / climb / back to the helm', 'Move', 'space'],
+  ['engine', 'Engine (or motor) off / on', 'Move', '-'],
   ['stepOff', 'Step off onto the dock or bank / back aboard', 'Move', 'g'],
   ['lookLeft', 'Look left (keys)', 'Look', 'arrowleft'],
   ['lookRight', 'Look right (keys)', 'Look', 'arrowright'],
