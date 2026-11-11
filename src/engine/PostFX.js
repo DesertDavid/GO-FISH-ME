@@ -123,6 +123,12 @@ uniform float uDroplets;  // 0..1
 uniform float uTime;      // seconds, wraps at 4096
 uniform float uAspect;    // width / height
 uniform float uResY;      // height in pixels
+// photo mode look (all neutral = untouched): x saturation, y contrast, z lifted blacks, w grain | x extra vignette, y tint strength
+uniform vec4 uGrade0;
+uniform vec4 uGrade1;
+uniform vec3 uTintS;      // shadow tint
+uniform vec3 uTintH;      // highlight tint
+uniform float uGradeOn;
 
 const mat3 SRGB_TO_REC2020 = mat3(
   vec3(0.6274, 0.0691, 0.0164), vec3(0.3293, 0.9195, 0.0880), vec3(0.0433, 0.0113, 0.8956));
@@ -237,10 +243,59 @@ void main() {
   c = agx(c) * (1.0 - 0.08 * dot(d, d));
   vec3 o = mix(pow(c, vec3(1.0 / 2.4)) * 1.055 - 0.055, c * 12.92, vec3(lessThanEqual(c, vec3(0.0031308))));
 
+  if (uGradeOn > 0.5) {
+    float l0 = dot(o, vec3(0.2126, 0.7152, 0.0722));
+    vec3 g = mix(vec3(l0), o, uGrade0.x);
+    g = (g - 0.5) * uGrade0.y + 0.5;
+    g = g * (1.0 - uGrade0.z) + uGrade0.z;
+    g += mix(uTintS, uTintH, smoothstep(0.1, 0.9, dot(g, vec3(0.2126, 0.7152, 0.0722)))) * uGrade1.y;
+    g *= 1.0 - uGrade1.x * dot(d, d);
+    g += (hash33(vec3(gl_FragCoord.xy, uFrame * 3.0 + 5.0)).x - 0.5) * uGrade0.w;
+    o = clamp(g, 0.0, 1.0);
+  }
+
   // TPDF dither, +-1/255, after sRGB encoding and before the 8-bit store
   vec3 n = hash33(vec3(gl_FragCoord.xy, uFrame)) + hash33(vec3(gl_FragCoord.xy, uFrame + 17.0));
   fragColor = vec4(o + (n - 1.0) * (1.0 / 255.0), 1.0);
 }`;
+
+// Photo mode depth of field: gather blur in the HDR buffer, sized by distance from the focus plane. The water
+// surface is not in the depth buffer (it is drawn after it), so its depth is the analytic plane at the water height.
+const DOF = /* glsl */`
+uniform sampler2D tHdr;
+uniform sampler2D tDepth;
+uniform vec2 uTexel;
+uniform float uFocus, uAp, uNear, uFar, uMaxPx, uCamY, uWaterY, uWater;
+uniform mat3 uRot;
+uniform vec2 uTan;
+float lin(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
+float depthAt(vec2 uv) {
+  float d = lin(texture(tDepth, uv).r);
+  if (uWater > 0.5) {
+    vec3 ray = uRot * vec3((uv.x * 2.0 - 1.0) * uTan.x, (uv.y * 2.0 - 1.0) * uTan.y, -1.0);
+    if (ray.y < -1e-4) d = min(d, (uWaterY - uCamY) / ray.y);
+  }
+  return max(d, uNear);
+}
+float coc(vec2 uv) { return clamp(abs(uFocus / depthAt(uv) - 1.0) * uAp, 0.0, 1.0) * uMaxPx; }
+void main() {
+  float c0 = coc(vUv);
+  vec3 col = texture(tHdr, vUv).rgb;
+  if (c0 < 0.6) { fragColor = vec4(col, 1.0); return; }
+  vec3 sum = col; float ws = 1.0;
+  for (int i = 0; i < 32; i++) {
+    float r = sqrt((float(i) + 0.5) / 32.0) * c0, a = float(i) * 2.39996323;
+    vec2 suv = vUv + vec2(cos(a), sin(a)) * r * uTexel;
+    float cs = coc(suv);
+    float w = clamp(cs / max(r, 0.75), 0.0, 1.0);
+    sum += min(texture(tHdr, suv).rgb, vec3(24.0)) * w; ws += w;
+  }
+  fragColor = vec4(sum / ws, 1.0);
+}`;
+
+const COPY = /* glsl */`
+uniform sampler2D tSrc;
+void main() { fragColor = texture(tSrc, vUv); }`;
 
 const mk = (frag, uniforms, defines = {}, extra = {}) => new THREE.RawShaderMaterial({
   glslVersion: THREE.GLSL3, vertexShader: VERT, fragmentShader: HEAD + frag,
@@ -262,6 +317,8 @@ export class PostFX {
     maxExposure: 20.0,
     bloomStrength: 0.06, bloomThreshold: 1.0, bloomClamp: 64.0, contrast: 1.12, saturation: 1.3,
     droplets: 0.0, // 0..1 lens water droplets; 0 costs nothing
+    // photo mode look: grade = null or { s, c, lift, grain, vig, amt, tS, tH } (photoData LOOKS)
+    grade: null,
   };
 
   constructor(renderer) {
@@ -288,6 +345,18 @@ export class PostFX {
       tHdr: { value: null }, tBloom: { value: null }, tExp: { value: null }, uExposure: { value: 1 }, uAuto: { value: 1 },
       uExpo: { value: new THREE.Vector3(0.18, 0.05, 20) }, uBloom: { value: 0 }, uLook: { value: new THREE.Vector2(1, 1) },
       uFrame: { value: 0 }, uDroplets: { value: 0 }, uTime: { value: 0 }, uAspect: { value: 1 }, uResY: { value: 1 },
+      uGrade0: { value: new THREE.Vector4(1, 1, 0, 0) }, uGrade1: { value: new THREE.Vector4(0, 0, 0, 0) },
+      uTintS: { value: new THREE.Vector3() }, uTintH: { value: new THREE.Vector3() }, uGradeOn: { value: 0 },
+    });
+    this.matDof = mk(DOF, {
+      tHdr: { value: null }, tDepth: { value: null }, uTexel: { value: new THREE.Vector2() }, uFocus: { value: 10 }, uAp: { value: 1 },
+      uNear: { value: 0.5 }, uFar: { value: 80000 }, uMaxPx: { value: 10 }, uCamY: { value: 0 }, uWaterY: { value: 0 }, uWater: { value: 0 },
+      uRot: { value: new THREE.Matrix3() }, uTan: { value: new THREE.Vector2(1, 1) },
+    });
+    this.matCopy = mk(COPY, { tSrc: { value: null } });
+    this.dofRT = new THREE.WebGLRenderTarget(1, 1, {
+      type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      depthBuffer: false, stencilBuffer: false, generateMipmaps: false,
     });
 
     // levels[i] is 1/2^(i+1) of the input; texel[0] is the HDR input, texel[i+1] is levels[i]
@@ -330,6 +399,7 @@ export class PostFX {
     this.matComp.uniforms.uResY.value = h;
     this._snap = true; // new framebuffer: re-meter instantly
     this.texel[0].set(1 / w, 1 / h);
+    this.dofRT.setSize(w, h);
     for (let i = 0; i < LEVELS; i++) {
       w = Math.max(1, Math.floor(w / 2));
       h = Math.max(1, Math.floor(h / 2));
@@ -368,6 +438,27 @@ export class PostFX {
     this._snap = false;
   }
 
+  // Blur `hdr` (a render target with a depth texture) by distance from the focus plane, then copy it back into the
+  // same target (colour only; the depth stays). p: { focus (m), aperture 0..2, camera, waterY (or null under water) }
+  dof(hdr, p) {
+    const r = this.renderer, u = this.matDof.uniforms, cam = p.camera;
+    const prevTarget = r.getRenderTarget(), prevClear = r.autoClear, prevReset = r.info.autoReset;
+    r.autoClear = false; r.info.autoReset = false;
+    const th = Math.tan((cam.fov * Math.PI) / 360);
+    u.tHdr.value = hdr.texture; u.tDepth.value = hdr.depthTexture;
+    u.uTexel.value.set(1 / hdr.width, 1 / hdr.height);
+    u.uFocus.value = Math.max(0.3, p.focus); u.uAp.value = p.aperture;
+    u.uNear.value = cam.near; u.uFar.value = cam.far;
+    u.uMaxPx.value = Math.max(2, hdr.height * 0.028 * Math.min(1.6, p.aperture));
+    u.uCamY.value = cam.position.y; u.uWaterY.value = p.waterY ?? 0; u.uWater.value = p.waterY === null || p.waterY === undefined ? 0 : 1;
+    u.uRot.value.setFromMatrix4(cam.matrixWorld);
+    u.uTan.value.set(th * cam.aspect, th);
+    this._pass(this.matDof, this.dofRT);
+    this.matCopy.uniforms.tSrc.value = this.dofRT.texture;
+    this._pass(this.matCopy, hdr);
+    r.setRenderTarget(prevTarget); r.autoClear = prevClear; r.info.autoReset = prevReset;
+  }
+
   render(hdrTexture, dt = 1 / 60) {
     const r = this.renderer, p = this.params, L = this.levels, T = this.texel;
     dt = dt > 0 ? Math.min(dt, 1) : 0; // also catches NaN
@@ -404,6 +495,13 @@ export class PostFX {
     u.uFrame.value = this._frame;
     u.uDroplets.value = Math.min(Math.max(p.droplets, 0), 1);
     u.uTime.value = this._time;
+    const gr = p.grade;
+    u.uGradeOn.value = gr ? 1 : 0;
+    if (gr) {
+      u.uGrade0.value.set(gr.s, gr.c, gr.lift, gr.grain);
+      u.uGrade1.value.set(gr.vig, gr.amt, 0, 0);
+      u.uTintS.value.fromArray(gr.tS); u.uTintH.value.fromArray(gr.tH);
+    }
     this._pass(this.matComp, null);
 
     r.setRenderTarget(prevTarget);
@@ -415,7 +513,8 @@ export class PostFX {
     for (const rt of this.levels) rt.dispose();
     this.meterRT.dispose();
     for (const rt of this.adapt) rt.dispose();
-    for (const m of [this.matPre, this.matDown, this.matUp, this.matMeter, this.matAdapt, this.matComp]) m.dispose();
+    for (const m of [this.matPre, this.matDown, this.matUp, this.matMeter, this.matAdapt, this.matComp, this.matDof, this.matCopy]) m.dispose();
+    this.dofRT.dispose();
     this.geometry.dispose();
   }
 }

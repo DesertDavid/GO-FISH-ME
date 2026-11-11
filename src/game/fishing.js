@@ -661,7 +661,8 @@ export class Fishing {
       const g = f.model.group;
       const fit = Math.min(1, 0.95 / f.len);
       g.scale.setScalar(f.len * fit);
-      g.position.set(-0.3, -0.08, -1.1).applyMatrix4(c.camera.matrixWorld);   // left of centre, clear of the catch text
+      const at = c.heldAt?.();   // photo mode, free camera: held up at the angler's chest instead of at the lens
+      if (at) g.position.copy(at); else g.position.set(-0.3, -0.08, -1.1).applyMatrix4(c.camera.matrixWorld);   // left of centre, clear of the catch text
       g.quaternion.copy(c.camera.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(performance.now() / 900) * 0.35));
       if (f.model.body.flatfish) g.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2));
       f.model.uniforms.uSwim.value.x += dt;

@@ -37,6 +37,13 @@ def('landed', 'sfx', (A, t, p, out) => {
   A.os(t + 0.04, { f: 1700, g: 0.032, a: 0.006, d: 0.06, out: A.uiBus });         // confirm beep pair
   A.os(t + 0.14, { f: 2250, g: 0.032, a: 0.006, d: 0.08, out: A.uiBus });
 }, { duck: [0.2, 0.2, 0.6] });
+// camera shutter: a soft mechanical double click
+def('shutter', 'sfx', (A, t, p, out) => {
+  A.nz(t, { f: 3400, q: 1.1, g: 0.09, a: 0.001, d: 0.022, out });
+  A.os(t, { f: 190, f2: 95, g: 0.07, a: 0.002, d: 0.05, out });
+  A.nz(t + 0.06, { f: 2500, q: 1.3, g: 0.07, a: 0.001, d: 0.03, out });
+  A.os(t + 0.06, { f: 150, f2: 72, g: 0.05, a: 0.002, d: 0.06, out });
+}, { cd: 0.15 });
 def('coin', 'ui', (A, t, p, out) => {
   const n = clamp(Math.round(p), 1, 5);
   for (let i = 0; i < n; i++) {

@@ -38,6 +38,8 @@ The stats overlay (bottom left) shows frame time (average and worst), draw calls
 
 The first time the panel or fly camera is used (or at page load with `?dev=1`) the game writes your real progress once and then freezes saving: the autosave, the save slots (the Save / Load screen says so) and the on-disk backup all stop until you reload. Money, level, loaned tackle, spawned boats, weather and time set from the panel exist only in memory. Dev options (fly speed, overlays...) are never stored. The only thing persisted is the "Developer tools" switch itself, and it only matters for the keys. Reload the page (or "Leave the dev session") to get the normal game back with your real save.
 
+Photos taken during a developer session (photo mode or the fish cam) are kept in memory only: they never reach the save, the slots or IndexedDB.
+
 Verified headlessly: `localStorage` (save, slots, settings) is byte-identical before and after a long session of spawning boats, switching waters, loaning tackle, hooking fish, setting money and level.
 
 ## Page hooks for tests

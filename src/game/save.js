@@ -35,6 +35,8 @@ export const DEFAULT_SAVE = Object.freeze({
   cands: [],        // catches measured for mounting
   locBest: {},      // personal best per species per water
   badges: [],       // completed daily challenges
+  photos: [],       // photo album metadata (photoData.js); the pictures are in IndexedDB (photoStore.js), optional
+  postcards: {},    // { locId: photoId } shown on the Travel cards
   sighted: {},      // species seen on the fish cam: { speciesId: { n, loc, day, first } } (fishcam.js; separate from caught)
   rapport: {},      // shopkeeper standing: { 'locId.role': { visits, deals, day } } (optional; dialogue.js TIERS)
 });

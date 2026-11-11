@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import * as U from './units.js';
 import { keyLabel } from './keys.js';
+import { PHOTO_MAX } from './photoData.js';
 
 // Fish cam: an underwater camera on a cable, lowered from the boat or dock. Wheel / W / S (or hold the
 // mouse to crank it up) set the cable length; the mouse looks around. The normal underwater render
 // (UnderwaterPass: Beer-Lambert absorption by the water's own colour, shafts, marine snow, the wavy
 // ceiling seen from below) does the look; this adds a lamp, an instrument HUD, a housing vignette,
-// sighting tags (species once you hold the view on a fish) and a photo button.
+// sighting tags (species once you hold the view on a fish) and a photo button (the shot goes into the album: photoMode.js).
 // The fish are the ordinary FishLife fish (fishLife.focus tells it the camera's depth), so what you
 // see here is what follows, inspects and strikes your lure. No catching through the camera.
 // Numbers in TUNE below.
@@ -64,8 +65,6 @@ export class FishCam {
     this.touchBottom = false;
     this.hold = new Map();   // fish id -> seconds in view
     this.tagged = [];
-    this.shotPending = false;
-    this.lastShot = null;
     this.sightedNow = new Set();
     this.lampLevel = 0;
     this.U = game.e.terrain.uniforms;   // the lamp is a term in the shared terrain/prop shader (terrain.js uLamp), not a scene light
@@ -288,27 +287,14 @@ export class FishCam {
     f.clock.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
   }
 
-  // called from main.js right after the frame is drawn (the canvas can be read back then)
-  capture(canvas) {
-    if (!this.shotPending) return;
-    this.shotPending = false;
-    try {
-      const url = canvas.toDataURL('image/png');
-      this.lastShot = url;
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `fishcam-${this.g.loc.id}-${Math.round(this.len)}m-${Date.now()}.png`;
-      document.body.appendChild(a);
-      if (!navigator.webdriver) a.click();
-      a.remove();
-    } catch { this.g.ui.toast('Could not save the photo.', 'bad'); }
-  }
   photo() {
     if (!this.active) return false;
-    this.shotPending = true;
+    const g = this.g;
+    if ((g.save.photos || []).length >= PHOTO_MAX) { g.ui.toast(`The album is full (${PHOTO_MAX}). Delete a few in the Journal, Photos tab.`, 'bad'); return false; }
+    g.photoMode.request({ kind: 'cam', depth: this.len });   // main.js hands the next frame to the album (photoMode.capture)
     this.flash.classList.add('on');
     setTimeout(() => this.flash.classList.remove('on'), 80);
-    this.g.ui.toast('Photo saved to your downloads', 'good');
+    g.audio.play('shutter');
     return true;
   }
 }

@@ -143,6 +143,8 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
   overlay.add(ovSun, ovHemi, ovFill);
 
   const opt = { droplets: true, flash: 1 };   // set by setQuality
+  // photo mode (photomode.js): depth of field (aperture 0 = off, focus in metres), exposure in EV, film look
+  const photoFx = { on: false, dof: 0, focus: 8, ev: 0, grade: null };
   let hdrRT = null;
   function makeTargets() {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -196,7 +198,7 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
 
   const engine = {
     renderer, scene, camera, overlay, overlayFill: ovFill, floaters, sky, surface, ocean, terrain, query,
-    patchProp: terrain.patchProp, heightAt: groundAt, baseHeightAt: islandHeight,
+    photoFx, patchProp: terrain.patchProp, heightAt: groundAt, baseHeightAt: islandHeight,
     getTide: () => tide,
     // tide in metres (+ = water higher than the charted datum). Groups registered here sink by that much.
     setTide: (t) => {
@@ -298,7 +300,8 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     uwComp += ((submerged ? 0.55 * deepDim : 1) - uwComp) * Math.min(1, dt * 3);
     engine.deepDim = deepDim;
     // at night: hold exposure down (auto exposure would brighten it back to day) and drain colour
-    post.params.exposure = uwComp * THREE.MathUtils.lerp(1, 0.2, night) * (1 + flash * 1.6 * opt.flash) * (1 - gloom);
+    post.params.exposure = uwComp * THREE.MathUtils.lerp(1, 0.2, night) * (1 + flash * 1.6 * opt.flash) * (1 - gloom) * (photoFx.ev ? 2 ** photoFx.ev : 1);
+    post.params.grade = photoFx.grade;
     post.params.saturation = THREE.MathUtils.lerp(1.3, 0.55, night);
     post.params.droplets = !opt.droplets ? 0 : wasSubmerged && !submerged ? 1 : submerged ? 0 : Math.max(0, post.params.droplets - dt / 5);
     wasSubmerged = submerged;
@@ -316,7 +319,11 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     hdrRT.resolveDepthBuffer = nearSurface;
     renderer.render(waterScene, camera);
     hdrRT.resolveDepthBuffer = true;
+    // photo mode depth of field acts on the world only: the rod and held fish are drawn sharp on top afterwards
+    if (photoFx.dof > 0.01) post.dof(hdrRT, { focus: photoFx.focus, aperture: photoFx.dof, camera, waterY: camY > camWater + 0.05 ? camWater : null });
     // rod + held fish on top, with their own near plane
+    const ovFov = photoFx.on ? camera.fov : 60;   // photo mode zoom carries to the rod and held fish
+    if (overlayCam.fov !== ovFov) { overlayCam.fov = ovFov; overlayCam.updateProjectionMatrix(); }
     overlayCam.position.copy(camera.position);
     overlayCam.quaternion.copy(camera.quaternion);
     overlayCam.updateMatrixWorld();
@@ -333,7 +340,7 @@ void main() { outColor = texture(uTex, vUv); }`, { uTex: { value: null } }));
     underwater.params.shafts = camWater - camY > 30 ? 0 : 2;
     if (nearSurface) out = underwater.render(renderer, hdrRT, camY < camWater - 0.8, camWater - camY);
     post.render(out, dt);
-    game.fishCam?.capture(renderer.domElement);
+    game.photoMode?.capture(renderer.domElement);
     timer.endFrame();
   }
 

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { LOC } from './current.js';
 import { findStart, LOCATIONS } from './locations.js';
 import { loadSave, writeSave, logCatch, resetSave, readRaw } from './save.js';
-import { autoBackup, diskBackup, migrateSaves } from './saveSlots.js';
+import { autoBackup, diskBackup, migrateSaves, photoIdsInSlots } from './saveSlots.js';
 import { loadSettings, saveSettings, sanitize, detectPreset, PRESETS, GFX_KEYS } from './settings.js';
 import { resolveBinds, keyName, keyLabel } from './keys.js';
 import { GFX } from './gfx.js';
@@ -24,6 +24,9 @@ import { ShoreLife } from './shorelife.js';
 import { Birds } from './birds.js';
 import { FishLife } from './fishLife.js';
 import { FishCam } from './fishcam.js';
+import { PhotoMode } from './photoMode.js';
+import { patchPhoto, dropPhoto } from './photoData.js';
+import * as photoStore from './photoStore.js';
 import { Trolling, TROLL_GEAR } from './troll.js';
 import { Tournament, tournamentsFor } from './tournaments.js';
 import { TrophyHall } from './trophyHall.js';
@@ -136,6 +139,7 @@ export class Game {
     this.fishLife = new FishLife(this);
     this.fishLife.balls.attachBirds(this.birds);
     this.fishCam = new FishCam(this);
+    this.photoMode = new PhotoMode(this);   // photo mode and the album (photoMode.js)
     this.sonar = new Sonar(document.getElementById('sonar'));
     this.compass = new Compass(this, document.getElementById('compass'));
     this.applyGear();
@@ -151,6 +155,7 @@ export class Game {
     if (this.freshStart) diskBackup().then((b) => { if (b) this.ui.toast('A backup of earlier progress was found on disk - Esc > Save / Load to restore it.', 'info'); });
     if (!this.save.seenHelp && !this.dev.url) { this.ui.open('help'); this.commit({ seenHelp: true }); }
     this.ensureChallenges();
+    this.photoGc();
     this.dev.ready();
     this.ui.toast(`${this.loc.name}.`, 'good');
     if (!hasPermit(this.save, this.loc.id)) this.ui.toast('Fishing here needs a permit: buy one at the tackle shop (Chart: C).', 'info');
@@ -183,6 +188,7 @@ export class Game {
       boatLength: () => (this.foot ? 0 : this.boat.hull.length),
       get boat() { return game.boat; },
       onCatch: (f, done) => this.onCatch(f, done),
+      heldAt: () => this.photoMode.heldAt(),
       onHaul: (rows, morphs) => this.onHaul(rows, morphs),
       wearAdd: (kind, amt) => this.wearAdd(kind, amt),
       lureLost: (lure) => this.lureLost(lure),
@@ -206,6 +212,7 @@ export class Game {
       this.audio.start();
       if (this.ui.capturing) { this.ui.settingsPanel.capture(ev); return; }   // rebinding a key: it swallows everything
       const k = keyName(ev);
+      if (this.photoMode.key(ev, k)) return;   // photo mode swallows every key except its own
       // the Settings screen is keyboard-driven too (arrows, Enter); Esc/Tab fall through to close it
       if (this.ui.panel === 'settings' && k !== 'escape' && k !== 'tab') { if (this.ui.settingsPanel.key(ev, k)) ev.preventDefault(); return; }
       if (ev.repeat) return;
@@ -243,7 +250,7 @@ export class Game {
       if (act === 'camLamp') this.fishCam.toggleLamp();
       if (act === 'camFollow') this.fishCam.toggleFollow();
       if (act === 'underwater' && !this.fishCam.active) this.toggleUnderwater();
-      if (act === 'photo') { if (this.fishCam.active) this.fishCam.photo(); else this.togglePhoto(); }
+      if (act === 'photo') { if (this.fishCam.active) this.fishCam.photo(); else this.photoMode.enter(); }
       if (act === 'sonar') { this.applySettings({ sonar: !this.settings.sonar }); this.ui.toast(this.settings.sonar ? 'Fish finder on' : 'Fish finder off', 'info'); }
       if (act === 'waypoint') {
         if (ev.shiftKey) { if (this.compass.list().length) { this.compass.clear(); this.ui.toast('Waypoints cleared', 'info'); } }
@@ -283,7 +290,7 @@ export class Game {
     // soft = re-grab after a menu closes: the browser may refuse (cooldown after its own Esc
     // unlock, no fresh key/click), which is fine - we just try again on the next key or click
     const lockPointer = (soft = false) => {
-      if (!this.settings.mouseLock || this.lockFailed || locked() || this.ui.isOpen()) return false;
+      if (!this.settings.mouseLock || this.lockFailed || locked() || this.ui.isOpen() || this.photoMode.active) return false;   // photo mode keeps the cursor free for its panel
       if (soft && !navigator.userActivation?.isActive) { this.wantLock = true; return false; }
       this.lockSoft = soft;
       this.wantLock = soft;
@@ -309,6 +316,7 @@ export class Game {
     });
     el.addEventListener('pointerdown', (ev) => {
       this.audio.start();
+      if (this.photoMode.active && ev.button === 0) { this.photoMode.shutter(); return; }   // a click on the picture is the shutter
       // any click on the view grabs the mouse, so looking around can't run the cursor off the
       // window (the first click only grabs; it doesn't cast)
       if (!locked() && (ev.button === 0 || ev.button === 2) && lockPointer()) return;
@@ -325,6 +333,7 @@ export class Game {
     });
     const look = (dx, dy) => {
       if (this.dev.fly) { this.dev.look(dx, dy); return; }
+      if (this.photoMode.holdsKeys()) { this.photoMode.look(dx, dy); return; }
       const k = 0.0035 * this.settings.lookSpeed;
       this.look.yaw -= dx * k;
       this.look.pitch = THREE.MathUtils.clamp(this.look.pitch - dy * k * (this.settings.invertY ? -1 : 1), -1.2, 1.1);
@@ -340,6 +349,7 @@ export class Game {
     el.addEventListener('wheel', (ev) => {
       ev.preventDefault();
       if (this.dev.fly) { this.dev.wheel(ev.deltaY); return; }
+      if (this.photoMode.active) { this.photoMode.wheel(ev.deltaY); return; }
       if (this.fishCam?.active) { this.fishCam.wheel(ev.deltaY); return; }
       if (this.view === 'third') this.look.dist = THREE.MathUtils.clamp(this.look.dist + Math.sign(ev.deltaY) * 3, -10, 60);
       else this.dragNudge(-Math.sign(ev.deltaY));
@@ -422,10 +432,12 @@ export class Game {
 
   // ---------------------------------------------------------------- loop
   update(dt) {
+    const realDt = dt;
+    dt *= this.photoMode.scale();   // photo mode can slow the game clock
     this.time += dt;
     this.perfTick(dt);
     const fighting = this.fishing.state === 'fight';
-    const k = (act) => !this.dev.fly && this.keys.has(this.binds.map[act]);   // is this action's key held (none while the dev camera flies)
+    const k = (act) => !this.dev.fly && !this.photoMode.holdsKeys() && this.keys.has(this.binds.map[act]);   // is this action's key held (none while the dev camera flies)
     // boat controls (A/D steer the rod during a fight)
     const c = this.boat.control;
     const throttleTarget = (k('forward') ? 1 : 0) - (k('back') ? 1 : 0);
@@ -445,6 +457,7 @@ export class Game {
     }
     this.audio.engine(c.throttle, this.boatSpeed());
     this.fishCam.update(dt);
+    this.photoMode.update(realDt);
     this.updateCamera(dt);
     this.dev.update(dt);   // the free-fly camera takes over here when it is on
 
@@ -479,10 +492,10 @@ export class Game {
     // would wash out the hands and rod right beside it
     if (this.e.overlayFill) this.e.overlayFill.intensity += ((this.fishing.state === 'caught' ? 3.5 : 0.5) - this.e.overlayFill.intensity) * Math.min(1, dt * 4);
     this.troll.update(dt);
-    const tpOn = this.view === 'first' && this.tp;
+    const tpOn = (this.view === 'first' && this.tp) || this.view === 'photo';
     this.rod.setSpace(tpOn);
     this.fishing.lctx.camera = tpOn ? this.angler : this.camera;
-    this.rod.setVisible(this.view === 'first' && this.fishing.state !== 'caught' && !this.photo && this.rod.holster < 1 && !this.dev.fly);
+    this.rod.setVisible(((this.view === 'first' && (!this.photo || this.rodInShot)) || this.view === 'photo') && this.fishing.state !== 'caught' && this.rod.holster < 1 && !this.dev.fly);
     this.body.update(dt, tpOn || this.dev.fly);
     this.ui.power(this.fishing.state === 'charging' ? this.fishing.power : null);
     this.net.update(dt);
@@ -585,6 +598,8 @@ export class Game {
       this.underwaterCamera(dt);
     } else if (this.view === 'cam') {
       this.fishCam.placeCamera(dt);
+    } else if (this.view === 'photo') {
+      this.photoMode.place(cam);
     } else {
       const L = this.boat.hull.length;
       const dist = L * 1.3 + 6 + this.look.dist;
@@ -699,6 +714,8 @@ export class Game {
       this.underwaterCamera(dt);
     } else if (this.view === 'cam') {
       this.fishCam.placeCamera(dt);
+    } else if (this.view === 'photo') {
+      this.photoMode.place(cam);
     } else {
       const a = al.yaw + Math.PI * 1.5 + this.look.yaw;
       const dist = Math.max(2.5, 7 + this.look.dist * 0.5);
@@ -797,19 +814,25 @@ export class Game {
     this.ui.shoreHint(this.fishCam.active ? [] : hints);
   }
 
-  // photo mode: hide every overlay (HUD and rod); the views and camera controls still work
-  togglePhoto() {
-    this.photo = !this.photo;
-    document.getElementById('hud').style.visibility = this.photo ? 'hidden' : '';
-    let hint = document.getElementById('photoHint');
-    if (!hint) {
-      hint = document.createElement('div');
-      hint.id = 'photoHint';
-      hint.textContent = 'PHOTO MODE · right-drag to frame · V third person · U underwater · P to exit';
-      document.body.appendChild(hint);
-    }
-    hint.classList.remove('show');
-    if (this.photo) { void hint.offsetWidth; hint.classList.add('show'); }
+  // ---------------------------------------------------------------- photo album (photoMode.js, photoGallery.js)
+  photoPatch(id, patch) { this.commit({ photos: patchPhoto(this.save, id, patch).photos }); }
+  photoPostcard(id) {
+    const p = (this.save.photos || []).find((q) => q.id === id);
+    if (!p || !p.loc) return;
+    const next = { ...(this.save.postcards || {}) };
+    if (next[p.loc] === id) delete next[p.loc]; else next[p.loc] = id;
+    this.commit({ postcards: next });
+  }
+  photoDelete(id) {
+    const next = dropPhoto(this.save, id);
+    this.commit({ photos: next.photos, postcards: next.postcards });
+    photoStore.remove(id, photoIdsInSlots());
+  }
+  // pictures no save refers to any more are dropped once per start (never in preview or developer sessions)
+  photoGc() {
+    const ids = photoIdsInSlots();
+    for (const p of this.save.photos || []) ids.add(p.id);
+    photoStore.gc(ids).catch(() => {});
   }
 
   toggleUnderwater() {
@@ -966,7 +989,8 @@ export class Game {
       this.ui.toast('Released. Luck is up for three minutes.', 'good');
       const at = this.foot ? this.fishing.lure : this.boat.position;
     }
-    this.save = { ...p.res.save, cash, stats, livewell, market };
+    // the card holds a save from before it opened: photos taken while it waited (photo mode) must survive
+    this.save = { ...p.res.save, cash, stats, livewell, market, photos: this.save.photos, postcards: this.save.postcards };
     let xpGain = catchXp(p.f.sp, p.f.morph, p.f.lb, p.res).xp;
     // daily challenges
     const ch = recordCatch(this.save.challenges, p.f.sp, p.f.morph, p.f.lb);

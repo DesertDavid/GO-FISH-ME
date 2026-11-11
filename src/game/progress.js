@@ -2,6 +2,7 @@
 // fishing permits, and the save upgrade (v1 -> v2). All formulas are documented in NOTES.md.
 // Gate tables live here (not in gear.js / locations.js) so those files stay free for other work.
 import { cleanTrophies } from './trophyData.js';
+import { cleanPhotos } from './photoData.js';
 import { RODS, REELS, LINES, LURES, BOATS } from './gear.js';
 import { LOCATIONS } from './locations.js';
 import { cleanHold } from './livewell.js';
@@ -106,6 +107,7 @@ export function upgradeSave(s) {
   if (!s || typeof s !== 'object') return s;
   const out = { ...s };
   out.wear = { ...WEAR_DEFAULT, ...(s.wear || {}), lost: Array.isArray(s.wear?.lost) ? s.wear.lost.filter((id) => LURES[id]) : [] };
+  Object.assign(out, cleanPhotos(s));   // photo album metadata (optional)
   Object.assign(out, cleanTrophies(s));   // trophy room: mounts, mount candidates, per-water records, challenge badges (optional)
   out.hold = cleanHold(s.hold);   // net-boat hold stacks (optional; old saves have none)
   out.permits = s.permits && typeof s.permits === 'object' ? s.permits : {};

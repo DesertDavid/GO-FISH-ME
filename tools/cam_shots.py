@@ -54,7 +54,7 @@ with sync_playwright() as p:
         print(' lure fish', r, states)
         # photo
         page.evaluate('game.fishCam.photo()'); step(6)
-        print(' photo bytes', page.evaluate('game.fishCam.lastShot ? game.fishCam.lastShot.length : 0'))
+        print(' photos in the album', page.evaluate('(game.save.photos || []).length'))
         page.evaluate('game.fishCam.toggle()'); step(20)
         print(' left', page.evaluate("[game.fishCam.active, game.view, game.fishLife.focus]"))
         shot('after')

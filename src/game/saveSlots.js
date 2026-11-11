@@ -54,6 +54,13 @@ export function putSlot(n, data) {
   return ok;
 }
 
+// ids of every photo some slot still lists (their pictures must outlive a delete in the live game)
+export function photoIdsInSlots() {
+  const ids = new Set();
+  for (const e of Object.values((readSlots() || {}).slots || {})) for (const p of (e && e.data && e.data.photos) || []) if (p && typeof p.id === 'string') ids.add(p.id);
+  return ids;
+}
+
 export function deleteSlot(n) {
   const d = readSlots() || { v: 1, slots: {} };
   delete d.slots[String(n)];

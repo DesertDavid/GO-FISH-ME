@@ -1,0 +1,43 @@
+/* Photo mode panel, grid, flash and the little proof that slides in after a shot. Reuses the game's tokens. */
+#photoPanel { position: fixed; right: 18px; top: 18px; z-index: 12; width: 270px; max-height: calc(100vh - 36px); overflow-y: auto; padding: 12px 14px 12px; background: rgba(9, 11, 13, 0.86); border: 1px solid var(--rule); border-top: 2px solid var(--amber); border-radius: 2px; color: var(--text); font: 500 13px var(--font); text-shadow: none; }
+#photoPanel.away { opacity: 0; pointer-events: none; }
+.ph-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.ph-head b { font: 700 13px "IBM Plex Mono", monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--amber); }
+.ph-head span { font-size: 11px; color: var(--dim); }
+.ph-seg { display: flex; margin-bottom: 8px; }
+.ph-row .ph-seg { margin: 0; }
+.ph-seg button, .ph-chips button { font: 600 12px var(--font); color: var(--dim); background: none; border: 1px solid var(--rule); padding: 4px 9px; cursor: pointer; }
+.ph-seg button { flex: 1; }
+.ph-seg button + button { border-left: 0; }
+.ph-seg button:hover, .ph-chips button:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.ph-seg button.on, .ph-chips button.on { color: #1a1408; background: var(--amber); border-color: var(--amber); }
+.ph-row { display: grid; grid-template-columns: 62px 1fr 56px; align-items: center; gap: 8px; margin: 3px 0; }
+.ph-row.two { grid-template-columns: 1fr 1fr; margin-top: 8px; font-size: 12px; color: var(--dim); }
+.ph-row.dim input[type="range"], .ph-row.dim output { opacity: 0.45; }
+.ph-row label { color: var(--dim); font-size: 12px; }
+.ph-row output { text-align: right; font: 600 11px "IBM Plex Mono", monospace; color: var(--amber); }
+.ph-lab { margin: 9px 0 3px; font: 600 10px "IBM Plex Mono", monospace; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+.ph-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+#photoPanel input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 20px; background: transparent; cursor: pointer; margin: 0; }
+#photoPanel input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: rgba(242, 239, 232, 0.28); }
+#photoPanel input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 9px; height: 16px; margin-top: -7px; border-radius: 1px; background: var(--amber); border: 0; }
+.ph-btns { display: flex; gap: 8px; margin-top: 12px; }
+.ph-btns button { flex: 1; font: 700 13px var(--font); color: var(--text); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--rule); padding: 8px 6px; cursor: pointer; }
+.ph-btns button small { font: 500 10px "IBM Plex Mono", monospace; color: var(--faint); margin-left: 4px; text-transform: uppercase; }
+.ph-btns .ph-shot { flex: 2; color: #1a1408; background: var(--amber); border-color: var(--amber); }
+.ph-btns .ph-shot small { color: rgba(26, 20, 8, 0.65); }
+#phMsg { min-height: 16px; margin-top: 8px; font-size: 12px; color: var(--accent); line-height: 1.35; }
+#phMsg.bad { color: #e98a6b; }
+.ph-keys { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); font-size: 11px; color: var(--faint); }
+.ph-keys kbd { font: 600 10px "IBM Plex Mono", monospace; color: var(--dim); border: 1px solid var(--rule); padding: 0 4px; margin-right: 3px; }
+#phGrid { position: fixed; inset: 0; z-index: 8; pointer-events: none; display: none; background:
+  linear-gradient(to right, transparent calc(33.333% - 0.5px), rgba(255,255,255,0.45) calc(33.333% - 0.5px), rgba(255,255,255,0.45) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px), transparent calc(66.666% - 0.5px), rgba(255,255,255,0.45) calc(66.666% - 0.5px), rgba(255,255,255,0.45) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)),
+  linear-gradient(to bottom, transparent calc(33.333% - 0.5px), rgba(255,255,255,0.45) calc(33.333% - 0.5px), rgba(255,255,255,0.45) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px), transparent calc(66.666% - 0.5px), rgba(255,255,255,0.45) calc(66.666% - 0.5px), rgba(255,255,255,0.45) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)); }
+#phGrid.on { display: block; }
+#phFlash { position: fixed; inset: 0; z-index: 30; background: #fff; opacity: 0; pointer-events: none; }
+#phFlash.on { opacity: 0.85; }
+#phFlash:not(.on) { transition: opacity 0.28s ease-out; }
+#phPrev { position: fixed; left: 22px; bottom: 22px; z-index: 12; width: 190px; border: 6px solid #ece6d6; border-bottom-width: 18px; box-shadow: 0 4px 18px rgba(0,0,0,0.5); opacity: 0; transform: translateY(14px) rotate(-1.5deg); pointer-events: none; }
+#phPrev.on { animation: phPrev 3.6s ease-out forwards; }
+@keyframes phPrev { 0% { opacity: 0; transform: translateY(14px) rotate(-1.5deg); } 8%, 80% { opacity: 1; transform: translateY(0) rotate(-1.5deg); } 100% { opacity: 0; } }
+@media (max-width: 720px) { #photoPanel { width: 220px; right: 8px; top: 8px; } }
