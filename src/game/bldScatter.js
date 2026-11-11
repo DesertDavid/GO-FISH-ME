@@ -4,6 +4,7 @@ import { dwelling, townhouse, barn, siloKind, block, plant, church, wat, hjell, 
 import { lighthouse, bridge, levee, dam, platform, turbine, pier } from './bldLandmarks.js';
 import { STYLES, pick } from './bldStyles.js';
 import { GFX } from './gfx.js';
+import { BB_BUILDINGS, BB_ROADS } from './bigbearTown.js';
 
 // Background buildings, placed from the real heightfield: villages that face the water, farms,
 // industry, hotels, lighthouses, bridges, a dam, a levee, offshore platforms. Each cluster is baked
@@ -214,6 +215,22 @@ class Scatter {
   }
 }
 
+// a road ribbon draped on the terrain (a deck on piers where it crosses water)
+function roadStrip(S, M, flat, w, span) {
+  const n = flat.length / 2, y = new Array(n), wet = new Array(n);
+  for (let i = 0; i < n; i++) { const h = S.H(flat[i * 2], flat[i * 2 + 1]); wet[i] = h < 0.3; y[i] = wet[i] ? 2.6 : h + 0.32; }
+  for (let pass = 0; pass < 3 && span; pass++) for (let i = 1; i < n - 1; i++) y[i] = (y[i - 1] + y[i] * 2 + y[i + 1]) / 4;
+  for (let i = 0; i < n - 1; i++) {
+    const x0 = flat[i * 2], z0 = flat[i * 2 + 1], x1 = flat[i * 2 + 2], z1 = flat[i * 2 + 3];
+    const L = Math.hypot(x1 - x0, z1 - z0); if (L < 0.5) continue;
+    const tx = (x1 - x0) / L, tz = (z1 - z0) / L, sx = tz * w, sz = -tx * w;
+    const col = 0x3c3c3e;
+    M.quad('plain', [x0 - sx, y[i], z0 - sz], [x1 - sx, y[i + 1], z1 - sz], [x1 + sx, y[i + 1], z1 + sz], [x0 + sx, y[i], z0 + sz], col, { jit: 0.05 });
+    if (span && wet[i] && i % 2 === 0) M.box('plain', x0 - 0.7, x0 + 0.7, S.H(x0, z0) - 1, y[i] - 0.05, z0 - 0.7, z0 + 0.7, 0x8a877e);
+    if (span && (wet[i] || wet[i + 1])) { for (const sg of [-1, 1]) M.box('plain', Math.min(x0, x1) + sg * sx * 0.97 - 0.1, Math.max(x0, x1) + sg * sx * 0.97 + 0.1, y[i], y[i] + 0.9, Math.min(z0, z1) + sg * sz * 0.97 - 0.1, Math.max(z0, z1) + sg * sz * 0.97 + 0.1, 0x9a968c); }
+  }
+}
+
 // ---- per-location plans ----------------------------------------------------------------------
 const dw = dwelling, th = townhouse;
 function village(S, name, find, n, kinds, pop = {}) {
@@ -242,10 +259,23 @@ const PLANS = {
     for (let i = 0; i < 5; i++) village(S, 'cabins', { rmin: 200, rmax: 1500, hmin: 1, hmax: 12, shore: 80, r: 40, need: 4 }, 2, [[1, dw('log', { w: [5, 8], d: [4, 6] })]], { slope: 3.6, range: 3, gap: 8 });
   },
   bigbear(S) {
-    // log cabins and chalets through the pines, the Village on the south shore, a ski lodge on the Bear Mountain side
-    const A = { rmin: 250, rmax: 2100, hmin: 1, hmax: 90, slope: 4, shore: 150 };
-    for (let i = 0; i < 6; i++) village(S, 'shore', { ...A, r: 120, need: 6 }, 14, [[3, dw('log', { w: [7, 11], d: [5, 8] })], [2, dw('chalet', { w: [9, 13], d: [7, 10], floors: 2 })], [1, th('chesapeake', { brick: false })]], { range: 4, slope: 4.5, gap: 5 });
-    const f = S.find({ rmin: 900, rmax: 2300, hmin: 60, hmax: 220, r: 40, need: 4, slope: 4 }); if (f) { const cl = S.cluster('ski', f.x, f.z, 40); S.populate(cl, { n: 3, kinds: [[1, dw('chalet', { w: [14, 20], d: [9, 12], floors: 2 })]], face: 'down', hmin: 60, range: 5, slope: 5, gap: 6 }); }
+    // real settlement pattern (OpenStreetMap building centres): the Village and its shops on the south shore, Fawnskin and
+    // the North Shore cabins, Boulder Bay and Metcalf Bay, the dam road and the Stanfield Cutoff causeway
+    const house_ = [[3, dw('log', { w: [7, 11], d: [5, 8] })], [3, dw('chalet', { w: [9, 13], d: [7, 10], floors: 2 })], [1, dw('chalet', { w: [6, 8], d: [5, 7], floors: 1 })], [0.6, th('chesapeake', { brick: false })]];
+    const shop_ = [[1, dw('chalet', { w: [11, 16], d: [8, 11], floors: 2 })], [1, th('chesapeake', { brick: false })], [0.6, dw('log', { w: [10, 14], d: [7, 9], floors: 2 })]];
+    const cells = new Map();
+    for (const [x, z, c] of BB_BUILDINGS) {
+      const key = Math.floor(x / 450) + ',' + Math.floor(z / 450);
+      let cl = cells.get(key);
+      if (!cl) { cl = S.cluster('town', (Math.floor(x / 450) + 0.5) * 450, (Math.floor(z / 450) + 0.5) * 450, 420); cells.set(key, cl); }
+      const o = { n: 1, cx: x, cz: z, r: 0, kinds: c ? shop_ : house_, shore: 150, shoreMin: 8, range: 4.5, slope: 5, gap: 2.5, hmin: 0.5 };
+      if (!S.populate(cl, { ...o, face: 'water' })) S.populate(cl, { ...o, face: 'down' });
+    }
+    const rcl = S.cluster('roads', 0, 0, 3200, { big: true });
+    for (const [cls, name, flat] of BB_ROADS) roadStrip(S, rcl.M, flat, cls === 'P' ? 4.2 : cls === 'S' ? 3.6 : 3.2, name === 'Stanfield Cutoff' || name === 'Big Bear Bridge');
+    // Bear Valley Dam: the 1912 multiple-arch dam at the west end, Highway 18 across its top
+    const dcl = S.cluster('dam', -2035, 510, 80, { big: true });
+    dam(S, dcl.M, [-1996, 518], [-2078, 500], { top: 6 });
   },
   tahoe(S) {
     const A = { rmin: 650, rmax: 1450, hmin: 1, hmax: 160, slope: 4, shore: 140 };

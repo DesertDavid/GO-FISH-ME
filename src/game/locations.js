@@ -53,7 +53,7 @@ const pathDist = (x, z, P) => { let m = 1e9; for (let i = 0; i < P.length - 1; i
 const BB_LANDINGS = [
   { name: 'Pine Knot Marina', x: 390, z: 300 }, { name: "Holloway's Marina", x: 190, z: 405 }, { name: 'Fawnskin (Grout Bay)', x: -755, z: -454 },
   { name: 'West Public Ramp', x: -1087, z: -191 }, { name: 'East Public Ramp', x: 1226, z: -366 }, { name: 'Boulder Bay', x: -1170, z: 568 },
-  { name: 'Metcalf Bay', x: -612, z: 356 }, { name: "Gray's Landing", x: -1700, z: -330 },
+  { name: 'Metcalf Bay', x: -612, z: 356 }, { name: "Gray's Landing", x: -1440, z: 70 },
 ];
 const BB_ISLAND = { x: -1818, z: 478, r: 10, h: 4.5 };   // Garstin ("Treasure" / "China") Island, by the dam
 let bbSdf = null;
@@ -388,7 +388,7 @@ export const LOCATIONS = {
   bigbear: {
     ...base, id: 'bigbear', name: 'Big Bear Lake', region: 'California, USA', water: 'lake', price: 0, size: 4800,
     blurb: 'A seven-mile mountain reservoir at 6,750 ft in the San Bernardino Mountains: stocked trout, bass in the coves, pines to the water.',
-    wind: 5, fetch: 12, waveScale: 0.35, waterLook: WATER.bigbear, sky: { turbidity: 1.5, clouds: 0.25 }, fog: 1 / 22000, rockLine: 320, rockTint: [0.97, 0.91, 0.84], grassTint: [1.15, 0.98, 0.75], start: { x: 330, z: 170, yaw: 2.4 },
+    wind: 5, fetch: 12, waveScale: 0.35, waterLook: WATER.bigbear, sky: { turbidity: 1.5, clouds: 0.25 }, fog: 1 / 22000, rockLine: 320, rockTint: [0.97, 0.91, 0.84], grassTint: [0.98, 0.9, 0.66], start: { x: 330, z: 170, yaw: 2.4 },
     // forest by slope and side (the north shore faces south: dry, oak/juniper/chaparral; the south shore faces north: cool, fir and cedar); heights are metres above the lake
     trees: [
       ['jeffrey', 9000, 1.5, 420, 2300], ['whitefir', 4200, 25, 520, 2300, (x, z, h) => z > -150 || h > 120], ['cedar', 1400, 4, 260, 2300, (x, z) => z > -100],
