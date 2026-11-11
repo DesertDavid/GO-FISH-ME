@@ -318,7 +318,7 @@ export class ShoreLife {
           const a = d.toWorld(u + du * 0.6, side * 0.92), c = d.toWorld(u + du, v - side * beam * 0.45);
           const dx = c.x - p.x, dz = c.z - p.z, cy = Math.cos(yaw), sy = Math.sin(yaw);
           const lx = dx * cy - dz * sy, lz = dx * sy + dz * cy;
-          const rope = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x, d.deck - 0.02, a.z), new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0xb8a888 }));
+          const rope = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x, d.deck - 0.02, a.z), new THREE.Vector3(a.x, d.deck - 0.02, a.z), new THREE.Vector3(a.x, d.deck - 0.02, a.z)]), new THREE.LineBasicMaterial({ color: 0xb8a888 }));
           rope.frustumCulled = false;
           this.group.add(rope);
           (b.ropes ||= []).push({ rope, a: new THREE.Vector3(a.x, d.deck - 0.02, a.z), local: new THREE.Vector3(lx, deckHeight(id, lx) + 0.12, lz) });
@@ -420,6 +420,7 @@ export class ShoreLife {
       const want = b.yaw + (b.anchor ? Math.sin(t * 0.17 + b.phase) * 0.18 : 0);
       let diff = want - b.pb.heading(); diff = Math.atan2(Math.sin(diff), Math.cos(diff));
       body.angVel.y += (diff * 2 - body.angVel.y) * Math.min(1, dt * 4);
+      if (b.ropes) for (const q of b.ropes) q.rope.visible = d < 200;   // far ropes are never updated: hide them rather than draw them to the origin
       if (b.ropes && d < 200) for (const q of b.ropes) {
         const pos = q.rope.geometry.attributes.position;
         _B.copy(q.local).applyQuaternion(body.quat).add(body.pos);
