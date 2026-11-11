@@ -31,6 +31,7 @@ uniform float uSnowLine;
 uniform float uMarsh;
 uniform float uRockLine;
 uniform vec3 uRockTint;
+uniform vec3 uGrassTint;
 ${CAUSTICS_GLSL}
 ${FLOAT_SHADOW_GLSL}
 ${SHORE_GLSL}
@@ -68,7 +69,7 @@ const ALBEDO = /* glsl */`
   float n1 = tn(vWPos.xz * 0.08), n2 = tn(vWPos.xz * 0.6), n3 = tn(vWPos.xz * 0.013);
   vec3 sand = mix(vec3(0.80, 0.71, 0.53), vec3(0.72, 0.62, 0.45), n1) * (0.92 + 0.16 * n2);
   vec3 seabed = mix(vec3(0.78, 0.72, 0.56), vec3(0.62, 0.58, 0.44), n1 * n3);
-  vec3 grass = mix(vec3(0.20, 0.30, 0.10), vec3(0.33, 0.37, 0.15), n1) * (0.85 + 0.3 * n2);
+  vec3 grass = mix(vec3(0.20, 0.30, 0.10), vec3(0.33, 0.37, 0.15), n1) * (0.85 + 0.3 * n2) * uGrassTint;
   vec3 rock = mix(vec3(0.33, 0.31, 0.29), vec3(0.45, 0.41, 0.36), n2) * (0.8 + 0.4 * n3) * uRockTint;
 #ifdef ROCK
   // banded stone (cavities come from the vertex colour), a dark weed-and-barnacle band
@@ -381,6 +382,7 @@ export function createTerrain({ sky, caustics, floatShadow, water, absorption, r
     uMarsh: { value: LOC.marsh ? 1 : 0 },
     uRockLine: { value: LOC.rockLine ?? 38 },
     uRockTint: { value: new THREE.Color().fromArray(LOC.rockTint ?? [1, 1, 1]) },
+    uGrassTint: { value: new THREE.Color().fromArray(LOC.grassTint ?? [1, 1, 1]) },
   };
 
   const { geometry } = buildTerrain(384);

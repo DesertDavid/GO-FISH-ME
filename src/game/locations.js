@@ -1,5 +1,6 @@
 import { fbm, ridged } from '../scene/noise.js';
 import { tropicalIsland } from '../scene/tropicalIsland.js';
+import { BBG, BBD } from './bigbearData.js';
 
 // Fishing locations based on real places. Each has its own heightfield (y = 0 is the water
 // line), water optics, waves, sky, scenery and fish. Heights in metres.
@@ -43,25 +44,78 @@ const segDist = (px, pz, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t 
 const pathDist = (x, z, P) => { let m = 1e9; for (let i = 0; i < P.length - 1; i++) m = Math.min(m, segDist(x, z, P[i], P[i + 1])); return m; };
 
 // ---- Big Bear Lake ------------------------------------------------------------------------
-// Real lake: ~7 mi east-west, 2,971 acres, 72 ft deep at the dam (west end), 35 ft average,
-// shallow at the east end, ~6,750 ft up in the San Bernardino Mountains. Drawn at about 3:1
-// along the lake and 2:1 across so it stays playable; x east, z south (north = -z), the dam
-// at x = -1950 and Big Bear City at the east end.
-const bbKnots = (K, x) => { if (x <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (x <= K[i][0]) return K[i - 1][1] + (K[i][1] - K[i - 1][1]) * sm(K[i - 1][0], K[i][0], x); return K[K.length - 1][1]; };
-const bbGauss = (x, c, w) => Math.exp(-(((x - c) / w) ** 2));
-const BB_WIDTH = [[-1945, 0], [-1900, 100], [-1850, 160], [-1500, 270], [-1000, 300], [-600, 220], [-200, 210], [300, 290], [800, 380], [1300, 430], [1700, 300], [1850, 200], [1900, 100], [1935, 0]];   // half-width of the water
-const BB_DEPTH = [[-1945, 18], [-1700, 22], [-1200, 18], [-700, 13], [-200, 9], [300, 7], [800, 6], [1300, 4.2], [1700, 2.4], [1935, 1.2]];     // max depth (m) across each section: 72 ft at the dam
+// Built from real data (see docs/big-bear-research.md): the shoreline is the OpenStreetMap outline
+// (traced from aerial imagery), the lake bed is the BBMWD multibeam hydrographic survey read off
+// its colour chart and fitted onto that outline, the land is a 30 m SRTM elevation grid sampled
+// every 200 m. Everything is drawn at 0.4 of real size in x and z (the lake is ~4.1 km long here,
+// 10.2 km in life) with real depths and 0.8 of real relief. x east, z south (north = -z), the dam
+// at the west end (x = -2040); the map centre is the middle of the lake's bounding box.
 const BB_LANDINGS = [
-  { name: 'Pine Knot', x: -420, z: 195 }, { name: "Holloway's", x: 200, z: 305 }, { name: 'Fawnskin', x: -420, z: -430 },
-  { name: 'Big Bear City', x: 1880, z: 40 }, { name: "Gray's Landing", x: -1700, z: -212 }, { name: 'Pleasure Point', x: -1100, z: 314 }, { name: 'Lighthouse Camp', x: -900, z: -395 },
+  { name: 'Pine Knot Marina', x: 390, z: 300 }, { name: "Holloway's Marina", x: 190, z: 405 }, { name: 'Fawnskin (Grout Bay)', x: -755, z: -454 },
+  { name: 'West Public Ramp', x: -1087, z: -191 }, { name: 'East Public Ramp', x: 1226, z: -366 }, { name: 'Boulder Bay', x: -1170, z: 568 },
+  { name: 'Metcalf Bay', x: -612, z: 356 }, { name: "Gray's Landing", x: -1700, z: -330 },
 ];
-function bbShore(x, z) {
-  const zc = 55 * Math.sin(x / 620) - 30 * Math.sin(x / 1500 + 1), dz = z - zc, north = dz < 0;
-  let w = x > -1945 && x < 1935 ? bbKnots(BB_WIDTH, x) : 0;
-  // Grout Bay and Fawnskin (north), Boulder / Papoose / Metcalf bays (south)
-  w += north ? 150 * bbGauss(x, -380, 230) + 60 * bbGauss(x, -1000, 200) : 110 * bbGauss(x, -250, 190) + 170 * bbGauss(x, 850, 300) + 80 * bbGauss(x, -1000, 200) + 70 * bbGauss(x, 1450, 220);
-  if (w > 0) w += 56 * fbm(x * 0.006 + 3, z * 0.006, 3, 71);
-  return { s: w - Math.abs(dz), w, zc };
+const BB_ISLAND = { x: -1818, z: 478, r: 10, h: 4.5 };   // Garstin ("Treasure" / "China") Island, by the dam
+let bbSdf = null;
+function bbInit() {
+  if (bbSdf) return;
+  const { nx, nz, sd, cell } = BBG, INF = 1e9, d = new Float32Array(nx * nz);
+  for (let i = 0; i < d.length; i++) d[i] = sd[i] <= 0 ? 0 : INF;
+  const D1 = cell, D2 = cell * 1.4142;
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+    let v = d[j * nx + i];
+    if (i > 0) v = Math.min(v, d[j * nx + i - 1] + D1);
+    if (j > 0) { v = Math.min(v, d[(j - 1) * nx + i] + D1); if (i > 0) v = Math.min(v, d[(j - 1) * nx + i - 1] + D2); if (i < nx - 1) v = Math.min(v, d[(j - 1) * nx + i + 1] + D2); }
+    d[j * nx + i] = v;
+  }
+  for (let j = nz - 1; j >= 0; j--) for (let i = nx - 1; i >= 0; i--) {
+    let v = d[j * nx + i];
+    if (i < nx - 1) v = Math.min(v, d[j * nx + i + 1] + D1);
+    if (j < nz - 1) { v = Math.min(v, d[(j + 1) * nx + i] + D1); if (i < nx - 1) v = Math.min(v, d[(j + 1) * nx + i + 1] + D2); if (i > 0) v = Math.min(v, d[(j + 1) * nx + i - 1] + D2); }
+    d[j * nx + i] = v;
+  }
+  bbSdf = d;
+}
+function bbBil(F, nx, nz, gx, gz) {
+  const i = Math.max(0, Math.min(nx - 2, Math.floor(gx))), j = Math.max(0, Math.min(nz - 2, Math.floor(gz))), u = Math.max(0, Math.min(1, gx - i)), v = Math.max(0, Math.min(1, gz - j));
+  const a = F[j * nx + i], b = F[j * nx + i + 1], c = F[(j + 1) * nx + i], e = F[(j + 1) * nx + i + 1];
+  return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + e * u) * v;
+}
+function bbHeight(x, z) {
+  bbInit();
+  const { nx, nz, x0, z0, cell, q, sd } = BBG;
+  const gx = (x - x0) / cell, gz = (z - z0) / cell;
+  const cx = Math.max(0, Math.min(nx - 1.001, gx)), cz = Math.max(0, Math.min(nz - 1.001, gz));
+  const out = Math.hypot(gx - cx, gz - cz) * cell;
+  // signed distance to the real shoreline (+ land, - water): exact inside +-127 m, the coarse chamfer beyond
+  let sdv = bbBil(sd, nx, nz, cx, cz);
+  if (sdv > 120) sdv = Math.max(sdv, bbBil(bbSdf, nx, nz, cx, cz));
+  sdv += out;
+  const dsh = sdv;
+  // the lake bed: the survey depth, easing up to the waterline over the first few metres
+  let h = 0;
+  if (sdv < 0) {
+    const d = Math.min(bbBil(q, nx, nz, cx, cz) * 0.1, 0.5 * -sdv);
+    h = -d;
+    if (d > 0.6) h += 0.1 * Math.sin(x * 0.07) * Math.sin(z * 0.06) * Math.min(1, d / 3);   // faint ripple so the bed is not a plane
+  }
+  if (dsh >= 0) {
+    // land: a short beach, then the real relief (SRTM) the further from the water
+    const E = BBD.n, gxd = x / BBD.step + 30, gzd = z / BBD.step + 30;
+    const dem = Math.max(0, bbBil(BBD.e, E, E, Math.max(0, Math.min(E - 1.001, gxd)), Math.max(0, Math.min(E - 1.001, gzd)))) * 0.8;
+    const b = 0.1 + 0.05 * Math.min(dsh, 36);
+    h = b + Math.max(0, dem - b) * sm(14, 110, dsh);
+    h += (0.8 + 0.035 * h) * fbm(x * 0.021, z * 0.021, 3, 7) * sm(15, 90, dsh) + 0.05 * h * ridged(x * 0.006, z * 0.006, 4, 21) * sm(60, 400, dsh);
+    // the valley closes beyond the map's ends
+    h += sm(2120, 2380, Math.abs(x)) * (110 + 90 * ridged(x * 0.002 + 5, z * 0.002, 4, 11)) + sm(2150, 2390, Math.abs(z)) * 90;
+    // Garstin Island: the little granite knoll left when the dam was raised
+    const di = Math.hypot(x - BB_ISLAND.x, z - BB_ISLAND.z);
+    if (di < BB_ISLAND.r * 2) h = Math.max(h, BB_ISLAND.h * Math.max(0, 1 - (di / (BB_ISLAND.r * 1.5)) ** 2) * (0.85 + 0.3 * fbm(x * 0.2, z * 0.2, 2, 9)) - 0.0);
+  } else {
+    const di = Math.hypot(x - BB_ISLAND.x, z - BB_ISLAND.z);
+    if (di < BB_ISLAND.r * 1.6) h = Math.max(h, BB_ISLAND.h * Math.max(0, 1 - (di / (BB_ISLAND.r * 1.5)) ** 2) - 0.6);
+  }
+  return h;
 }
 
 export const LOCATIONS = {
@@ -334,32 +388,15 @@ export const LOCATIONS = {
   bigbear: {
     ...base, id: 'bigbear', name: 'Big Bear Lake', region: 'California, USA', water: 'lake', price: 0, size: 4800,
     blurb: 'A seven-mile mountain reservoir at 6,750 ft in the San Bernardino Mountains: stocked trout, bass in the coves, pines to the water.',
-    wind: 5, fetch: 12, waveScale: 0.5, waterLook: WATER.bigbear, sky: { turbidity: 1.5, clouds: 0.25 }, fog: 1 / 22000, rockLine: 430, rockTint: [0.97, 0.91, 0.84],
-    trees: [['jeffrey', 5200, 1.5, 300, 2300], ['whitefir', 3000, 20, 400, 2300], ['cedar', 900, 4, 220, 2300], ['lodgepole', 1300, 150, 430, 2300], ['aspen', 700, 1.2, 60, 2300], ['alder', 450, 0.8, 14, 2300], ['oak', 800, 2, 140, 2300]],
+    wind: 5, fetch: 12, waveScale: 0.35, waterLook: WATER.bigbear, sky: { turbidity: 1.5, clouds: 0.25 }, fog: 1 / 22000, rockLine: 320, rockTint: [0.97, 0.91, 0.84], grassTint: [1.15, 0.98, 0.75], start: { x: 330, z: 170, yaw: 2.4 },
+    // forest by slope and side (the north shore faces south: dry, oak/juniper/chaparral; the south shore faces north: cool, fir and cedar); heights are metres above the lake
+    trees: [
+      ['jeffrey', 9000, 1.5, 420, 2300], ['whitefir', 4200, 25, 520, 2300, (x, z, h) => z > -150 || h > 120], ['cedar', 1400, 4, 260, 2300, (x, z) => z > -100],
+      ['lodgepole', 1400, 220, 560, 2300], ['aspen', 260, 1.2, 40, 2300], ['alder', 500, 0.6, 9, 2300], ['willow', 380, 0.5, 6, 2300],
+      ['oak', 1700, 2, 200, 2300, (x, z, h) => z < 100 || h < 40], ['juniper', 2200, 1.5, 190, 2300, (x, z) => x > -200 && z < 500], ['chaparral', 4200, 1.2, 230, 2300, (x, z, h) => (z < -50 || x > 300) && h < 230],
+    ],
     landings: BB_LANDINGS,
-    height(x, z) {
-      const mix = (a, b, t) => a + (b - a) * t;
-
-      const { s, w, zc } = bbShore(x, z);
-      const D = bbKnots(BB_DEPTH, x);
-      let h;
-      if (s > 0) {
-        const u = Math.min(1, s / Math.max(w, 1));
-        h = -(D * (1 - Math.pow(1 - u, 2.3)) + 0.25 * (s > 3 ? 1 : s / 3)) + 0.4 * fbm(x * 0.03, z * 0.03, 2, 5);
-        h = Math.min(h, -0.05);
-        // China Island: a small granite islet in the east basin
-        const di = Math.hypot(x - 1120, z - 90);
-        h += 20 * Math.exp(-((di / 38) ** 2)) * (0.8 + 0.5 * fbm(x * 0.05, z * 0.05, 2, 9));
-      } else {
-        const dist = -s;
-        h = 0.35 + 0.045 * Math.min(dist, 40) + 0.028 * Math.min(Math.max(0, dist - 40), 900) + 2.5 * fbm(x * 0.012, z * 0.012, 3, 7);
-        const thr = 420 + 700 * sm(400, 1700, x) + 500 * fbm(x * 0.0015 + 9, z * 0.0015, 3, 13);   // the valley floor is wider toward Big Bear City
-        const wall = sm(thr, thr + 1000, dist) * (230 + 230 * ridged(x * 0.0018, z * 0.0018, 5, 9));
-        h += wall + sm(1950, 2350, Math.abs(x)) * (200 + 180 * ridged(x * 0.002 + 5, z * 0.002, 4, 11));   // the valley closes at both ends
-        h += 14 * ridged(x * 0.006, z * 0.006, 4, 21) * sm(60, 400, dist);   // ridges and rock bands on the slopes
-      }
-      return h;
-    },
+    height: bbHeight,
     pool: { rainbow: 34, brown: 6, largemouth: 14, smallmouth: 6, channelcat: 10, bluegill: 14, pumpkinseed: 6, blackcrappie: 10, carp: 8 },
     net: null,
   },

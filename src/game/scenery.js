@@ -143,6 +143,24 @@ const TREE_BUILDERS = {
     for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + rand(); parts.push(paint(blob(2.3, 1, rand, 0.7).translate(Math.cos(a) * 1.7, 4 + rand() * 0.8, Math.sin(a) * 1.7), i % 2 ? 0x37552a : 0x44632e, 0.3, rand)); }
     return mergeGeometries(parts);
   },
+  // California / Utah juniper and pinyon of the dry east side: a squat, shaggy, grey-green crown on a twisted trunk
+  juniper(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.22, 0.4, 2.2, 5).translate(0, 1.1, 0), 0x6a4e3a)];
+    for (let i = 0; i < 3; i++) { const a = rand() * 6.28; parts.push(paint(blob(1.5 + rand() * 0.5, 1, rand, 0.85).translate(Math.cos(a) * 0.8, 2.6 + rand() * 1.2, Math.sin(a) * 0.8), i % 2 ? 0x5a6a42 : 0x66744a, 0.35, rand)); }
+    return mergeGeometries(parts);
+  },
+  // chaparral: manzanita / scrub oak / ceanothus, a low tough mound of grey-green and red-brown
+  chaparral(rand) {
+    const parts = [];
+    for (let i = 0; i < 4; i++) { const a = rand() * 6.28, r = rand() * 0.8; parts.push(paint(blob(0.9 + rand() * 0.5, 1, rand, 0.75).translate(Math.cos(a) * r, 0.7 + rand() * 0.4, Math.sin(a) * r), [0x62703f, 0x77743f, 0x5a6638, 0x84603a][i % 4], 0.35, rand)); }
+    return mergeGeometries(parts);
+  },
+  // willow / cottonwood along the water: a loose, pale-green weeping crown
+  willow(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.16, 0.3, 3.6, 5).translate(0, 1.8, 0), 0x6a5e46)];
+    for (let i = 0; i < 4; i++) { const a = rand() * 6.28; parts.push(paint(blob(1.8 + rand() * 0.4, 1, rand, 0.85).translate(Math.cos(a) * 1.4, 3.6 + rand() * 1.0, Math.sin(a) * 1.4), i % 2 ? 0x7a9a46 : 0x8aa64e, 0.3, rand)); }
+    return mergeGeometries(parts);
+  },
   birch(rand) {
     const parts = [paint(new THREE.CylinderGeometry(0.12, 0.2, 7, 6).translate(0, 3.5, 0), 0xe8e4dc)];
     parts.push(paint(blob(2.4, 1, rand, 1.3).translate(0, 8, 0), 0x5a8a34, 0.3, rand));
@@ -288,7 +306,7 @@ export function buildScenery(loc, heightAt, patchProp) {
   const colliders = [];
   group.userData.colliders = colliders;
   const veg = group.userData.veg = [];   // instanced plants the vegetation-density setting thins out
-  for (const [type, count, minH, maxH, radius] of loc.trees || []) {
+  for (const [type, count, minH, maxH, radius, only] of loc.trees || []) {
     const loose = !['snag', 'cabin', 'stilt'].includes(type);   // plants, not structures
     const mat_ = ['sawgrass', 'bulrush', 'lily'].includes(type);   // marsh plants: dense mats, no slope limit, wind sway
     const variants = Array.from({ length: loose ? 6 : 3 }, () => TREE_BUILDERS[type](rand));
@@ -301,8 +319,9 @@ export function buildScenery(loc, heightAt, patchProp) {
       if (radius) { const a = rand() * Math.PI * 2, rr = Math.sqrt(rand()) * radius; x = Math.cos(a) * rr; z = Math.sin(a) * rr; }
       const h = heightAt(x, z);
       if (h < minH || h > maxH) continue;
+      if (only && !only(x, z, h)) continue;   // optional place rule (aspect, side of the lake)
       const slope = Math.abs(heightAt(x + 4, z) - h) + Math.abs(heightAt(x, z + 4) - h);
-      if (!mat_ && slope > (type === 'pine' || type === 'cactus' || CONIFERS.has(type) ? 3.5 : type === 'snag' ? 9 : 2)) continue;
+      if (!mat_ && slope > (type === 'pine' || type === 'cactus' || type === 'juniper' || type === 'chaparral' || type === 'oak' || CONIFERS.has(type) ? 3.5 : type === 'snag' ? 9 : 2)) continue;
       if (Math.hypot(x, z) < (type === 'snag' ? 90 : 40)) continue;
       if (type === 'snag' && fbm(x * 0.005, z * 0.005, 3, 33) < 0.08) continue;   // drowned groves, not an even scatter
       // plants grow in stands with gaps between, not an even scatter: accept by a density field
