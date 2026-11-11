@@ -6,7 +6,7 @@ const KEY = 'reelworld-save-v1';   // key name kept for compatibility; the data 
 
 export const DEFAULT_SAVE = Object.freeze({
   cash: 250,
-  location: 'okeechobee',
+  location: 'bigbear',
   boat: 'jon',
   boats: ['jon'],
   rods: ['medium'],
@@ -14,7 +14,7 @@ export const DEFAULT_SAVE = Object.freeze({
   lines: ['mono8'],
   lures: ['nightcrawler', 'crank'],
   equip: { rod: 'medium', reel: 'spin2500', line: 'mono8', lure: 'nightcrawler' },
-  unlocked: ['okeechobee'],
+  unlocked: ['bigbear'],
   journal: {},
   stats: { caught: 0, released: 0, earned: 0, heaviest: null },
   hour: 6.5,
@@ -30,7 +30,7 @@ export const DEFAULT_SAVE = Object.freeze({
   xp: 0,            // angler experience; level is derived (progress.js)
   wear: { line: 0, hook: 0, lost: [] },   // line/hook wear 0..1, lures lost to snags (restock at the shop)
   custom: {},         // boat customization per boat id { paint, name, registration, upgrades } (boatCustom.js); optional, filled when you use the boat yard
-  permits: { okeechobee: { until: 78.5 } },   // { locationId: { until: absolute game hours } }; new anglers start with 3 days at the home lake
+  permits: { bigbear: { until: 78.5 } },   // { locationId: { until: absolute game hours } }; new anglers start with 3 days at the home lake (Big Bear)
   mounts: [],       // trophy wall: mounted catches (trophyData.js; optional)
   cands: [],        // catches measured for mounting
   locBest: {},      // personal best per species per water

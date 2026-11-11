@@ -46,7 +46,7 @@ export const GATES = {
   reels: { spin2500: 1, finesse1000: 1, baitcast73: 3, flyreel: 4, spin4000: 5, spin8000: 8, conv30: 11, twospeed50: 14, biggame80: 18 },
   lines: { mono8: 1, mono12: 1, fluoro15: 3, braid30: 4, braid50: 6, mono80: 9, mono130: 12, braid200: 16 },
   boats: { jon: 1, kayak: 2, bass: 4, skiff: 6, pontoon: 7, bay: 9, center: 10, trawler: 13, sport: 15, seiner: 19, yacht: 22 },
-  locs: { okeechobee: 1, woods: 3, tahoe: 5, bigbear: 5, columbia: 6, chesapeake: 6, keys: 7, mekong: 8, amazon: 9, kariba: 10, fjord: 12, gulf: 13, cabo: 14, reef: 16, bering: 18 },
+  locs: { bigbear: 1, okeechobee: 2, woods: 3, tahoe: 5, columbia: 6, chesapeake: 6, keys: 7, mekong: 8, amazon: 9, kariba: 10, fjord: 12, gulf: 13, cabo: 14, reef: 16, bering: 18 },
 };
 export const gateLevel = (kind, id) => (GATES[kind] && GATES[kind][id]) || 1;   // lures and anything unlisted: level 1
 export const meets = (save, kind, id) => levelOf(save.xp || 0) >= gateLevel(kind, id);
@@ -127,7 +127,7 @@ export function upgradeSave(s) {
     out.xp = Math.round(xp);
     // a welcome-back 3-day permit where they are, and at the home lake
     const until = absHours(s) + 72;
-    for (const id of new Set([s.location, 'okeechobee'])) if (LOCATIONS[id] && !out.permits[id]) out.permits = { ...out.permits, [id]: { until } };
+    for (const id of new Set([s.location, 'okeechobee', 'bigbear'])) if (LOCATIONS[id] && !out.permits[id]) out.permits = { ...out.permits, [id]: { until } };
   }
   out.v = SAVE_VERSION;
   return out;

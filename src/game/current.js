@@ -5,4 +5,4 @@ import { loadSave } from './save.js';
 // (terrain, shore bake, waves) is rebuilt cleanly for the new place.
 const params = new URLSearchParams(location.search);
 const id = params.get('loc') || loadSave().location;
-export const LOC = LOCATIONS[id] || LOCATIONS.okeechobee;
+export const LOC = LOCATIONS[id] || LOCATIONS.bigbear;
