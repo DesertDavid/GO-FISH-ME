@@ -335,7 +335,7 @@ export const LOCATIONS = {
     ...base, id: 'bigbear', name: 'Big Bear Lake', region: 'California, USA', water: 'lake', price: 3500, size: 4800,
     blurb: 'A seven-mile mountain reservoir at 6,750 ft in the San Bernardino Mountains: stocked trout, bass in the coves, pines to the water.',
     wind: 5, fetch: 12, waveScale: 0.5, waterLook: WATER.bigbear, sky: { turbidity: 1.5, clouds: 0.25 }, fog: 1 / 22000, rockLine: 430, rockTint: [0.97, 0.91, 0.84],
-    trees: [['pine', 12000, 1.5, 380, 2300], ['birch', 500, 0.8, 40]],
+    trees: [['jeffrey', 5200, 1.5, 300, 2300], ['whitefir', 3000, 20, 400, 2300], ['cedar', 900, 4, 220, 2300], ['lodgepole', 1300, 150, 430, 2300], ['aspen', 700, 1.2, 60, 2300], ['alder', 450, 0.8, 14, 2300], ['oak', 800, 2, 140, 2300]],
     landings: BB_LANDINGS,
     height(x, z) {
       const mix = (a, b, t) => a + (b - a) * t;

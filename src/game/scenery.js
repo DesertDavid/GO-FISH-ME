@@ -56,6 +56,7 @@ function blade(bx, bz, ang, h, w, arch, c0, c1, c2, seg = 2) {
   return g.toNonIndexed();
 }
 
+const CONIFERS = new Set(['jeffrey', 'whitefir', 'cedar', 'lodgepole']);
 const TREE_BUILDERS = {
   // tall arching water grass (sawgrass / maidencane): a fan of ribbons, olive at the root, green-yellow to tan at the tips
   sawgrass(rand) {
@@ -96,6 +97,50 @@ const TREE_BUILDERS = {
       const r = 2.6 - i * 0.45, y = 2.5 + i * 2.1;
       parts.push(paint(new THREE.ConeGeometry(r, 3.4, 9).translate(0, y, 0), 0x1f3a24, 0.25, rand));
     }
+    return mergeGeometries(parts);
+  },
+  // San Bernardino Mountains forest (Big Bear): Jeffrey / ponderosa pine, white fir, incense cedar,
+  // lodgepole, quaking aspen, alder and maple by the water, black and canyon live oak
+  jeffrey(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.22, 0.4, 12, 6).translate(0, 6, 0), 0x8a5a3c, 0.2, rand)];   // orange-brown plated bark
+    for (let i = 0; i < 6; i++) {
+      const y = 6 + i * 1.1 + rand() * 0.6, a = rand() * Math.PI * 2, r = 0.5 + (6 - i) * 0.18;
+      parts.push(paint(blob(1.3 + rand() * 0.6, 0, rand, 0.7).translate(Math.cos(a) * r, y, Math.sin(a) * r), i % 2 ? 0x41602e : 0x4a6a34, 0.3, rand));   // open tufted crown of long needles
+    }
+    parts.push(paint(blob(1.3, 0, rand, 0.8).translate(0, 12.6, 0), 0x4a6a34, 0.3, rand));
+    return mergeGeometries(parts);
+  },
+  whitefir(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.2, 0.34, 3, 6).translate(0, 1.5, 0), 0x6a5a4a)];
+    for (let i = 0; i < 6; i++) {
+      const r = 2.5 - i * 0.37, y = 2.2 + i * 1.7;
+      parts.push(paint(new THREE.ConeGeometry(r, 3.2, 8).translate(0, y, 0), 0x35604e, 0.25, rand));   // dense, blue-green
+    }
+    return mergeGeometries(parts);
+  },
+  cedar(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.2, 0.36, 3, 6).translate(0, 1.5, 0), 0x7a4a34)];
+    for (let i = 0; i < 4; i++) parts.push(paint(new THREE.ConeGeometry(1.5 - i * 0.2, 4.4, 7).translate(0, 3 + i * 2.3, 0), 0x2c4a2a, 0.25, rand));   // narrow dark column
+    return mergeGeometries(parts);
+  },
+  lodgepole(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.12, 0.22, 11, 5).translate(0, 5.5, 0), 0x6a5a48)];
+    for (let i = 0; i < 4; i++) parts.push(paint(new THREE.ConeGeometry(1.15 - i * 0.18, 2.8, 6).translate(0, 7 + i * 1.7, 0), 0x4c6a34, 0.3, rand));
+    return mergeGeometries(parts);
+  },
+  aspen(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.1, 0.17, 8, 5).translate(0, 4, 0), 0xe8e4d8)];
+    for (let i = 0; i < 3; i++) parts.push(paint(blob(1.5 + rand() * 0.5, 1, rand, 1.15).translate((rand() - 0.5) * 1.1, 7 + i * 0.9, (rand() - 0.5) * 1.1), i % 2 ? 0x8aa63c : 0x6e9a34, 0.3, rand));
+    return mergeGeometries(parts);
+  },
+  alder(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.16, 0.28, 5, 6).translate(0, 2.5, 0), 0x6a604e)];
+    for (let i = 0; i < 3; i++) parts.push(paint(blob(2.1, 1, rand, 0.95).translate((rand() - 0.5) * 2, 5.4 + rand() * 1.2, (rand() - 0.5) * 2), i % 2 ? 0x4e7a30 : 0x5d8a34, 0.3, rand));
+    return mergeGeometries(parts);
+  },
+  oak(rand) {
+    const parts = [paint(new THREE.CylinderGeometry(0.3, 0.48, 3.2, 6).translate(0, 1.6, 0), 0x4a3c2e)];
+    for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + rand(); parts.push(paint(blob(2.3, 1, rand, 0.7).translate(Math.cos(a) * 1.7, 4 + rand() * 0.8, Math.sin(a) * 1.7), i % 2 ? 0x37552a : 0x44632e, 0.3, rand)); }
     return mergeGeometries(parts);
   },
   birch(rand) {
@@ -257,7 +302,7 @@ export function buildScenery(loc, heightAt, patchProp) {
       const h = heightAt(x, z);
       if (h < minH || h > maxH) continue;
       const slope = Math.abs(heightAt(x + 4, z) - h) + Math.abs(heightAt(x, z + 4) - h);
-      if (!mat_ && slope > (type === 'pine' || type === 'cactus' ? 3.5 : type === 'snag' ? 9 : 2)) continue;
+      if (!mat_ && slope > (type === 'pine' || type === 'cactus' || CONIFERS.has(type) ? 3.5 : type === 'snag' ? 9 : 2)) continue;
       if (Math.hypot(x, z) < (type === 'snag' ? 90 : 40)) continue;
       if (type === 'snag' && fbm(x * 0.005, z * 0.005, 3, 33) < 0.08) continue;   // drowned groves, not an even scatter
       // plants grow in stands with gaps between, not an even scatter: accept by a density field
